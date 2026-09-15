@@ -198,19 +198,46 @@ export function runExtent(runs: Run[], resort: Resort): FocusExtent | null {
   };
 }
 
-export interface OpeningFraming {
+export interface Framing {
   /** Camera distance from the target, metres. Also sets the orbit clamps. */
   distance: number;
   position: readonly [number, number, number];
   target: readonly [number, number, number];
 }
 
+/** The camera's opening azimuth: south of the massif, looking north at it. */
+const SOUTH: readonly [number, number, number] = [0, 0, 1];
+
+/**
+ * How far back a box has to be seen from to fill the frame.
+ *
+ * `h` is the unit horizontal direction from the box towards the camera, and it
+ * is what makes this more than a bounding sphere: the box is axis-aligned, so
+ * which of its sides lands across the screen and which recedes into it depends
+ * on where the camera is standing. From the south, width is across and depth
+ * recedes; from the east the two swap. Seen from above the horizon the box is
+ * a plate rather than a sphere — what recedes foreshortens by `sin`, and only
+ * the relief stands up at `cos` — so fitting a sphere would back the camera off
+ * to roughly twice the distance it needs.
+ *
+ * `canvasAspect` is width / height of the canvas. The 1.3 is margin.
+ */
+function fitDistance(
+  box: FocusExtent,
+  h: readonly [number, number, number],
+  elevation: number,
+  canvasAspect: number,
+): number {
+  const across = box.width * Math.abs(h[2]) + box.depth * Math.abs(h[0]);
+  const into = box.width * Math.abs(h[0]) + box.depth * Math.abs(h[2]);
+  const up = into * Math.sin(elevation) + box.relief * Math.cos(elevation);
+
+  const half = Math.tan((FOV * Math.PI) / 360);
+  return 1.3 * Math.max(up / (2 * half), across / (2 * half * canvasAspect));
+}
+
 /**
  * Where the camera starts, from the terrain's own size rather than tuned numbers.
- *
- * Seen from above the horizon the massif is not a sphere but a plate: its depth
- * foreshortens and its relief stands up, so fitting a bounding sphere instead
- * would back the camera off to roughly twice the distance it needs.
  *
  * `aspect` is width / height of the canvas. `focus` is the box to fit; without
  * one the whole mosaic is framed, aimed low so the massif sits in the frame
@@ -222,7 +249,7 @@ export function openingFraming(
   extent: TerrainExtent,
   aspect: number,
   focus: FocusExtent | null = null,
-): OpeningFraming {
+): Framing {
   const box: FocusExtent = focus ?? {
     centre: [0, extent.relief * 0.35, 0],
     width: extent.groundWidth,
@@ -230,10 +257,7 @@ export function openingFraming(
     relief: extent.relief,
   };
 
-  const half = Math.tan((FOV * Math.PI) / 360);
-  const onScreenHeight =
-    box.depth * Math.sin(ELEVATION_ANGLE) + box.relief * Math.cos(ELEVATION_ANGLE);
-  const distance = 1.3 * Math.max(onScreenHeight / (2 * half), box.width / (2 * half * aspect));
+  const distance = fitDistance(box, SOUTH, ELEVATION_ANGLE, aspect);
 
   return {
     distance,
@@ -243,6 +267,93 @@ export function openingFraming(
       box.centre[0],
       box.centre[1] + distance * Math.sin(ELEVATION_ANGLE),
       box.centre[2] + distance * Math.cos(ELEVATION_ANGLE),
+    ],
+    target: box.centre,
+  };
+}
+
+/** OrbitControls' own clamps, so a framing cannot land where the controls will not hold it. */
+export interface OrbitLimits {
+  minDistance: number;
+  maxDistance: number;
+  /** Radians from straight up, matching OrbitControls' `maxPolarAngle`. */
+  maxPolarAngle: number;
+}
+
+/**
+ * A camera directly overhead has no azimuth left, so the face this just swung
+ * to would be thrown away on arrival. Stop a little short of vertical.
+ */
+const MAX_ELEVATION = Math.PI / 2 - 0.05;
+
+function clamp(value: number, low: number, high: number): number {
+  return Math.min(high, Math.max(low, value));
+}
+
+/** The horizontal direction a slope of this aspect faces. X east, Z south. */
+function aspectNormal(aspectDeg: number): readonly [number, number, number] {
+  const a = (aspectDeg * Math.PI) / 180;
+  return [Math.sin(a), 0, -Math.cos(a)];
+}
+
+/**
+ * Where to stand to look at one run, given where the viewer is already standing.
+ *
+ * Two things make a marked run hard to find among a hundred others, and only one
+ * of them is how the line is drawn. The other is that the run overlay is depth
+ * tested against the terrain, so a run on a slope tilted away from the camera is
+ * foreshortened to almost nothing and then partly eaten by its own ridge. No
+ * amount of line weight fixes a line that is not drawn.
+ *
+ * So the azimuth is kept — a viewer who has orbited somewhere keeps their view,
+ * and being moved only closer is the gentler move — *unless* the camera is
+ * behind the slope, which is the case the styling cannot reach. Then it swings
+ * round to the face, which the bake already measured and stored as `aspect_deg`.
+ *
+ * The elevation angle is always the viewer's own, clamped to what the controls
+ * allow. Distance fits the box and is clamped the same way, so a sixty-metre
+ * connector re-aims the camera instead of flying it into the ground.
+ */
+export function focusFraming(
+  box: FocusExtent,
+  aspectDeg: number,
+  from: { position: readonly [number, number, number]; target: readonly [number, number, number] },
+  canvasAspect: number,
+  limits: OrbitLimits,
+): Framing {
+  const offset = [0, 1, 2].map((i) => from.position[i] - from.target[i]);
+  const reach = Math.hypot(offset[0], offset[1], offset[2]);
+  const flat = Math.hypot(offset[0], offset[2]);
+
+  // Straight down, or a camera sitting on its own target: there is no current
+  // azimuth to read, so fall back to the one the opening shot uses.
+  let h: readonly [number, number, number] =
+    flat > 0 ? [offset[0] / flat, 0, offset[2] / flat] : SOUTH;
+
+  const facing = aspectNormal(aspectDeg);
+  // Negative means the camera is behind the slope, looking at ground that tilts
+  // away from it — which from the opening shot is the whole north-west side.
+  if (h[0] * facing[0] + h[2] * facing[2] <= 0) h = facing;
+
+  const elevation = clamp(
+    reach > 0 ? Math.asin(offset[1] / reach) : ELEVATION_ANGLE,
+    Math.PI / 2 - limits.maxPolarAngle,
+    MAX_ELEVATION,
+  );
+
+  const distance = clamp(
+    fitDistance(box, h, elevation, canvasAspect),
+    limits.minDistance,
+    limits.maxDistance,
+  );
+  const flatReach = distance * Math.cos(elevation);
+
+  return {
+    distance,
+    position: [
+      box.centre[0] + h[0] * flatReach,
+      box.centre[1] + distance * Math.sin(elevation),
+      box.centre[2] + h[2] * flatReach,
     ],
     target: box.centre,
   };

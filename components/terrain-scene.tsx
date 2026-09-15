@@ -1,12 +1,29 @@
 "use client";
 
 import { OrbitControls } from "@react-three/drei";
-import { Canvas, useThree } from "@react-three/fiber";
-import { Suspense, use, useLayoutEffect, useMemo, useState } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import {
+  type ComponentRef,
+  Suspense,
+  use,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import * as THREE from "three";
 import { RunOverlay, type RunOverlayState } from "@/components/run-overlay";
 import { decodeHeightmap } from "@/lib/elevation";
-import { FOV, openingFraming, runExtent, terrainGeometry } from "@/lib/terrain-mesh";
+import {
+  FOV,
+  type Framing,
+  focusFraming,
+  openingFraming,
+  runExtent,
+  terrainGeometry,
+} from "@/lib/terrain-mesh";
 import type { Resort } from "@/lib/types";
 
 /**
@@ -119,11 +136,34 @@ function lightColor(name: string, tint: number): THREE.Color {
   return new THREE.Color(0xffffff).lerp(paletteColor(name), tint);
 }
 
+/**
+ * How long the camera takes to reach a run it has been asked to look at.
+ *
+ * The flight is most of what the move is for: arriving somewhere new says which
+ * run it is, but watching the mountain turn under you is what says where on it.
+ * Cut this much shorter and it reads as a cut rather than a move.
+ */
+const FLIGHT_MS = 900;
+
+interface Flight {
+  fromPosition: THREE.Vector3;
+  fromTarget: THREE.Vector3;
+  toPosition: THREE.Vector3;
+  toTarget: THREE.Vector3;
+  started: number;
+}
+
+function easeInOutCubic(t: number): number {
+  return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+}
+
 export default function TerrainScene({
   overlay,
+  resetSignal,
   resort,
 }: {
   overlay: RunOverlayState;
+  resetSignal: number;
   resort: Resort;
 }) {
   // Suspending out here rather than inside <Canvas> is deliberate: R3F renders
@@ -131,12 +171,20 @@ export default function TerrainScene({
   // there would not reach the error boundary in terrain-viewer.tsx.
   return (
     <Suspense fallback={<div className="h-full w-full bg-shadow-deep" />}>
-      <LoadedScene overlay={overlay} resort={resort} />
+      <LoadedScene overlay={overlay} resetSignal={resetSignal} resort={resort} />
     </Suspense>
   );
 }
 
-function LoadedScene({ overlay, resort }: { overlay: RunOverlayState; resort: Resort }) {
+function LoadedScene({
+  overlay,
+  resetSignal,
+  resort,
+}: {
+  overlay: RunOverlayState;
+  resetSignal: number;
+  resort: Resort;
+}) {
   const terrain = use(loadTerrain(resort));
   const palette = useMemo(
     () => ({
@@ -156,7 +204,13 @@ function LoadedScene({ overlay, resort }: { overlay: RunOverlayState; resort: Re
       gl={{ toneMapping: THREE.NoToneMapping }}
     >
       <color args={[palette.ground]} attach="background" />
-      <Massif overlay={overlay} palette={palette} resort={resort} terrain={terrain} />
+      <Massif
+        overlay={overlay}
+        palette={palette}
+        resetSignal={resetSignal}
+        resort={resort}
+        terrain={terrain}
+      />
     </Canvas>
   );
 }
@@ -164,18 +218,29 @@ function LoadedScene({ overlay, resort }: { overlay: RunOverlayState; resort: Re
 function Massif({
   overlay,
   palette,
+  resetSignal,
   resort,
   terrain,
 }: {
   overlay: RunOverlayState;
   palette: Palette;
+  resetSignal: number;
   resort: Resort;
   terrain: Terrain;
 }) {
   const { geometry, texture, ...extent } = terrain;
-  const camera = useThree((state) => state.camera);
+  // Narrowed because the flight fits a run to the frame, and the frame's shape
+  // is the camera's own aspect. Reading it here rather than from `state.size`
+  // keeps a resize out of the flight's dependencies: R3F keeps this in step.
+  const camera = useThree((state) => state.camera) as THREE.PerspectiveCamera;
   const size = useThree((state) => state.size);
   const [idle, setIdle] = useState(true);
+  const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
+  const flight = useRef<Flight | null>(null);
+  // True while the camera is standing somewhere the app put it and nobody has
+  // since taken hold. It is what lets clearing a run give back the flight and
+  // nothing else: an orbit the viewer made themselves is theirs to keep.
+  const movedByApp = useRef(false);
 
   const reducedMotion = useMemo(
     () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
@@ -205,7 +270,106 @@ function Massif({
 
   useLayoutEffect(() => {
     camera.position.set(...opening.position);
+    controls.current?.target.set(...opening.target);
   }, [camera, opening]);
+
+  const flyTo = useCallback(
+    (to: Framing) => {
+      const orbit = controls.current;
+      if (orbit === null) return;
+
+      const toPosition = new THREE.Vector3(...to.position);
+      const toTarget = new THREE.Vector3(...to.target);
+
+      if (reducedMotion) {
+        flight.current = null;
+        camera.position.copy(toPosition);
+        orbit.target.copy(toTarget);
+        return;
+      }
+
+      flight.current = {
+        fromPosition: camera.position.clone(),
+        fromTarget: orbit.target.clone(),
+        toPosition,
+        toTarget,
+        started: performance.now(),
+      };
+    },
+    [camera, reducedMotion],
+  );
+
+  // Selection only. Hover moves nothing: the list is 168 rows long and a camera
+  // that answered every one of them on the way past would be a strobe.
+  const { runs, selectedId } = overlay;
+
+  useEffect(() => {
+    const orbit = controls.current;
+    if (orbit === null) return;
+
+    if (selectedId === null) {
+      // Clearing hands back the flight, and only the flight. Having orbited
+      // since, the viewer is somewhere they chose, and a pull-back nobody asked
+      // for would throw that away. This also covers a filter hiding the run
+      // that was picked, which is a clearing the reader did not press a button
+      // for and the one most likely to leave them parked on empty hillside.
+      if (!movedByApp.current) return;
+      movedByApp.current = false;
+      flyTo(opening);
+      return;
+    }
+
+    const run = runs.find((candidate) => candidate.id === selectedId);
+    if (run === undefined) return;
+    const box = runExtent([run], resort);
+    if (box === null) return;
+
+    // `orbit` is passed for its clamps, which are the ones it will hold the
+    // camera to the moment the flight lands.
+    const framing = focusFraming(
+      box,
+      run.aspect_deg,
+      {
+        position: [camera.position.x, camera.position.y, camera.position.z],
+        target: [orbit.target.x, orbit.target.y, orbit.target.z],
+      },
+      camera.aspect,
+      orbit,
+    );
+
+    movedByApp.current = true;
+    flyTo(framing);
+  }, [camera, flyTo, opening, resort, runs, selectedId]);
+
+  // A counter rather than a flag: pressing reset twice has to fly twice, and
+  // there is no "arrived" for the button to wait on. Compared against the last
+  // value seen rather than against zero, so the flight belongs to the press and
+  // not to whatever else may one day put this effect through another run.
+  const lastReset = useRef(resetSignal);
+
+  useEffect(() => {
+    if (lastReset.current === resetSignal) return;
+    lastReset.current = resetSignal;
+    // Home is now where the viewer put the camera, so clearing a run after this
+    // must not move it again.
+    movedByApp.current = false;
+    flyTo(opening);
+  }, [flyTo, opening, resetSignal]);
+
+  // Ahead of the controls' own update, which drei runs at -1: the camera is
+  // moved first and the controls read it once, rather than the two taking turns
+  // damping each other in the same frame.
+  useFrame(() => {
+    const moving = flight.current;
+    const orbit = controls.current;
+    if (moving === null || orbit === null) return;
+
+    const t = Math.min(1, (performance.now() - moving.started) / FLIGHT_MS);
+    const eased = easeInOutCubic(t);
+    camera.position.lerpVectors(moving.fromPosition, moving.toPosition, eased);
+    orbit.target.lerpVectors(moving.fromTarget, moving.toTarget, eased);
+    if (t === 1) flight.current = null;
+  }, -2);
 
   return (
     <>
@@ -240,8 +404,15 @@ function Massif({
         maxDistance={opening.maxDistance}
         maxPolarAngle={1.45}
         minDistance={opening.distance * 0.12}
-        onStart={() => setIdle(false)}
-        target={opening.target}
+        onStart={() => {
+          // Taking hold of the mountain ends the flight where it has got to,
+          // rather than the camera finishing a move you have overruled — and
+          // from here the view is yours, so clearing the run leaves it alone.
+          flight.current = null;
+          movedByApp.current = false;
+          setIdle(false);
+        }}
+        ref={controls}
       />
     </>
   );

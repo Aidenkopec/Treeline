@@ -3,10 +3,11 @@
 Progress tracker for [SPEC.md](./SPEC.md) §11. Each phase ends working, committed and
 deployable, and runs in its own session with its own verification gate.
 
-**Status: phase 3 done, then revised. Phase 4 next.** Lake Louise's 168 runs are
+**Status: phase 3 done, then revised four times. Phase 4 next.** Lake Louise's 168 runs are
 drawn on the terrain coloured by difficulty, with search, filters, a per-run stats panel, an
 inline SVG elevation profile and the sortable HTML table, laid out as a map beside a list.
-159 tests green.
+Picking a run flies the camera to it, and Reset view always brings the whole mountain back.
+171 tests green.
 
 > **Next action:** phase 4 — `/api/conditions/[slug]` proxying Open-Meteo with cache
 > headers, every field nullable, tested against recorded fixtures including an API-down
@@ -335,6 +336,107 @@ DOM while it is shut; reopening restores Headwall at 22°, 23°, SW 207°, 252m,
 **Known, accepted:** at 1300 the list pane is at its narrowest and 16 of the longest run
 names clip. Widening it further would come out of the map, and the pane now folds away
 entirely when the map is what matters.
+
+### Revised again, for finding the run you picked
+
+Sat in front of it with the list on screen, picking Marmot out of the 168 still meant
+hunting for it. The cause was not contrast. Marmot faces **NW 325°**, the opening camera
+stands due south of the massif, and the overlay is depth tested against the terrain — so the
+run was foreshortened to almost nothing and then partly eaten by its own ridge. A line that
+is not drawn cannot be styled into visibility.
+
+**Done**
+
+- [x] `lib/terrain-mesh.ts` — `fitDistance` factored out of `openingFraming` and generalised
+      to an arbitrary azimuth and elevation, then `focusFraming`: where to stand to look at
+      one run, given where the viewer is already standing. `openingFraming`'s numbers are
+      unchanged, and its existing tests pin that
+- [x] `components/terrain-scene.tsx` — a 900ms eased flight of both `camera.position` and
+      `controls.target`, cancelled the moment the controls are grabbed, instant under
+      `prefers-reduced-motion`
+- [x] `components/run-overlay.tsx` — a gold halo under the casing on the picked run, and a
+      thin trace of it drawn through whatever is standing in front of it
+
+**Decisions worth recording**
+
+- **This reverses "the camera does not move when a run is selected."** That decision read
+  SPEC §4's "cinematic until grabbed" as "never moved by the app", and pointed at phase 5's
+  first-person camera as the designed "take me there". Both halves still hold — the flight is
+  abortable by a grab, and riding the polyline is still phase 5 — but neither answers _where
+  on this mountain is the run I just picked_, which is a question the list asks 168 times.
+- **It reverses "drawing the picked run through the mountain would put it somewhere it is
+  not"** — but only for a 1.5px trace under a 15px stack, and only for the one run the reader
+  asked about. The full-strength line is still depth tested and still stops at the ridge; what
+  the trace says is "it carries on", not "it is here". The alternative is a run that appears
+  to end in the middle of the mountain.
+- **The azimuth is kept unless the camera is behind the slope.** A viewer who has orbited
+  somewhere keeps their view and is only brought closer, which is the gentler move. The swing
+  fires on one dot product against the run's own baked `aspect_deg` — no raycasting, and the
+  bake already measured the number.
+- **Selection moves the camera; hover never does.** The list is 168 rows long and a camera
+  that answered every one on the way past would be a strobe.
+- **Clearing the selection leaves the camera where it is.** A pull-back nobody asked for
+  would also throw away a manual orbit.
+- **Distance is clamped into OrbitControls' own range**, or the 68m Marmot-to-Lookout
+  connector frames at about 100m and flies the camera into the ground.
+
+**Verified:** 171 tests green (12 new, including the swing, the clamps, the preserved
+elevation angle and Marmot's own committed geometry), format/lint/typecheck/build clean,
+console clean apart from the `THREE.Clock` deprecation phase 2 already recorded. In the
+browser: Marmot swings round to its NW face and reads instantly; West Bowl Gully — near-white
+on pale ground, the case the casing alone loses — reads with the halo; hovering rows lights
+lines without moving the camera; grabbing mid-flight stops it; on Pika the trace shows the
+buried section while the core resumes where the run is actually visible.
+
+**Not verified at runtime:** the `prefers-reduced-motion` branch is typechecked and in place
+but was not exercised against the emulated media query.
+
+### Revised again, for getting back off the run you picked
+
+The flight had no return leg. Pick Larch, clear it, and the camera stays on Larch's framing
+with `controls.target` still on its centre — so zooming out orbits Larch and swings the
+massif out of frame rather than backing away from it. Recovery needed a right-drag pan,
+which nothing on the page says exists. Worse, filtering the picked run away sets `selected`
+to null through `visibleIds`, `RunPanel` falls back to its empty state, and the clear
+control disappears with it: camera parked on a run, nothing on screen to undo it.
+
+**Done**
+
+- [x] `components/terrain-viewer.tsx` — a **Reset view** control in the map's bottom-left,
+      conditional on nothing, driving the scene through a `resetSignal` counter it owns.
+      Inside the WebGL branch so it does not float over the no-GPU notice, outside the
+      `aria-hidden` canvas wrapper so it is reachable by keyboard
+- [x] `components/terrain-scene.tsx` — the flight setup factored out of the selection effect
+      into `flyTo`, so selection and reset share one path including the reduced-motion
+      branch; a `movedByApp` ref; the `selectedId === null` early return turned into the
+      return-home branch
+- [x] `components/run-panel.tsx` — the bare `✕` became a bordered, labelled **Clear ✕**
+
+**Decisions worth recording**
+
+- **This narrows "clearing the selection leaves the camera where it is" rather than
+  reversing it.** Clearing now hands back the flight and only the flight: untouched since
+  the camera landed, it returns; orbited since, `onStart` has already dropped `movedByApp`
+  and the view stays. The old rule's reason — that a pull-back nobody asked for throws away
+  a manual orbit — is exactly what the condition protects.
+- **The same branch covers a filter hiding the picked run**, which is the clearing nobody
+  pressed a button for and the one that used to leave no button to press.
+- **Reset is a counter, not a flag.** Pressing it twice has to fly twice, and the scene
+  reports no arrival for a flag to be cleared on. It is compared against the last value
+  seen rather than against zero, so a re-run of the effect cannot yank the camera.
+- **Reset does not clear the selection.** Camera and selection are different questions;
+  wanting the whole mountain back with a run still lit is a reasonable thing to want.
+- **The control is always on screen.** "Appears once the camera has moved" would mean
+  comparing against the opening framing every frame and pushing that into React state, to
+  make the escape hatch conditional on the state the viewer is least able to assess.
+
+**Verified:** 171 tests green — no new ones, and none earned: `openingFraming` and
+`focusFraming` are untouched and already pinned, and what changed is wiring and chrome.
+format/lint/typecheck clean, console clean apart from the `THREE.Clock` deprecation. In the
+browser, all four legs: Larch flies in; clearing flies back to the whole massif with the
+search filter intact; dragging to a low angle and then clearing leaves the camera there;
+Reset view returns from it. At 700px the layout stacks, the list toggle drops away and Reset
+view is still in the map's corner.
 
 ## Phase 4 — Conditions route handler ⬜
 

@@ -42,13 +42,17 @@ export function RunPanel({ run, onClear }: { run: Run | null; onClear: () => voi
           <DifficultyMark difficulty={run.difficulty} size={9} />
           <span className="u-data">{style.label}</span>
         </span>
+        {/* Bordered and labelled rather than a bare glyph in the dimmest ink
+            the palette has. This is the way out of a selection that has also
+            moved the camera, so it has to be findable at the far right of a
+            40rem pane without being hunted for. */}
         <button
-          aria-label="Clear the selected run"
-          className="u-data shrink-0 cursor-pointer text-rock-dim transition-colors hover:text-snow"
+          className="u-data flex shrink-0 cursor-pointer items-center gap-1.5 rounded border border-line px-2 py-1 text-rock transition-colors hover:border-rock-dim hover:text-snow"
           onClick={onClear}
           type="button"
         >
-          ✕
+          Clear
+          <span aria-hidden="true">✕</span>
         </button>
       </div>
 

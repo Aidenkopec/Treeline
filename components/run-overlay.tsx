@@ -41,6 +41,39 @@ const SELECTED_WIDTH = 5;
 const CASING_EXTRA = 2.5;
 
 /**
+ * The band either side of the casing on the one run that has been picked.
+ *
+ * Width and recession together still lose a run to its background: 105 of Lake
+ * Louise's 168 are the same near-white, which disappears over snow, and a green
+ * run over the treed north-west side disappears the other way. Gold is outside
+ * the difficulty palette entirely, so it cannot be misread as a grade, and it
+ * separates from both — warm against blue-white snow, bright against dark trees.
+ * It is also the palette's own word for lit (`--color-sun`), which is what a
+ * picked run is.
+ */
+const HALO_EXTRA = 8;
+
+/**
+ * The picked run traced through whatever is standing in front of it.
+ *
+ * The overlay is depth tested against the terrain, so a run on a slope tilted
+ * away from the camera is partly eaten by its own ridge — and a line that is not
+ * drawn cannot be found, however it is styled. The camera swings round to the
+ * face for exactly this reason, but a long run still dips behind a roll, and a
+ * thin trace over the top says it carries on rather than ends there.
+ */
+const GHOST_WIDTH = 1.5;
+
+/**
+ * Draw order, lowest first, per run.
+ *
+ * A run being looked at draws after every other run, so it reads whole across
+ * the lines it crosses rather than in the gaps between them. The picked run
+ * draws after the hovered one for the same reason.
+ */
+const LAYER = { receded: 1, hovered: 3, selected: 5 };
+
+/**
  * How far a receded run is pulled towards the ground colour. Tuned by eye.
  *
  * Mixed into the colour rather than applied as opacity: `Line2` draws a
@@ -64,6 +97,8 @@ export function RunOverlay({ resort, state }: { resort: Resort; state: RunOverla
   const { runs, visibleIds, selectedId, hoveredId, onSelect, onHover } = state;
 
   const casing = useMemo(() => paletteColor("--color-shadow-deep"), []);
+  const halo = useMemo(() => paletteColor("--color-sun-bright"), []);
+  const ghost = useMemo(() => paletteColor("--color-sun"), []);
 
   const lines = useMemo(
     () =>
@@ -92,9 +127,10 @@ export function RunOverlay({ resort, state }: { resort: Resort; state: RunOverla
       {lines.map(({ id, points, color }) => {
         if (points.length < 2 || !visibleIds.has(id)) return null;
 
-        const lit = id === selectedId || id === hoveredId;
-        const width =
-          id === selectedId ? SELECTED_WIDTH : id === hoveredId ? HOVER_WIDTH : CORE_WIDTH;
+        const isSelected = id === selectedId;
+        const lit = isSelected || id === hoveredId;
+        const width = isSelected ? SELECTED_WIDTH : id === hoveredId ? HOVER_WIDTH : CORE_WIDTH;
+        const layer = isSelected ? LAYER.selected : lit ? LAYER.hovered : LAYER.receded;
 
         // No line writes depth. The terrain already has, so a run still hides
         // behind a ridge; what this avoids is one run's depth rejecting
@@ -117,13 +153,39 @@ export function RunOverlay({ resort, state }: { resort: Resort; state: RunOverla
                 onHover(id);
               }}
               points={points}
-              renderOrder={1}
+              renderOrder={LAYER.receded}
             />
           );
         }
 
         return (
           <group key={id}>
+            {/* Drawn through the terrain rather than against it, so the stretch
+                of a run hidden behind a roll still reads as the same run
+                carrying on. Under everything else the picked run draws, so
+                where the run *is* visible this is simply overdrawn. */}
+            {isSelected && (
+              <Line
+                color={ghost}
+                depthTest={false}
+                depthWrite={false}
+                lineWidth={GHOST_WIDTH}
+                points={points}
+                renderOrder={layer}
+              />
+            )}
+            {/* Under the casing, not over it: the casing is what keeps the core
+                legible, and a band laid on top of it would take that away
+                exactly where it is needed most. */}
+            {isSelected && (
+              <Line
+                color={halo}
+                depthWrite={false}
+                lineWidth={width + CASING_EXTRA + HALO_EXTRA}
+                points={points}
+                renderOrder={layer + 1}
+              />
+            )}
             {/* A wide line and a narrow one on identical geometry z-fight, and
                 the casing wins in patches, which beads the colour away. The
                 casing is drawn first and writes no depth, so the core always
@@ -147,14 +209,14 @@ export function RunOverlay({ resort, state }: { resort: Resort; state: RunOverla
                 onHover(id);
               }}
               points={points}
-              renderOrder={lit ? 3 : 1}
+              renderOrder={isSelected ? layer + 2 : layer}
             />
             <Line
               color={color}
               depthWrite={false}
               lineWidth={width}
               points={points}
-              renderOrder={lit ? 4 : 2}
+              renderOrder={isSelected ? layer + 3 : layer + 1}
             />
           </group>
         );

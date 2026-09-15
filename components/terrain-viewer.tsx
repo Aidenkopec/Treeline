@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Component, type ReactNode, useSyncExternalStore } from "react";
+import { Component, type ReactNode, useState, useSyncExternalStore } from "react";
 import type { RunOverlayState } from "@/components/run-overlay";
 import type { Resort } from "@/lib/types";
 
@@ -77,6 +77,10 @@ export function TerrainViewer({ overlay, resort }: { overlay: RunOverlayState; r
   // Read on the client only: the server has no canvas to ask, and answering
   // either way during the server render would be a hydration mismatch.
   const webgl = useSyncExternalStore(noop, hasWebGL, () => null);
+  // Lives here rather than with the rest of the explorer's state because this
+  // is the only thing that presses it and the only thing that reads it, and
+  // because there is no camera to send home when there is no canvas.
+  const [resetSignal, setResetSignal] = useState(0);
 
   if (webgl === null) {
     // Reserve the space so the header does not jump once the answer arrives.
@@ -89,13 +93,34 @@ export function TerrainViewer({ overlay, resort }: { overlay: RunOverlayState; r
     );
   }
 
-  // The canvas carries nothing a screen reader can use — saying so is more
-  // honest than an aria-label that pretends it describes the mountain (SPEC §9).
   return (
-    <div aria-hidden="true" className={FRAME}>
-      <SceneBoundary>
-        <TerrainScene overlay={overlay} resort={resort} />
-      </SceneBoundary>
+    <div className={`relative ${FRAME}`}>
+      {/* The canvas carries nothing a screen reader can use — saying so is more
+          honest than an aria-label that pretends it describes the mountain
+          (SPEC §9). */}
+      <div aria-hidden="true" className={FRAME}>
+        <SceneBoundary>
+          <TerrainScene overlay={overlay} resetSignal={resetSignal} resort={resort} />
+        </SceneBoundary>
+      </div>
+
+      {/* The way back to the whole mountain, and conditional on nothing: the
+          viewer this exists for has orbited or been flown into a corner of the
+          mosaic, and has not necessarily picked a run to clear. Outside the
+          aria-hidden wrapper above, so it is still reachable by keyboard.
+
+          Same chrome as the explorer's own list toggle, so the two read as one
+          set of controls rather than two widgets stuck to opposite corners. */}
+      <div className="pointer-events-none absolute bottom-0 left-0 p-5">
+        <button
+          className="u-data pointer-events-auto flex cursor-pointer items-center gap-2 rounded border border-line bg-surface/90 px-3 py-2 text-rock shadow-panel backdrop-blur-sm transition-colors hover:border-rock-dim hover:text-snow"
+          onClick={() => setResetSignal((presses) => presses + 1)}
+          type="button"
+        >
+          <span aria-hidden="true">↺</span>
+          Reset view
+        </button>
+      </div>
     </div>
   );
 }
