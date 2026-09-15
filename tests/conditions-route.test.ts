@@ -49,11 +49,10 @@ describe("a resort Open-Meteo answers for", () => {
 
     const cacheControl = (await call("lake-louise")).headers.get("cache-control");
 
-    expect(cacheControl).toContain("s-maxage=900");
-    expect(cacheControl).toContain("stale-while-revalidate=3600");
-    // The reason a failed upstream can be a 502 rather than a body of nulls:
-    // a cache with a recent reading keeps serving that instead.
-    expect(cacheControl).toContain("stale-if-error=86400");
+    expect(cacheControl).toBe("public, s-maxage=900, stale-while-revalidate=3600");
+    // Vercel honours neither stale-if-error nor proxy-revalidate, so a header
+    // carrying one would be describing behaviour this project does not get.
+    expect(cacheControl).not.toContain("stale-if-error");
   });
 
   it("asks about the coordinates committed in resorts.json, and gives up on them", async () => {
@@ -96,10 +95,8 @@ describe("a slug this project does not ship", () => {
 });
 
 /**
- * The API-down case the phase gate names. Every one of these is 502 rather than
- * a 200 carrying a Conditions of nulls: the handler is a gateway whose upstream
- * failed, and "Open-Meteo is down" must not be published in the same shape as
- * "no snow fell". The strip renders a dash either way, so the page still holds.
+ * The API-down case the phase gate names: every way the call can fail is a 502
+ * rather than a 200 carrying a Conditions of nulls.
  */
 describe("Open-Meteo not answering", () => {
   it("is 502 when the connection fails outright", async () => {
@@ -111,7 +108,6 @@ describe("Open-Meteo not answering", () => {
 
     expect(response.status).toBe(502);
     expect(await response.json()).toEqual({ error: "upstream_unavailable" });
-    // Never cache an outage: the next visitor should get a real attempt.
     expect(response.headers.get("cache-control")).toBe("no-store");
   });
 
@@ -143,8 +139,6 @@ describe("Open-Meteo not answering", () => {
     const response = await call("lake-louise");
 
     expect(response.status).toBe(502);
-    // The reason it must not be a 200: this body would otherwise have been
-    // published as a reading with every number missing.
     expect(await response.json()).toEqual({ error: "upstream_unavailable" });
   });
 });

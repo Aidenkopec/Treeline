@@ -7,16 +7,10 @@ import type { Conditions } from "@/lib/types";
 /**
  * Today's snow, temperature and wind (SPEC §4).
  *
- * A client component on purpose. The resort page is prerendered from the
- * manifest, and awaiting a runtime fetch in a server component would turn the
- * whole route dynamic and take the run table out of the served HTML — the same
- * trap phase 3 avoided by keeping the selected run in the URL hash rather than
- * in `useSearchParams`. Fetching after hydration leaves the page static; before
- * it, and without JavaScript, the strip reads as dashes, which is what it knows.
- *
- * A failed request and a variable the model does not carry render identically,
- * because to a reader they are the same thing: no number. Nothing here is
- * advice — it prints the readings and stops (SPEC §8).
+ * A client component because awaiting a runtime fetch in a server component
+ * would turn the prerendered resort route dynamic and take the run table out of
+ * the served HTML. Fetching after hydration leaves the page static; before it,
+ * and without JavaScript, the strip reads as dashes.
  */
 export function ConditionsStrip({ slug }: { slug: string }) {
   const [conditions, setConditions] = useState<Conditions | null>(null);
@@ -27,8 +21,7 @@ export function ConditionsStrip({ slug }: { slug: string }) {
     fetch(`/api/conditions/${slug}`, { signal: controller.signal })
       .then((response) => (response.ok ? (response.json() as Promise<Conditions>) : null))
       .then(setConditions)
-      // Including the abort on unmount. There is nothing to say and nothing to
-      // retry: the dashes below already say it.
+      // Including the abort on unmount. The dashes below are already the answer.
       .catch(() => {});
 
     return () => controller.abort();
@@ -46,9 +39,7 @@ export function ConditionsStrip({ slug }: { slug: string }) {
       <div className="flex flex-wrap items-baseline gap-x-3">
         <h2 className="u-data">Conditions</h2>
         {/* "Weather from Open-Meteo" rather than a bare brand name, matching the
-            footer: the reader has to be able to tell that this is a source and
-            not a reading. The time is the mountain's, so it can be compared
-            against a watch on the hill. */}
+            footer: a reader has to be able to tell a source from a reading. */}
         <p className="u-data text-rock-dim">
           Weather from Open-Meteo
           {conditions === null

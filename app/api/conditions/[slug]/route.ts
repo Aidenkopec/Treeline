@@ -13,16 +13,16 @@ import { plannedResorts } from "@/lib/manifest";
  * it does not say whether to ski (SPEC §8).
  */
 
-/** A visitor is waiting. Long enough for a normal answer, short enough to give up on. */
 const UPSTREAM_TIMEOUT_MS = 4000;
 
 /**
  * 900s is Open-Meteo's own update interval (`current.interval`), so asking more
- * often than that returns the same numbers. `stale-if-error` is what makes an
- * outage degrade into the last real reading rather than into nothing at all —
- * which is the job a 200 full of nulls would otherwise have been given.
+ * often than that returns the same numbers. `stale-while-revalidate` is what
+ * keeps the last real reading on screen while a refetch is in flight; past that
+ * an outage is a 502 and the strip reads as dashes. `stale-if-error` would be
+ * the directive for the rest, but Vercel does not honour it.
  */
-const CACHE_CONTROL = "public, s-maxage=900, stale-while-revalidate=3600, stale-if-error=86400";
+const CACHE_CONTROL = "public, s-maxage=900, stale-while-revalidate=3600";
 
 export async function GET(_request: Request, { params }: RouteContext<"/api/conditions/[slug]">) {
   const { slug } = await params;
@@ -60,11 +60,9 @@ export async function GET(_request: Request, { params }: RouteContext<"/api/cond
 }
 
 /**
- * 502, not a 200 of nulls. This handler is a gateway and its upstream failed;
- * answering with a well-formed reading of nulls would make "Open-Meteo is down"
- * indistinguishable from "no snow fell", and at a ski resort those are opposite
- * facts. The page still never blanks: the strip renders a dash for a failed
- * response exactly as it does for a field the model does not carry.
+ * 502, not a 200 of nulls: this handler is a gateway and its upstream failed,
+ * and `Conditions` says why that must not be published in the shape of a
+ * reading. Vercel caches no 502 at all, so `no-store` costs nothing here.
  */
 function unavailable(): Response {
   return Response.json(

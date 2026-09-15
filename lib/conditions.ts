@@ -24,7 +24,7 @@ export interface OpenMeteoForecast {
     wind_speed_10m?: number;
     wind_direction_10m?: number;
   };
-  hourly?: { snowfall?: number[] };
+  hourly?: { snowfall?: (number | null)[] };
 }
 
 export function conditionsUrl(lat: number, lon: number): string {
@@ -51,8 +51,7 @@ export function conditionsUrl(lat: number, lon: number): string {
 
 /**
  * `null` when the payload carries no reading at all — an error body, or a
- * response whose `current` block never arrived. The route answers 502 to that
- * rather than publishing a `Conditions` of nulls, which would read as "no snow".
+ * response whose `current` block never arrived. The route answers 502 to that.
  */
 export function parseConditions(slug: string, payload: unknown): Conditions | null {
   const forecast = payload as OpenMeteoForecast | null | undefined;
@@ -69,10 +68,8 @@ export function parseConditions(slug: string, payload: unknown): Conditions | nu
     observed_at,
     timezone: typeof forecast?.timezone === "string" ? forecast.timezone : null,
     temperature_c: reading(current.temperature_2m),
-    snowfall_cm_24h: sumSnowfall((payload as OpenMeteoForecast).hourly?.snowfall),
-    // Metres in the response, centimetres everywhere in this project. Scaling
-    // by 1000 and back by 10 rather than by 100 keeps 2.69 from becoming
-    // 268.99999999999994 — the same two decimal places the source published.
+    snowfall_cm_24h: sumSnowfall(forecast?.hourly?.snowfall),
+    // Metres in the response, centimetres everywhere in this project.
     snow_depth_cm: depth_m === null ? null : Math.round(depth_m * 1000) / 10,
     wind_kph: reading(current.wind_speed_10m),
     wind_direction_deg: reading(current.wind_direction_10m),
@@ -91,19 +88,27 @@ function toInstant(wallClock: string, offsetSeconds: number): string | null {
   return new Date(asIfUtc - offsetSeconds * 1000).toISOString();
 }
 
-/** An absent variable is null, never 0: "no reading" and "no snow" are not the same fact. */
+/** An absent variable is null, never 0. */
 function reading(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-function sumSnowfall(hourly: number[] | undefined): number | null {
-  if (!Array.isArray(hourly) || hourly.length === 0) return null;
+/**
+ * `null` unless at least one hour reported. An hour the model has no value for
+ * arrives as a null inside an array that is otherwise present and full length,
+ * so counting those as zeros would publish an unpopulated forecast as "0cm".
+ */
+function sumSnowfall(hourly: (number | null)[] | undefined): number | null {
+  if (!Array.isArray(hourly)) return null;
 
   let total = 0;
+  let read = false;
   for (const hour of hourly) {
-    if (typeof hour === "number" && Number.isFinite(hour)) total += hour;
+    if (typeof hour === "number" && Number.isFinite(hour)) {
+      total += hour;
+      read = true;
+    }
   }
-  // Two decimal places, as published. Adding 24 of them in binary floating point
-  // otherwise reports 3.43cm of snow as 3.4299999999999997.
-  return Math.round(total * 100) / 100;
+  // Two decimal places, as published: a float sum of them can carry a tail.
+  return read ? Math.round(total * 100) / 100 : null;
 }

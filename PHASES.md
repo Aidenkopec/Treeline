@@ -8,7 +8,7 @@ coloured by difficulty, with search, filters, a per-run stats panel, an inline S
 profile and the sortable HTML table, laid out as a map beside a list. Picking a run flies the
 camera to it, and Reset view always brings the whole mountain back. Today's snow, temperature
 and wind read live from Open-Meteo under the resort facts, on the mountain's own clock.
-212 tests green.
+215 tests green.
 
 > **Next action:** phase 5 — sun/shade from `suncalc` and the first-person run camera.
 > `suncalc` and `@types/suncalc` are already installed and unused; `Resort.lat`/`lon` and
@@ -461,7 +461,7 @@ deliverable. Agreed in session before starting.
       is fetch and headers
 - [x] `app/api/conditions/[slug]/route.ts` — slug lookup, one fetch, cache headers
 - [x] `components/conditions-strip.tsx` — four readings below the resort facts
-- [x] `lib/format.ts` — `wind()` and `utcTime()`. `celsius()` and `centimetres()` were
+- [x] `lib/format.ts` — `wind()` and `observedAt()`. `celsius()` and `centimetres()` were
       written in phase 0 for this and had been unused ever since
 - [x] `tests/fixtures/open-meteo-*.json` — three recorded live, one derived and marked so
 
@@ -475,14 +475,19 @@ deliverable. Agreed in session before starting.
   it renders a dash for a failed response exactly as it does for an absent variable. The
   fields stay nullable for the reason they always should have: Open-Meteo omits a variable
   its model does not carry at a location.
-- **`stale-if-error` is what the 200-of-nulls was really for.** A cache holding a recent
-  reading keeps serving it through an outage, so an outage degrades to the last _real_
+- **`stale-while-revalidate` is what the 200-of-nulls was really for.** A cache holding a
+  recent reading keeps serving it while a refetch runs, so a blip degrades to the last _real_
   reading rather than to a fabricated one. Full header:
-  `public, s-maxage=900, stale-while-revalidate=3600, stale-if-error=86400`. 900s is
-  Open-Meteo's own `current.interval`; asking more often returns the same numbers.
+  `public, s-maxage=900, stale-while-revalidate=3600`. 900s is Open-Meteo's own
+  `current.interval`; asking more often returns the same numbers. This header was written
+  with `stale-if-error=86400` on the end and reviewed with it removed: **Vercel supports
+  neither `stale-if-error` nor `proxy-revalidate` for server-side caching, and caches no 502
+  at all** (its cacheable statuses are 200, 404, 410, 301, 302, 307, 308). So an outage past
+  the hour is a 502 and a strip of dashes, which is the honest outcome — but it is not the
+  one the directive promised, and a header should not describe behaviour the deploy target
+  does not give.
 - **Snow depth arrives in metres and is published in centimetres.** `current_units.snow_depth`
-  is `"m"` while `snowfall` is `"cm"` in the same response. Scaled by 1000 and back by 10
-  rather than by 100, or 2.69m reads as 268.99999999999994cm.
+  is `"m"` while `snowfall` is `"cm"` in the same response.
 - **A rolling 24 hours, not the calendar day.** `hourly=snowfall&past_hours=24` summed,
   because `daily=snowfall_sum` answers "since midnight", and at 9am that is not what
   `snowfall_cm_24h` promises.
@@ -508,10 +513,11 @@ deliverable. Agreed in session before starting.
 - **"Weather from Open-Meteo", not a bare "Open-Meteo".** The strip carries provenance for
   SPEC §8, and a brand name on its own does not tell a reader whether they are looking at a
   source or a reading. It is the footer's existing wording, so the two agree.
-- **The Lake Louise fixture cannot prove either of those**, because it is September and every
-  snow value in it is a real zero — a unit conversion and a sum can both be wrong in every
-  way and still produce 0. The second fixture is Aoraki / Mount Cook, recorded the same day,
-  in late winter: 2.69m of depth and 3.43cm over 11 of the 24 hours.
+- **The Lake Louise fixture cannot prove the metres-to-centimetres scaling or the rolling
+  sum**, because it is September and every snow value in it is a real zero — a unit
+  conversion and a sum can both be wrong in every way and still produce 0. The second fixture
+  is Aoraki / Mount Cook, recorded the same day, in late winter: 2.69m of depth and 3.78cm
+  over 12 of the 24 hours.
 - **The strip is a client component, and that is not a style preference.** Awaiting a runtime
   fetch in a server component turns the whole route dynamic and takes the 168 prerendered
   rows out of the served HTML — the same trap phase 3 avoided by keeping the selection in the
@@ -535,7 +541,7 @@ deliverable. Agreed in session before starting.
   to reach one without intercepting the call — `vi.stubGlobal` is built into vitest, so it
   cost no dependency and no `setupFiles`.
 
-**Verified:** 212 tests green (41 new), format/lint/typecheck/build clean. The build still
+**Verified:** 215 tests green (44 new), format/lint/typecheck/build clean. The build still
 lists `/resorts/[slug]` as `●` prerendered and `/api/conditions/[slug]` as `ƒ` dynamic, and
 the built `lake-louise.html` still carries 169 `<tr>` at 77,492 bytes gzipped. Live:
 `/api/conditions/lake-louise` answers 200 with the full header and a real reading,
@@ -555,6 +561,18 @@ scrim is now solid to where content ends (`via-85%`) and fades through the paddi
 and the padding came down from `pb-24` to `pb-12` so the taller header does not simply push
 the whole scrim further down the mountain. Net effect on the west face, where this mountain
 keeps its runs: none.
+
+**Found and fixed in a comment review afterwards**, and all three were comments rather than
+code until one of them turned out not to be: `sumSnowfall` returned 0 when `hourly.snowfall`
+arrived present but with every hour null, publishing "no reading" as "0cm" — the exact
+inversion the file's own doc comment forbids, now reproduced by a test and fixed. Three
+comments justified themselves with floating-point behaviour that does not occur (`2.69 * 100`
+is exactly 269, and the Mount Cook hourly array sums to exactly 3.78 with a plain
+accumulator), and one of them cited a number, 3.43, that appears nowhere in the fixture; a
+comment that invents a constraint makes the next reader preserve an odd line believing it is
+load-bearing. And the header leaned on `stale-if-error`, which Vercel does not honour. The
+rest of the pass cut narration: one rationale had been restated seven times, and two doc
+comments were longer than the code under them.
 
 **Known, accepted:** every snow number at all six resorts is currently zero, because it is
 September. That is SPEC §13's risk and decision D3 closes it with baked historical snow in

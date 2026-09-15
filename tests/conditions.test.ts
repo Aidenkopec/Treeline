@@ -97,8 +97,6 @@ describe("a reading with snow in it, on the other side of the world", () => {
     const hourly = deepSnow.hourly.snowfall;
     expect(hourly).toHaveLength(24);
     expect(hourly.filter((cm) => cm > 0).length).toBe(12);
-    // 3.78, not 3.7800000000000002: 24 additions of two-decimal values in
-    // binary floating point do not land on the number that was published.
     expect(conditions.snowfall_cm_24h).toBe(3.78);
   });
 
@@ -132,6 +130,34 @@ describe("a reading with variables the model does not carry", () => {
 
   it("returns null when the whole hourly block is absent", () => {
     expect(conditions.snowfall_cm_24h).toBeNull();
+  });
+});
+
+/**
+ * A model that carries snowfall but has no value for an hour sends a null for
+ * that hour rather than dropping the key, so the absence survives into an array
+ * that is present and the right length. Summing it as if the nulls were zeros
+ * is how an outage gets published as "0cm".
+ */
+describe("a reading whose hourly snowfall is present but unpopulated", () => {
+  function snowfall(hourly: (number | null)[]): number | null {
+    return parseConditions("x", {
+      current: { time: "2026-09-15T21:00" },
+      hourly: { snowfall: hourly },
+    })!.snowfall_cm_24h;
+  }
+
+  it("is null when every hour is null, not 0", () => {
+    expect(snowfall([null, null, null])).toBeNull();
+  });
+
+  it("sums the hours that reported rather than refusing the whole array", () => {
+    expect(snowfall([0.5, null, 0.25])).toBe(0.75);
+  });
+
+  it("rounds a float sum back to the two decimals the source publishes", () => {
+    expect(0.1 + 0.2).not.toBe(0.3);
+    expect(snowfall([0.1, 0.2])).toBe(0.3);
   });
 });
 

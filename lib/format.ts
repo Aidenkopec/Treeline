@@ -31,9 +31,9 @@ export function centimetres(value: number | null): string {
 
 /**
  * Wind speed with the direction it blows *from*, which is what the reading
- * means and not what a bare compass point would be read as. One function rather
- * than two because the two fields fail independently: a speed with no direction
- * is still a reading, a direction with no speed is not.
+ * means and not how a bare compass point would be read. One function because
+ * the fields fail independently: a speed without a direction is still a
+ * reading, a direction without a speed is not.
  */
 export function wind(kph: number | null, directionDeg: number | null): string {
   if (kph === null) return "—";
@@ -43,13 +43,10 @@ export function wind(kph: number | null, directionDeg: number | null): string {
 
 /**
  * When a reading was taken, on the clock at the mountain — "3:00 PM MDT", not
- * "21:00 UTC" and not the reader's own timezone, which is the wrong one for
- * every resort but the one they happen to be standing at.
- *
- * The zone name rather than a fixed abbreviation, because Alberta is MDT for
- * most of a ski season and MST for the rest of it, and Niseko is neither.
- * `en-US` rather than the reader's locale so the readout is the same for
- * everyone, and because it prints "3:00 PM", which survives being uppercased.
+ * "21:00 UTC" and not the reader's own zone. An IANA name rather than a fixed
+ * abbreviation, so `Intl` follows the changeover: Alberta is MDT for most of a
+ * ski season and MST for the rest. `en-US` rather than the reader's locale
+ * keeps the readout identical for everyone.
  */
 export function observedAt(iso: string, timeZone: string | null): string {
   const at = new Date(iso);
