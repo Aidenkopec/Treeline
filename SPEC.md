@@ -63,8 +63,11 @@ none of them is in this version.
 - 3D terrain with satellite imagery draped over it
 - Ski runs drawn on the terrain, colored by difficulty
 - Lifts drawn on the terrain from their mapped geometry — the cable carried over
-  its real pylons, with name, vertical rise, length and ride time. Geometry
-  only; lift _status_ stays excluded under §3
+  its real pylons, with name, vertical rise and length. Geometry only; lift
+  _status_ stays excluded under §3. Ride time is baked and not published: OSM's
+  `aerialway:duration` is the cable's transit time at full line speed, not the
+  ride anyone takes, and it is kept only as the divisor that checks `length_m`
+  against the speed such a cable really runs at
 - Named mountain places — lodges, peaks and viewpoints — as markers on the
   terrain and a list beside it
 - Per-run stats panel: average pitch, steepest pitch, aspect, vertical drop,
@@ -265,8 +268,8 @@ step once a heightmap exists, which is why it is written down as forbidden.
 steep slope on the mountain" is an avalanche terrain product.
 
 **Slope data never attaches to a lift line.** A lift is drawn (§4) and carries
-its name, vertical rise, length and ride time — infrastructure facts. It carries
-no pitch and no aspect, ever. The ground under a cable is not a marked run, and
+its name, vertical rise and length — infrastructure facts. It carries no pitch
+and no aspect, ever. The ground under a cable is not a marked run, and
 reporting its steepness would publish the slope angle of unpatrolled terrain
 through the back door of an infrastructure feature. This is the same rule as the
 paragraph above, written out for the case that now exists in the data model.
