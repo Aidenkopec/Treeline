@@ -23,6 +23,8 @@ creating one needed a label.
 - [x] Difficulty marks by shape, not color alone (`components/difficulty-mark.tsx`)
 - [x] SPEC §8 disclaimer, inbounds framing and attribution in the root layout
 - [x] Resort index page with an honest "not baked" empty state
+- [x] Masthead figure — one massif in section, treeline labelled, a lift up and a run
+      down it, drawn once on load in CSS alone (no client component)
 - [x] `resorts.json` — all six resorts configured
 - [x] vitest + tsx wired; `npm test`, `npm run typecheck`, `npm run lint`, `npm run bake`
 - [x] Formatting and hygiene — Prettier, lint-staged pre-commit, agent hooks, CI gate
