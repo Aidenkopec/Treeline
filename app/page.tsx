@@ -15,9 +15,9 @@ export default async function Home() {
         <div className="relative mx-auto max-w-5xl px-6 pt-20 pb-44 md:pb-48">
           <h1 className="u-massif text-2xl text-snow sm:text-3xl">Treeline</h1>
           <p className="mt-6 max-w-[54ch] text-lg text-rock">
-            Resort trail maps flatten the mountain. This one doesn&rsquo;t: real pitch,
-            aspect and vertical for every marked run, computed from elevation data and
-            drawn on the terrain it actually crosses.
+            Resort trail maps flatten the mountain. This one doesn&rsquo;t: real pitch, aspect and
+            vertical for every marked run, computed from elevation data and drawn on the terrain it
+            actually crosses.
           </p>
         </div>
       </header>
@@ -40,9 +40,7 @@ export default async function Home() {
                 </span>
                 <span className="ml-auto text-sm tabular-nums">
                   {entry ? (
-                    <span className="text-rock">
-                      baked {entry.baked_at.slice(0, 10)}
-                    </span>
+                    <span className="text-rock">baked {entry.baked_at.slice(0, 10)}</span>
                   ) : (
                     <span className="text-rock-dim">not baked</span>
                   )}
@@ -64,7 +62,8 @@ export default async function Home() {
               Check OSM coverage first with{" "}
               <span className="font-mono text-rock [font-variant-ligatures:none]">
                 npm run bake -- --check lake-louise
-              </span>.
+              </span>
+              .
             </p>
           </div>
         )}
@@ -73,8 +72,8 @@ export default async function Home() {
       <section className="mx-auto max-w-5xl px-6 pb-20">
         <h2 className="u-data">Grades</h2>
         <p className="mt-3 max-w-[60ch] text-sm text-rock">
-          Runs carry the grade their resort assigned them in OpenStreetMap. Plenty of
-          runs are untagged, and those say so rather than being given a grade here.
+          Runs carry the grade their resort assigned them in OpenStreetMap. Plenty of runs are
+          untagged, and those say so rather than being given a grade here.
         </p>
 
         <ul className="mt-5 flex flex-wrap gap-x-10 gap-y-3">

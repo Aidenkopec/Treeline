@@ -55,8 +55,10 @@ and its test. Numerical work gets automated verification; visual work gets human
 ```
 npm run dev                        dev server
 npm run build                      production build
+npm run format                     prettier --write .
+npm run lint                       eslint
 npm test                           vitest
-npm run typecheck                  tsc --noEmit
+npm run typecheck                  next typegen && tsc --noEmit
 npm run bake -- --check <slug>     report OSM coverage, write nothing
 npm run bake -- --resort <slug>    bake one resort
 npm run bake -- --all              bake every resort

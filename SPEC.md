@@ -78,7 +78,7 @@ none of them is in this version.
 
 ## 5. Architecture
 
-One TypeScript project, split by *when the code runs* rather than by language.
+One TypeScript project, split by _when the code runs_ rather than by language.
 
 ```
 BUILD TIME (laptop or GitHub Action)     RUNTIME (Vercel)
@@ -180,16 +180,16 @@ This is the part no trail map gives you, and the reason the project exists.
 
 For each run, sampled along its polyline against the DEM:
 
-| Field | Definition |
-|---|---|
-| `vertical_m` | max elevation − min elevation |
-| `length_m` | 3D path length, not map distance |
-| `pitch_avg_deg` | mean slope over sampled segments |
-| `pitch_max_deg` | steepest sustained segment (windowed, not a single spike) |
-| `aspect_deg` | compass direction the run faces, 0–360 |
-| `aspect_label` | N / NE / E / SE / S / SW / W / NW |
-| `difficulty` | from OSM `piste:difficulty`, null when untagged |
-| `profile` | elevation samples along the run, for the profile chart and the first-person camera path |
+| Field           | Definition                                                                              |
+| --------------- | --------------------------------------------------------------------------------------- |
+| `vertical_m`    | max elevation − min elevation                                                           |
+| `length_m`      | 3D path length, not map distance                                                        |
+| `pitch_avg_deg` | mean slope over sampled segments                                                        |
+| `pitch_max_deg` | steepest sustained segment (windowed, not a single spike)                               |
+| `aspect_deg`    | compass direction the run faces, 0–360                                                  |
+| `aspect_label`  | N / NE / E / SE / S / SW / W / NW                                                       |
+| `difficulty`    | from OSM `piste:difficulty`, null when untagged                                         |
+| `profile`       | elevation samples along the run, for the profile chart and the first-person camera path |
 
 Slope and aspect come from a 3×3 gradient over the heightmap (Horn's method,
 the standard used by GDAL and ArcGIS), computed over a `Float32Array`.
@@ -204,13 +204,13 @@ DEM is 30m data and precision claims beyond that would be false.
 
 All verified live and keyless on 2026-09-15.
 
-| Source | Use | Auth | Terms |
-|---|---|---|---|
-| AWS Terrain Tiles (terrarium) | elevation | none | attribution required |
-| Esri World Imagery | satellite texture | none | attribution required |
-| OpenStreetMap via Overpass | runs, resort index | none | ODbL, attribution required |
-| Open-Meteo forecast | current snow, temp, wind | none | free for non-commercial |
-| Open-Meteo archive | historical snowfall and depth by season | none | free for non-commercial |
+| Source                        | Use                                     | Auth | Terms                      |
+| ----------------------------- | --------------------------------------- | ---- | -------------------------- |
+| AWS Terrain Tiles (terrarium) | elevation                               | none | attribution required       |
+| Esri World Imagery            | satellite texture                       | none | attribution required       |
+| OpenStreetMap via Overpass    | runs, resort index                      | none | ODbL, attribution required |
+| Open-Meteo forecast           | current snow, temp, wind                | none | free for non-commercial    |
+| Open-Meteo archive            | historical snowfall and depth by season | none | free for non-commercial    |
 
 Overpass is slow and rate-limited. It is only ever called at bake time, never by
 a visitor.
@@ -226,7 +226,7 @@ well-precedented thing to publish. The rules below are what keep it there.
 **No safety information, ever.** Avalanche ratings are excluded by design, not
 by schedule. Three reasons:
 
-1. Avalanche Canada bulletins forecast *backcountry* hazard. Every run here is
+1. Avalanche Canada bulletins forecast _backcountry_ hazard. Every run here is
    inbounds resort terrain where hazard is actively controlled by patrol.
    Displaying a backcountry rating beside inbounds runs is misleading in both
    directions, and several of these resorts have slackcountry access directly
@@ -285,12 +285,12 @@ site.
 
 ## 10. Performance budget
 
-| Metric | Target |
-|---|---|
-| Initial payload per resort | < 5 MB |
-| Time to first render | < 2.5s on broadband |
-| Frame rate | 60fps on integrated graphics |
-| Total repo assets | < 40 MB for six resorts |
+| Metric                     | Target                       |
+| -------------------------- | ---------------------------- |
+| Initial payload per resort | < 5 MB                       |
+| Time to first render       | < 2.5s on broadband          |
+| Frame rate                 | 60fps on integrated graphics |
+| Total repo assets          | < 40 MB for six resorts      |
 
 Heightmaps are 16-bit PNG, satellite textures JPEG at quality tuned per resort.
 If a resort exceeds budget, its resolution drops rather than the budget moving.
@@ -300,18 +300,18 @@ If a resort exceeds budget, its resolution drops rather than the budget moving.
 Each phase ends working, committed and deployable. Each runs in its own Claude
 Code session with its own verification gate.
 
-| # | Deliverable | Check |
-|---|---|---|
-| 1 | Bake pipeline, Lake Louise only | vitest: fixture tile decodes to known elevations; golden pitch/aspect within tolerance; `downhill`-only filter asserted against a fixture containing backcountry ways |
-| 2 | Next.js app renders that terrain | screenshot, human review |
-| 3 | Run overlay + stats panel + filters + elevation profile | stats in UI match `runs.json`; filter unit tests; profile chart renders from fixture data |
-| 4 | Conditions route handler | tests against recorded Open-Meteo fixtures, including an API-down case |
-| 5 | Sun/shade + first-person run camera | known sunrise/sunset asserted for a fixed date and latitude; camera path stays on the polyline within tolerance |
-| **—** | **Valid stopping point.** Three resorts, core experience complete | — |
-| 6 | Historical snow charts | baked archive JSON matches a recorded API response; chart renders from fixture |
-| 7 | Aspect rose + comparison view | rose bucket counts match `runs.json`; comparison renders both resorts at one scale |
-| 8 | Dynamic OG images | `ImageResponse` route returns a valid PNG for a known run; visual check of one card |
-| 9 | Remaining resorts, polish, deploy | `npm run bake -- --all` green, budget met, live URL |
+| #     | Deliverable                                                       | Check                                                                                                                                                                 |
+| ----- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | Bake pipeline, Lake Louise only                                   | vitest: fixture tile decodes to known elevations; golden pitch/aspect within tolerance; `downhill`-only filter asserted against a fixture containing backcountry ways |
+| 2     | Next.js app renders that terrain                                  | screenshot, human review                                                                                                                                              |
+| 3     | Run overlay + stats panel + filters + elevation profile           | stats in UI match `runs.json`; filter unit tests; profile chart renders from fixture data                                                                             |
+| 4     | Conditions route handler                                          | tests against recorded Open-Meteo fixtures, including an API-down case                                                                                                |
+| 5     | Sun/shade + first-person run camera                               | known sunrise/sunset asserted for a fixed date and latitude; camera path stays on the polyline within tolerance                                                       |
+| **—** | **Valid stopping point.** Three resorts, core experience complete | —                                                                                                                                                                     |
+| 6     | Historical snow charts                                            | baked archive JSON matches a recorded API response; chart renders from fixture                                                                                        |
+| 7     | Aspect rose + comparison view                                     | rose bucket counts match `runs.json`; comparison renders both resorts at one scale                                                                                    |
+| 8     | Dynamic OG images                                                 | `ImageResponse` route returns a valid PNG for a known run; visual check of one card                                                                                   |
+| 9     | Remaining resorts, polish, deploy                                 | `npm run bake -- --all` green, budget met, live URL                                                                                                                   |
 
 Phase 1 produces real artifacts before a single pixel is drawn. If the project
 stalls at phase 2, a working data pipeline still exists.
@@ -331,13 +331,13 @@ runs land without manual work.
 
 ## 13. Risks
 
-| Risk | Mitigation |
-|---|---|
-| OSM coverage is poor at a chosen resort | `--check` mode reports coverage before baking; swap the resort |
-| Terrain looks flat and unimpressive | Vertical exaggeration is configurable per resort; tune by eye in phase 2 |
-| It is September — snow values are all zero | See open decision D3 |
-| Web Mercator tile math eats a day | Isolated in one module with its own tests; the known-hard part, budgeted for |
-| Asset weight grows past a static host | Per-resort resolution is a config value, not a constant |
+| Risk                                       | Mitigation                                                                   |
+| ------------------------------------------ | ---------------------------------------------------------------------------- |
+| OSM coverage is poor at a chosen resort    | `--check` mode reports coverage before baking; swap the resort               |
+| Terrain looks flat and unimpressive        | Vertical exaggeration is configurable per resort; tune by eye in phase 2     |
+| It is September — snow values are all zero | See open decision D3                                                         |
+| Web Mercator tile math eats a day          | Isolated in one module with its own tests; the known-hard part, budgeted for |
+| Asset weight grows past a static host      | Per-resort resolution is a config value, not a constant                      |
 
 ## 14. Open decisions
 

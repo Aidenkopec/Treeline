@@ -1,0 +1,16 @@
+node_modules/
+.next/
+out/
+build/
+coverage/
+
+package-lock.json
+next-env.d.ts
+*.tsbuildinfo
+
+# Baked artifacts are generated output, not source (SPEC §12).
+public/resorts/
+
+# Rewritten by `next dev` (generate-agent-files.js); reformatting it here only
+# causes churn the next time the dev server starts.
+AGENTS.md

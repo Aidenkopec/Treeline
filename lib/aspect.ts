@@ -1,7 +1,14 @@
 import type { AspectLabel } from "./types";
 
 export const ASPECT_LABELS: readonly AspectLabel[] = [
-  "N", "NE", "E", "SE", "S", "SW", "W", "NW",
+  "N",
+  "NE",
+  "E",
+  "SE",
+  "S",
+  "SW",
+  "W",
+  "NW",
 ] as const;
 
 /**

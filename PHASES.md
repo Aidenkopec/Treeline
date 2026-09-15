@@ -25,6 +25,7 @@ creating one needed a label.
 - [x] Resort index page with an honest "not baked" empty state
 - [x] `resorts.json` — all six resorts configured
 - [x] vitest + tsx wired; `npm test`, `npm run typecheck`, `npm run lint`, `npm run bake`
+- [x] Formatting and hygiene — Prettier, lint-staged pre-commit, agent hooks, CI gate
 - [x] Route handler skeletons for conditions (phase 4) and OG images (phase 8)
 - [x] AGENTS.md records the §8 rules as non-negotiable in an implementation session
 
@@ -39,12 +40,14 @@ no layout overflow from 320px up.
 `runs.json`, manifest entry.
 
 **Gate (SPEC §11):**
+
 - [x] Downhill-only filter asserted against a fixture containing backcountry ways
-- [~] Fixture tile decodes to known elevations — *decode is tested against synthetic
-      buffers; still needs a real terrarium `.png` fixture*
+- [~] Fixture tile decodes to known elevations — _decode is tested against synthetic
+  buffers; still needs a real terrarium `.png` fixture_
 - [ ] Golden pitch/aspect for two hand-checked Lake Louise runs, within tolerance
 
 ### Done
+
 - [x] `tiles.ts` — Web Mercator tile math, 8/8 functions, 8 tests (SPEC §13's hard part)
 - [x] `terrarium.ts` — elevation decode, 3/3 functions, 7 tests
 - [x] `terrain.ts` — Horn's method slope/aspect + bilinear sampling, 5/5 functions, 12 tests
@@ -53,6 +56,7 @@ no layout overflow from 320px up.
 ### Remaining, in order
 
 **1. Derived stats** — `scripts/bake/runs.ts` (5 stubs). Pure math, no network:
+
 - [ ] `sampleProfile` — resample a polyline to a fixed ground interval against the DEM
 - [ ] `averagePitch` — mean slope, weighted by segment length
 - [ ] `sustainedMaxPitch` — sliding window, so one noisy DEM cell can't report a cliff
@@ -60,17 +64,20 @@ no layout overflow from 320px up.
 - [ ] `deriveRun` — assemble one complete `Run`
 
 **2. Network and raster I/O:**
+
 - [ ] `overpass.ts` `runQuery` — POST, with the rate limit respected
 - [ ] Tile download + stitch via `sharp` (elevation and imagery share `tiles.ts`)
 - [ ] `imagery.ts` `bakeSatelliteTexture`
 
 **3. Emit** — `scripts/bake/emit.ts` (5 stubs):
+
 - [ ] 16-bit `heightmap.png`, `satellite.jpg`, `runs.json`, manifest update
 - [ ] `reportAssetWeight` against the SPEC §10 budget
 
 **4. Orchestrate** — `scripts/bake.ts` (2 stubs): `bakeResort`, `checkResort`
 
 **5. Close the gate:**
+
 - [ ] Bake Lake Louise for real; commit the artifacts
 - [ ] Hand-check two runs against the published trail map and a topo
 - [ ] Commit those as golden values and un-skip `tests/runs.golden.test.ts`

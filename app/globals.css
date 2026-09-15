@@ -15,16 +15,16 @@
 
 @theme {
   /* --- Ground: shadowed snow, never black ------------------------------- */
-  --color-shadow-deep: #0f141c;  /* page */
-  --color-shadow: #151b24;       /* base */
-  --color-surface: #1e2631;      /* panel */
+  --color-shadow-deep: #0f141c; /* page */
+  --color-shadow: #151b24; /* base */
+  --color-surface: #1e2631; /* panel */
   --color-surface-high: #2a3440; /* raised, hover */
-  --color-line: #36424f;         /* hairline rules */
+  --color-line: #36424f; /* hairline rules */
 
   /* --- Ink -------------------------------------------------------------- */
-  --color-snow: #e6edf4;         /* primary text, blue-cast white */
-  --color-rock: #8592a3;         /* secondary text */
-  --color-rock-dim: #5b6775;     /* tertiary, disabled */
+  --color-snow: #e6edf4; /* primary text, blue-cast white */
+  --color-rock: #8592a3; /* secondary text */
+  --color-rock-dim: #5b6775; /* tertiary, disabled */
 
   /* --- Accent: the sun ---------------------------------------------------
      Warm gold means "lit". It is the only warm hue in the system, so it
@@ -54,14 +54,14 @@
   /* Major-third scale from a 15px base; the bottom two steps exist because
      map labels are small and dense, not because the UI is cramped. */
   --text-2xs: 0.6875rem; /* 11px — data labels */
-  --text-xs: 0.75rem;    /* 12px */
-  --text-sm: 0.8125rem;  /* 13px */
-  --text-base: 0.9375rem;/* 15px */
-  --text-lg: 1.1875rem;  /* 19px */
-  --text-xl: 1.5rem;     /* 24px */
+  --text-xs: 0.75rem; /* 12px */
+  --text-sm: 0.8125rem; /* 13px */
+  --text-base: 0.9375rem; /* 15px */
+  --text-lg: 1.1875rem; /* 19px */
+  --text-xl: 1.5rem; /* 24px */
   --text-2xl: 1.9375rem; /* 31px */
-  --text-3xl: 2.625rem;  /* 42px — resort name */
-  --text-4xl: 3.5rem;    /* 56px */
+  --text-3xl: 2.625rem; /* 42px — resort name */
+  --text-4xl: 3.5rem; /* 56px */
 
   /* --- Elevation ---------------------------------------------------------
      Panels sit above terrain, so they get a cast shadow with a cool tint
@@ -137,7 +137,7 @@
     font-stretch: 78%;
     font-weight: 500;
     font-size: var(--text-2xs);
-    letter-spacing: 0.1em; 
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--color-rock);
   }

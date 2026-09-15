@@ -17,12 +17,7 @@ const TREELINE_Y = 84;
 
 export function Ridgeline({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 800 160"
-      preserveAspectRatio="none"
-      className={className}
-      aria-hidden="true"
-    >
+    <svg viewBox="0 0 800 160" preserveAspectRatio="none" className={className} aria-hidden="true">
       <defs>
         {/* Alpine: the ridge above the treeline. */}
         <clipPath id="above-treeline">
@@ -46,11 +41,7 @@ export function Ridgeline({ className }: { className?: string }) {
       />
 
       <g clipPath="url(#below-treeline)">
-        <path
-          d={`${RIDGE} L800,160 L0,160 Z`}
-          fill="var(--color-shade-dim)"
-          fillOpacity="0.55"
-        />
+        <path d={`${RIDGE} L800,160 L0,160 Z`} fill="var(--color-shade-dim)" fillOpacity="0.55" />
         <path
           d={RIDGE}
           fill="none"
@@ -61,11 +52,7 @@ export function Ridgeline({ className }: { className?: string }) {
       </g>
 
       <g clipPath="url(#above-treeline)">
-        <path
-          d={`${RIDGE} L800,160 L0,160 Z`}
-          fill="var(--color-surface)"
-          fillOpacity="0.9"
-        />
+        <path d={`${RIDGE} L800,160 L0,160 Z`} fill="var(--color-surface)" fillOpacity="0.9" />
         <path
           d={RIDGE}
           fill="none"

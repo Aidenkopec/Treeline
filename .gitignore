@@ -41,3 +41,6 @@ yarn-error.log*
 next-env.d.ts
 
 # Baked artifacts are committed on purpose (SPEC §12) — do not ignore public/resorts/
+
+# claude code (personal overrides stay local)
+.claude/settings.local.json
