@@ -98,7 +98,14 @@ export function TerrainViewer({ overlay, resort }: { overlay: RunOverlayState; r
       {/* The canvas carries nothing a screen reader can use — saying so is more
           honest than an aria-label that pretends it describes the mountain
           (SPEC §9). */}
-      <div aria-hidden="true" className={FRAME}>
+      {/* Aerial perspective: the sky the massif fades into, so distance reads as
+          distance rather than as a cut-out against flat page colour. Deep
+          overhead, cool at the horizon, and the scene's fog is matched to the
+          horizon end so the mesh meets it without a seam. */}
+      <div
+        aria-hidden="true"
+        className={`${FRAME} bg-[linear-gradient(to_bottom,var(--color-shadow-deep)_0%,var(--color-shade-dim)_72%)]`}
+      >
         <SceneBoundary>
           <TerrainScene overlay={overlay} resetSignal={resetSignal} resort={resort} />
         </SceneBoundary>

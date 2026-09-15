@@ -50,6 +50,8 @@ interface Palette {
   ground: THREE.Color;
   /** Bounce under a downward-facing slope. The page colour reads as dirt on snow. */
   fill: THREE.Color;
+  /** The horizon the massif fades into. Matched to the gradient in terrain-viewer. */
+  haze: THREE.Color;
 }
 
 const loading = new Map<string, Promise<Terrain>>();
@@ -196,6 +198,7 @@ function LoadedScene({
       shade: lightColor("--color-shade", 0.62),
       ground: paletteColor("--color-shadow-deep"),
       fill: paletteColor("--color-shade-dim"),
+      haze: paletteColor("--color-shade-dim"),
     }),
     [],
   );
@@ -209,9 +212,8 @@ function LoadedScene({
       // which is left free to blow out on a slope facing the sun the way a
       // snowfield does. A film curve would pull that back and would flatten the
       // warm/cool split, which is the only colour a near-neutral snow has.
-      gl={{ toneMapping: THREE.NoToneMapping }}
+      gl={{ alpha: true, toneMapping: THREE.NoToneMapping }}
     >
-      <color args={[palette.ground]} attach="background" />
       <Massif
         overlay={overlay}
         palette={palette}
@@ -237,6 +239,8 @@ function Massif({
   terrain: Terrain;
 }) {
   const { geometry, texture, ...extent } = terrain;
+  // The mosaic's own diagonal, which is what the haze below is measured in.
+  const reach = Math.hypot(extent.groundWidth, extent.groundDepth);
   // Narrowed because the flight fits a run to the frame, and the frame's shape
   // is the camera's own aspect. Reading it here rather than from `state.size`
   // keeps a resize out of the flight's dependencies: R3F keeps this in step.
@@ -381,6 +385,12 @@ function Massif({
 
   return (
     <>
+      {/* Aerial perspective, measured against the mosaic rather than against the
+          camera: the far side of a massif should sit back from the near side by
+          the same amount however close the viewer has flown. Linear, because
+          what is wanted is a legible depth cue over a known span and not a
+          physical scattering model. */}
+      <fog args={[palette.haze, reach * 0.55, reach * 1.6]} attach="fog" />
       <hemisphereLight args={[palette.shade, palette.fill, 1.4]} />
       <directionalLight
         color={palette.sun}

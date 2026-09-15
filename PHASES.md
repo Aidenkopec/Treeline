@@ -717,6 +717,28 @@ obvious replacement and it does fix the fold, but roughness is high at every pat
 as well as on scree, so it drew a softer rim of its own — the mid-band inversion rate only
 fell to 39.1% against 15.3% for having no rock term at all.
 
+### Follow-up — aerial perspective
+
+The massif sat against flat page colour, so the far side of the range carried the same
+contrast as the near side and the whole thing read as a cut-out rather than as a place.
+
+- **The sky is CSS, not a shader.** A gradient on the wrapper in `terrain-viewer.tsx`, with
+  the canvas turned transparent. A custom `ShaderMaterial` would have had to do its own
+  output colour-space conversion — three only applies that to its own materials — and a
+  screen-space gradient is what a map does anyway.
+- **Fog is measured against the mosaic, not against the camera.** Scaled to
+  `opening.distance` it wiped the massif out entirely at first; the framing distance is
+  fitted to the _runs_ box and is much smaller than the ground the mesh covers. The
+  mosaic's diagonal is the honest reference, and it means the far side of a massif sits
+  back by the same amount however close the viewer has flown.
+- **Phase 5 will re-aim this.** The haze colour is `--color-shade-dim` to match the horizon
+  end of the gradient; a real sun position will want both revisited together.
+
+**Known, not fixed:** the terrain mesh is a rectangular slab and its cut edge is visible at
+the near corners. Haze does not cover it — that edge is close to the camera, which is
+exactly where linear fog is weakest. It wants a skirt or an edge fade, and it is not this
+change's to make.
+
 ## Phase 5 — Sun/shade + first-person run camera ⬜
 
 Directional light positioned by `suncalc`. The run's polyline becomes a camera path at
