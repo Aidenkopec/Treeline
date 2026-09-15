@@ -1,0 +1,150 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Treeline design tokens
+
+   The palette is the product's own subject: a mountain is read by where the
+   sun hits it. Lit slopes go warm, shaded slopes go cool blue-violet, and
+   nothing is ever true black — the Imhof/Swisstopo relief-shading convention,
+   which is also literally the sun/shade feature (SPEC §4).
+
+   Deliberately NOT here: the avalanche-forecast danger scale (green/amber/red)
+   and any steepness ramp. SPEC §8 forbids this site reading as a safety
+   product, and palette is the fastest way to accidentally imply one.
+--------------------------------------------------------------------------- */
+
+@theme {
+  /* --- Ground: shadowed snow, never black ------------------------------- */
+  --color-shadow-deep: #0f141c;  /* page */
+  --color-shadow: #151b24;       /* base */
+  --color-surface: #1e2631;      /* panel */
+  --color-surface-high: #2a3440; /* raised, hover */
+  --color-line: #36424f;         /* hairline rules */
+
+  /* --- Ink -------------------------------------------------------------- */
+  --color-snow: #e6edf4;         /* primary text, blue-cast white */
+  --color-rock: #8592a3;         /* secondary text */
+  --color-rock-dim: #5b6775;     /* tertiary, disabled */
+
+  /* --- Accent: the sun ---------------------------------------------------
+     Warm gold means "lit". It is the only warm hue in the system, so it
+     reads as information rather than decoration. Cool blue means "shaded". */
+  --color-sun: #e3a54b;
+  --color-sun-bright: #f3bf74;
+  --color-sun-dim: #6d5227;
+  --color-shade: #5c7a99;
+  --color-shade-dim: #2f4055;
+
+  /* --- Difficulty --------------------------------------------------------
+     The real trail-map standard, tuned for a dark cool ground. Advanced and
+     expert share a color on purpose: on a mountain they are both "black",
+     distinguished by one diamond or two. Shape carries the meaning, which is
+     also how this stays readable without color (SPEC §9). */
+  --color-diff-easy: #57b96e;
+  --color-diff-intermediate: #3e8fd8;
+  --color-diff-advanced: #edf2f7;
+  --color-diff-expert: #edf2f7;
+  --color-diff-unknown: #8592a3;
+
+  /* --- Type --------------------------------------------------------------
+     One superfamily across three widths, the way a map labels a massif, a
+     feature and a spot height differently. --font-map is bound in app/fonts.ts */
+  --font-map: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+
+  /* Major-third scale from a 15px base; the bottom two steps exist because
+     map labels are small and dense, not because the UI is cramped. */
+  --text-2xs: 0.6875rem; /* 11px — data labels */
+  --text-xs: 0.75rem;    /* 12px */
+  --text-sm: 0.8125rem;  /* 13px */
+  --text-base: 0.9375rem;/* 15px */
+  --text-lg: 1.1875rem;  /* 19px */
+  --text-xl: 1.5rem;     /* 24px */
+  --text-2xl: 1.9375rem; /* 31px */
+  --text-3xl: 2.625rem;  /* 42px — resort name */
+  --text-4xl: 3.5rem;    /* 56px */
+
+  /* --- Elevation ---------------------------------------------------------
+     Panels sit above terrain, so they get a cast shadow with a cool tint
+     rather than the default neutral grey. */
+  --shadow-panel: 0 1px 2px rgb(8 12 18 / 0.5), 0 8px 28px rgb(8 12 18 / 0.45);
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-shadow-deep);
+    color: var(--color-snow);
+    font-family: var(--font-map);
+    font-size: var(--text-base);
+    line-height: 1.55;
+    font-synthesis-weight: none;
+  }
+
+  /* Numbers in this product are compared down a column constantly — pitch
+     against pitch, vertical against vertical. They line up everywhere. */
+  :where(table, .u-data, .u-massif) {
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-sun);
+    outline-offset: 2px;
+    border-radius: 1px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* --- Cartographic width system -----------------------------------------
+     Archivo's wdth axis carries hierarchy that size alone would not. A map
+     sets a range name wide and open, a feature name at normal width, and a
+     dense readout narrow so it fits beside the thing it describes. */
+
+  /* A massif label: the resort name over its terrain. */
+  .u-massif {
+    font-stretch: 125%;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* A feature name: a run, a lift, a peak. */
+  .u-feature {
+    font-stretch: 100%;
+    font-weight: 500;
+    letter-spacing: 0.005em;
+  }
+
+  /* A dense readout: stat labels, table headers, legend keys. */
+  .u-data {
+    font-stretch: 78%;
+    font-weight: 500;
+    font-size: var(--text-2xs);
+    letter-spacing: 0.1em; 
+    text-transform: uppercase;
+    color: var(--color-rock);
+  }
+
+  /* A hairline rule, the weight a map draws a boundary at. */
+  .u-rule {
+    border: 0;
+    border-top: 1px solid var(--color-line);
+  }
+}

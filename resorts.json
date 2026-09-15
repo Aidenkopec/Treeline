@@ -1,0 +1,65 @@
+{
+  "$comment": "The bake input. lat/lon are search anchors only — the real bounding box is resolved from OSM landuse=winter_sports at bake time (SPEC §5.1 step 1). zoom, texture_quality and vertical_exaggeration are per-resort knobs: when a resort blows the asset budget its resolution drops, the budget does not move (SPEC §10).",
+  "resorts": [
+    {
+      "slug": "lake-louise",
+      "name": "Lake Louise",
+      "country": "Canada",
+      "lat": 51.4419,
+      "lon": -116.1622,
+      "zoom": 13,
+      "texture_quality": 82,
+      "vertical_exaggeration": 1.4
+    },
+    {
+      "slug": "sunshine-village",
+      "name": "Sunshine Village",
+      "country": "Canada",
+      "lat": 51.0784,
+      "lon": -115.7767,
+      "zoom": 13,
+      "texture_quality": 82,
+      "vertical_exaggeration": 1.4
+    },
+    {
+      "slug": "panorama",
+      "name": "Panorama",
+      "country": "Canada",
+      "lat": 50.4597,
+      "lon": -116.2386,
+      "zoom": 13,
+      "texture_quality": 82,
+      "vertical_exaggeration": 1.4
+    },
+    {
+      "slug": "kimberley",
+      "name": "Kimberley",
+      "country": "Canada",
+      "lat": 49.6739,
+      "lon": -115.9939,
+      "zoom": 13,
+      "texture_quality": 82,
+      "vertical_exaggeration": 1.6
+    },
+    {
+      "slug": "fernie",
+      "name": "Fernie",
+      "country": "Canada",
+      "lat": 49.4627,
+      "lon": -115.0881,
+      "zoom": 13,
+      "texture_quality": 82,
+      "vertical_exaggeration": 1.4
+    },
+    {
+      "slug": "niseko",
+      "name": "Niseko",
+      "country": "Japan",
+      "lat": 42.8608,
+      "lon": 140.6997,
+      "zoom": 13,
+      "texture_quality": 82,
+      "vertical_exaggeration": 1.5
+    }
+  ]
+}
