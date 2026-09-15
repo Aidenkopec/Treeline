@@ -48,15 +48,14 @@ export function wind(kph: number | null, directionDeg: number | null): string {
  * ski season and MST for the rest. `en-US` rather than the reader's locale
  * keeps the readout identical for everyone.
  */
-export function observedAt(iso: string, timeZone: string | null): string {
-  const at = new Date(iso);
+function onTheMountain(at: Date, timeZone: string | null, nameTheZone: boolean): string {
   if (Number.isNaN(at.getTime())) return "—";
 
   const options: Intl.DateTimeFormatOptions = {
     hour: "numeric",
     minute: "2-digit",
-    timeZoneName: "short",
     timeZone: timeZone ?? "UTC",
+    ...(nameTheZone ? { timeZoneName: "short" as const } : {}),
   };
 
   try {
@@ -66,4 +65,16 @@ export function observedAt(iso: string, timeZone: string | null): string {
     // this one was named by someone else's API.
     return new Intl.DateTimeFormat("en-US", { ...options, timeZone: "UTC" }).format(at);
   }
+}
+
+export function observedAt(iso: string, timeZone: string | null): string {
+  return onTheMountain(new Date(iso), timeZone, true);
+}
+
+/**
+ * The same clock with the zone left unsaid, for times printed in a set that
+ * plainly shares one. "Sunrise 7:59 AM MST · Sunset 5:58 PM MST" says it twice.
+ */
+export function clockTime(at: Date, timeZone: string): string {
+  return onTheMountain(at, timeZone, false);
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { OrbitControls } from "@react-three/drei";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useStore, useThree } from "@react-three/fiber";
 import {
   type ComponentRef,
   Suspense,
@@ -16,6 +16,7 @@ import {
 import * as THREE from "three";
 import { RunOverlay, type RunOverlayState } from "@/components/run-overlay";
 import { decodeHeightmap } from "@/lib/elevation";
+import { sunDirection, sunPosition } from "@/lib/sun";
 import {
   FOV,
   type Framing,
@@ -31,9 +32,10 @@ import type { Resort } from "@/lib/types";
  *
  * Nothing here computes a run statistic or shades the mountain by steepness
  * (SPEC §8): this draws the ground the bake measured, with the winter surface
- * the bake remapped Esri's imagery into, and stops. The lighting is the Imhof convention the palette is
- * already built on — warm where the sun lands, cool blue in shadow — and its
- * direction becomes a real sun position in phase 5.
+ * the bake remapped Esri's imagery into, and stops. The key light stands where
+ * `suncalc` puts the sun and casts the shadows that position throws; the
+ * palette it is coloured from is the Imhof convention — warm where the sun
+ * lands, cool blue in shadow.
  */
 
 interface Terrain {
@@ -142,6 +144,42 @@ function lightColor(name: string, tint: number): THREE.Color {
   return new THREE.Color(0xffffff).lerp(paletteColor(name), tint);
 }
 
+/** The key light's strength with the sun high. Metered for the drape's forest. */
+const KEY_INTENSITY = 2.8;
+
+/**
+ * 2048 across the massif is finer than the heightmap it shadows — see
+ * `shadowReach` — so raising it would sharpen nothing the terrain can express.
+ */
+const SHADOW_TEXELS = 2048;
+
+/**
+ * Where the sun stands for the one render before the client has read a clock.
+ * South-west and high, which is the framing the opening shot is fitted to.
+ */
+const SUN_BEFORE_HYDRATION: readonly [number, number, number] = [-0.5, 0.75, 0.43];
+
+/** Sky and bounce, with the sun high and with it gone. */
+const FILL_DAY = 1.4;
+const FILL_NIGHT = 0.55;
+
+/** Above this the sun is simply out; below it, it is going. Degrees. */
+const DUSK_DEG = 12;
+
+/**
+ * How much of the key survives at a given sun altitude, 0 to 1.
+ *
+ * This is extinction and nothing else — how much light the atmosphere leaves at
+ * a low sun. The geometry of a slope turning away is already the material's
+ * job, and folding it in here would count it twice. Smoothstep so the last
+ * minutes before sunset are a fade rather than a switch, and so the mountain is
+ * not still fully lit one frame before it goes dark.
+ */
+function keyStrength(altitudeDeg: number): number {
+  const t = Math.min(1, Math.max(0, altitudeDeg / DUSK_DEG));
+  return t * t * (3 - 2 * t);
+}
+
 /**
  * How long the camera takes to reach a run it has been asked to look at.
  *
@@ -167,17 +205,19 @@ export default function TerrainScene({
   overlay,
   resetSignal,
   resort,
+  sunAt,
 }: {
   overlay: RunOverlayState;
   resetSignal: number;
   resort: Resort;
+  sunAt: Date | null;
 }) {
   // Suspending out here rather than inside <Canvas> is deliberate: R3F renders
   // canvas children through its own reconciler, so a failed load thrown in
   // there would not reach the error boundary in terrain-viewer.tsx.
   return (
     <Suspense fallback={<div className="h-full w-full bg-shadow-deep" />}>
-      <LoadedScene overlay={overlay} resetSignal={resetSignal} resort={resort} />
+      <LoadedScene overlay={overlay} resetSignal={resetSignal} resort={resort} sunAt={sunAt} />
     </Suspense>
   );
 }
@@ -186,10 +226,12 @@ function LoadedScene({
   overlay,
   resetSignal,
   resort,
+  sunAt,
 }: {
   overlay: RunOverlayState;
   resetSignal: number;
   resort: Resort;
+  sunAt: Date | null;
 }) {
   const terrain = use(loadTerrain(resort));
   const palette = useMemo(
@@ -213,12 +255,17 @@ function LoadedScene({
       // snowfield does. A film curve would pull that back and would flatten the
       // warm/cool split, which is the only colour a near-neutral snow has.
       gl={{ alpha: true, toneMapping: THREE.NoToneMapping }}
+      // The terrain is the only caster and it never moves, so the map is
+      // re-rendered when the sun moves and at no other time — see the effect in
+      // Massif. Steady-state cost is one pass, the same as before phase 5.
+      shadows
     >
       <Massif
         overlay={overlay}
         palette={palette}
         resetSignal={resetSignal}
         resort={resort}
+        sunAt={sunAt}
         terrain={terrain}
       />
     </Canvas>
@@ -230,12 +277,14 @@ function Massif({
   palette,
   resetSignal,
   resort,
+  sunAt,
   terrain,
 }: {
   overlay: RunOverlayState;
   palette: Palette;
   resetSignal: number;
   resort: Resort;
+  sunAt: Date | null;
   terrain: Terrain;
 }) {
   const { geometry, texture, ...extent } = terrain;
@@ -245,6 +294,7 @@ function Massif({
   // is the camera's own aspect. Reading it here rather than from `state.size`
   // keeps a resize out of the flight's dependencies: R3F keeps this in step.
   const camera = useThree((state) => state.camera) as THREE.PerspectiveCamera;
+  const store = useStore();
   const size = useThree((state) => state.size);
   const [idle, setIdle] = useState(true);
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
@@ -258,6 +308,27 @@ function Massif({
     () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
     [],
   );
+
+  // Where the sun stands, and how much of it is left. Null only across the
+  // hydration pass, and the opening framing is an afternoon either way.
+  const sun = useMemo(() => {
+    if (sunAt === null) return null;
+    const position = sunPosition(resort, sunAt);
+    return {
+      direction: sunDirection(position, resort.vertical_exaggeration),
+      strength: keyStrength(position.altitudeDeg),
+    };
+  }, [resort, sunAt]);
+
+  // The shadow map is rendered on demand rather than every frame: the terrain
+  // is the only caster and it never moves, so the only thing that can change it
+  // is the sun. `autoUpdate` is turned off once and the map is asked for again
+  // whenever this effect re-runs, which includes the first mount.
+  useEffect(() => {
+    const { shadowMap } = store.getState().gl;
+    shadowMap.autoUpdate = false;
+    shadowMap.needsUpdate = true;
+  }, [store, sun]);
 
   // Frozen at first render. R3F withholds canvas children until it has measured,
   // so this aspect is the real one — and keeping it still is what stops a resize
@@ -383,6 +454,15 @@ function Massif({
     if (t === 1) flight.current = null;
   }, -2);
 
+  const direction = sun?.direction ?? SUN_BEFORE_HYDRATION;
+  const strength = sun?.strength ?? 1;
+  // Every mesh vertex lies within this of the origin — half the mosaic's
+  // diagonal across, its relief up — so an orthographic frustum this wide
+  // contains the whole massif at every sun angle, low ones included. At Lake
+  // Louise that is 5.8 m per texel against an 11.9 m heightmap pixel, so the
+  // shadow map is not what limits the shadow.
+  const shadowReach = Math.hypot(reach / 2, extent.relief);
+
   return (
     <>
       {/* Aerial perspective, measured against the mosaic rather than against the
@@ -391,14 +471,44 @@ function Massif({
           what is wanted is a legible depth cue over a known span and not a
           physical scattering model. */}
       <fog args={[palette.haze, reach * 0.55, reach * 1.6]} attach="fog" />
-      <hemisphereLight args={[palette.shade, palette.fill, 1.4]} />
-      <directionalLight
-        color={palette.sun}
-        intensity={2.8}
-        position={[-opening.distance, opening.distance, opening.distance * 0.6]}
+      {/* Sky and bounce carry the whole scene once the sun is down, so this
+          rises as the key falls — a blue mountain at night rather than a black
+          one, and not a flat overcast day at noon either. */}
+      <hemisphereLight
+        args={[palette.shade, palette.fill, FILL_NIGHT + (FILL_DAY - FILL_NIGHT) * strength]}
       />
+      {/* A direction, scaled out to the mosaic's own diagonal so the light
+          clears the terrain whatever the sun is doing. The colour leans further
+          into the gold as the sun drops, which is what the atmosphere does to
+          it; `lightColor` keeps that a lean rather than a filter. */}
+      <directionalLight
+        castShadow
+        color={lightColor("--color-sun", 0.5 + 0.35 * (1 - strength))}
+        intensity={KEY_INTENSITY * strength}
+        position={[direction[0] * reach, direction[1] * reach, direction[2] * reach]}
+        shadow-mapSize={[SHADOW_TEXELS, SHADOW_TEXELS]}
+        shadow-normalBias={(2 * shadowReach) / SHADOW_TEXELS}
+      >
+        {/* Built rather than assigned field by field. Setting
+            `shadow-camera-near` and its neighbours leaves the projection matrix
+            on the ten-unit box the default shadow camera was constructed with,
+            and a frustum that covers ten metres of a ten-kilometre massif
+            reports the whole mountain as shadowed — which is a black mountain,
+            not a missing shadow. */}
+        <orthographicCamera
+          args={[
+            -shadowReach,
+            shadowReach,
+            shadowReach,
+            -shadowReach,
+            reach - shadowReach,
+            reach + shadowReach,
+          ]}
+          attach="shadow-camera"
+        />
+      </directionalLight>
 
-      <mesh geometry={geometry}>
+      <mesh castShadow geometry={geometry} receiveShadow>
         <meshStandardMaterial map={texture} metalness={0} roughness={1} />
       </mesh>
 

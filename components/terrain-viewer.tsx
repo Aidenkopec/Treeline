@@ -73,7 +73,16 @@ class SceneBoundary extends Component<{ children: ReactNode }, { failed: boolean
   }
 }
 
-export function TerrainViewer({ overlay, resort }: { overlay: RunOverlayState; resort: Resort }) {
+export function TerrainViewer({
+  overlay,
+  resort,
+  sunAt,
+}: {
+  overlay: RunOverlayState;
+  resort: Resort;
+  /** The instant the sun is drawn at. Null until the client has a clock. */
+  sunAt: Date | null;
+}) {
   // Read on the client only: the server has no canvas to ask, and answering
   // either way during the server render would be a hydration mismatch.
   const webgl = useSyncExternalStore(noop, hasWebGL, () => null);
@@ -107,7 +116,7 @@ export function TerrainViewer({ overlay, resort }: { overlay: RunOverlayState; r
         className={`${FRAME} bg-[linear-gradient(to_bottom,var(--color-shadow-deep)_0%,var(--color-shade-dim)_72%)]`}
       >
         <SceneBoundary>
-          <TerrainScene overlay={overlay} resetSignal={resetSignal} resort={resort} />
+          <TerrainScene overlay={overlay} resetSignal={resetSignal} resort={resort} sunAt={sunAt} />
         </SceneBoundary>
       </div>
 

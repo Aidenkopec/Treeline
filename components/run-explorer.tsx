@@ -2,6 +2,7 @@
 
 import { type ReactNode, useMemo, useState, useSyncExternalStore } from "react";
 import { RunFilters } from "@/components/run-filters";
+import { SunControl } from "@/components/sun-control";
 import { RunPanel } from "@/components/run-panel";
 import { RunTable } from "@/components/run-table";
 import { TerrainViewer } from "@/components/terrain-viewer";
@@ -14,7 +15,9 @@ import {
   runCells,
   sortRuns,
 } from "@/lib/run-list";
+import { type WallClock, instantAt, openingWallClock } from "@/lib/sun";
 import type { Resort, Run } from "@/lib/types";
+import { type ViewState, parseViewHash, viewHash } from "@/lib/view-hash";
 
 /**
  * One filter and one selection, driving the mountain and the table together.
@@ -31,7 +34,8 @@ import type { Resort, Run } from "@/lib/types";
 const DESCENDING_FIRST: SortKey[] = ["vertical_m", "length_m", "pitch_avg_deg", "pitch_max_deg"];
 
 /**
- * The selected run lives in the URL, so a view can be sent to someone.
+ * The selected run and the hour the sun is drawn at live in the URL, so a view
+ * can be sent to someone.
  *
  * Read through `useSyncExternalStore` rather than an effect: the server has no
  * location to read, and the empty snapshot it returns is what lets the table
@@ -49,12 +53,34 @@ function subscribeToHash(listener: () => void) {
   };
 }
 
-function selectRun(id: string | null) {
+function writeView(next: ViewState) {
   // replaceState, not pushState: picking a run should not fill the back button.
   // It also fires no hashchange, so subscribers are told by hand.
-  window.history.replaceState(null, "", id ? `#run=${id}` : window.location.pathname);
+  window.history.replaceState(null, "", viewHash(next) || window.location.pathname);
   for (const listener of listeners) listener();
 }
+
+/**
+ * The hour the mountain opens at, resolved once per resort.
+ *
+ * Cached at module level like the WebGL probe in `terrain-viewer.tsx`, and for
+ * the same two reasons: `useSyncExternalStore` compares snapshots, so this has
+ * to answer with the same string every time it is asked, and the server has no
+ * clock to read — answering with one there would be a hydration mismatch.
+ */
+const opened = new Map<string, WallClock>();
+
+function openedAt(resort: Resort): WallClock {
+  const cached = opened.get(resort.slug);
+  if (cached !== undefined) return cached;
+
+  const hour = openingWallClock(resort);
+  opened.set(resort.slug, hour);
+  return hour;
+}
+
+/** Nothing to subscribe to — the hour the page opened at does not change. */
+const noop = () => () => {};
 
 export function RunExplorer({
   resort,
@@ -77,8 +103,22 @@ export function RunExplorer({
     () => window.location.hash,
     () => "",
   );
-  // An id naming no run — a stale link, a typo — simply selects nothing.
-  const selectedId = hash.match(/^#run=(.+)$/)?.[1] ?? null;
+  const view = useMemo(() => parseViewHash(hash), [hash]);
+  const selectedId = view.runId;
+  const selectRun = (id: string | null) => writeView({ ...view, runId: id });
+
+  // Null through the server render and the hydration pass, which is what the
+  // control renders its dashes for — the same shape as the conditions strip.
+  const openingHour = useSyncExternalStore(
+    noop,
+    () => openedAt(resort),
+    () => null,
+  );
+  const sun = view.sun ?? openingHour;
+  const sunAt = useMemo(
+    () => (sun === null ? null : instantAt(sun, resort.timezone)),
+    [resort.timezone, sun],
+  );
 
   const visible = useMemo(
     () => sortRuns(filterRuns(runs, filter), sortKey, sortDirection),
@@ -130,6 +170,7 @@ export function RunExplorer({
               onHover: setHovered,
             }}
             resort={resort}
+            sunAt={sunAt}
           />
         </div>
         {/* The header is all that is left over the terrain, and it sits on the
@@ -166,6 +207,12 @@ export function RunExplorer({
             shown={visible.length}
             total={runs.length}
             value={filter}
+          />
+          <SunControl
+            onChange={(next) => writeView({ ...view, sun: next })}
+            pinned={view.sun !== null}
+            resort={resort}
+            value={sun}
           />
           <RunPanel onClear={() => selectRun(null)} run={selected} />
         </div>
