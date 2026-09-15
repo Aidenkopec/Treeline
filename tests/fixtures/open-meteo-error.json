@@ -1,0 +1,5 @@
+{
+  "$comment": "Recorded 2026-09-15 from https://api.open-meteo.com/v1/forecast?latitude=999&longitude=-116.1622&current=temperature_2m, which answers HTTP 400 with this body. An error is JSON and parses cleanly, so nothing downstream of JSON.parse notices it is not a reading — which is exactly how a site ends up publishing an error object as weather.",
+  "error": true,
+  "reason": "Latitude must be in range of -90 to 90°. Given: 999.0."
+}

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ConditionsStrip } from "@/components/conditions-strip";
 import { RunExplorer } from "@/components/run-explorer";
 import { metres } from "@/lib/format";
 import { readManifest, readResort, readRuns } from "@/lib/manifest";
@@ -50,8 +51,8 @@ export default async function ResortPage(props: PageProps<"/resorts/[slug]">) {
         {/* Over the terrain, and deliberately not in its way: only the link is
             clickable, so a drag anywhere else still turns the mountain. Server
             rendered and passed through, so the facts stay in the document. */}
-        <header className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-shadow-deep via-shadow-deep/75 to-transparent">
-          <div className="px-6 pt-8 pb-24">
+        <header className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-shadow-deep via-shadow-deep/85 via-85% to-transparent">
+          <div className="px-6 pt-8 pb-12">
             <Link className="u-data pointer-events-auto transition-colors hover:text-snow" href="/">
               ← Treeline
             </Link>
@@ -65,6 +66,11 @@ export default async function ResortPage(props: PageProps<"/resorts/[slug]">) {
                 </div>
               ))}
             </dl>
+
+            {/* Separate from the facts above on purpose: those are terrain,
+                measured once and dated; these are somebody else's model, read a
+                moment ago. Merging them into one list would blur which is which. */}
+            <ConditionsStrip slug={resort.slug} />
           </div>
         </header>
       </RunExplorer>
