@@ -18,18 +18,52 @@ export interface RunFilter {
   /** Empty means no constraint; `[null]` selects only the untagged ways. */
   difficulties: Difficulty[];
   minVerticalM: number;
+  /** Blank means no constraint, the same way an empty list does. */
+  query: string;
 }
 
-export const NO_FILTER: RunFilter = { aspects: [], difficulties: [], minVerticalM: 0 };
+export const NO_FILTER: RunFilter = {
+  aspects: [],
+  difficulties: [],
+  minVerticalM: 0,
+  query: "",
+};
+
+/**
+ * Casefolded and stripped of accents, so a query typed on a plain keyboard
+ * reaches a name that was not. Niseko is on the list of resorts to bake and its
+ * runs romanise with macrons (SPEC §4).
+ */
+function normalise(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+}
 
 export function matchesFilter(run: Run, filter: RunFilter): boolean {
   if (filter.aspects.length > 0 && !filter.aspects.includes(run.aspect_label)) return false;
   if (filter.difficulties.length > 0 && !filter.difficulties.includes(run.difficulty)) return false;
-  return run.vertical_m >= filter.minVerticalM;
+  if (run.vertical_m < filter.minVerticalM) return false;
+
+  const query = normalise(filter.query.trim());
+  // Matched against the string the table prints, so searching "unnamed" finds
+  // the ways that have no name rather than nothing at all.
+  return query === "" || normalise(run.name ?? UNNAMED_RUN).includes(query);
 }
 
 export function filterRuns(runs: Run[], filter: RunFilter): Run[] {
   return runs.filter((run) => matchesFilter(run, filter));
+}
+
+/** Whether the filter constrains anything, which is what "clear" has to undo. */
+export function isFiltered(filter: RunFilter): boolean {
+  return (
+    filter.aspects.length > 0 ||
+    filter.difficulties.length > 0 ||
+    filter.minVerticalM > 0 ||
+    filter.query.trim() !== ""
+  );
 }
 
 export type SortKey =

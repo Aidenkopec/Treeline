@@ -17,7 +17,7 @@ export function ElevationProfile({ profile }: { profile: ProfileSample[] }) {
   if (!line) return null;
 
   return (
-    <figure className="mt-4">
+    <figure>
       <svg
         aria-hidden="true"
         className="block h-24 w-full"

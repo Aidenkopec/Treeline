@@ -8,13 +8,14 @@ import {
   FOV,
   lonLatToMesh,
   openingFraming,
+  runExtent,
   runMeshPoints,
   terrainGeometry,
 } from "@/lib/terrain-mesh";
 import { encodeHeightmap } from "@/scripts/bake/emit";
 import type { Grid } from "@/scripts/bake/terrain";
 import { lonLatToMosaicPixel, tileRangeForBounds } from "@/scripts/bake/tiles";
-import type { Resort, RunsFile } from "@/lib/types";
+import type { Resort, Run, RunsFile } from "@/lib/types";
 
 function resort(over: Partial<Resort> = {}): Resort {
   return {
@@ -258,9 +259,12 @@ describe("openingFraming", () => {
 
   it("puts the camera on the elevation-angle ray, looking at the lower third", () => {
     const { distance, position, target } = openingFraming(EXTENT, 2);
-    const [x, y, z] = position;
+    // Measured from the target, not from the origin. Without a focus box the
+    // two sit on the same vertical, but the ray has always been the one the
+    // camera looks along, and a focus box moves the target off centre.
+    const [x, y, z] = [0, 1, 2].map((i) => position[i] - target[i]);
 
-    expect(x).toBe(0);
+    expect(position[0]).toBe(0);
     expect(Math.hypot(x, y, z)).toBeCloseTo(distance, 6);
     expect(Math.asin(y / distance)).toBeCloseTo(ELEVATION_ANGLE, 6);
     expect(z).toBeGreaterThan(0);
@@ -284,5 +288,119 @@ describe("openingFraming", () => {
     const narrow = openingFraming(EXTENT, 0.5).distance;
 
     expect(narrow).toBeGreaterThan(wide);
+  });
+});
+
+describe("runExtent", () => {
+  const box = resort({ elevation_min_m: 0, elevation_max_m: 100 });
+
+  function sampled(lonLatE: [number, number, number][]): Run {
+    return {
+      id: "r",
+      name: null,
+      difficulty: null,
+      vertical_m: 0,
+      length_m: 0,
+      pitch_avg_deg: 0,
+      pitch_max_deg: 0,
+      aspect_deg: 0,
+      aspect_label: "N",
+      profile: lonLatE.map(([lon, lat, e], i) => ({ d: i, e, lon, lat })),
+    };
+  }
+
+  it("has nothing to frame without runs", () => {
+    expect(runExtent([], box)).toBeNull();
+    expect(runExtent([sampled([])], box)).toBeNull();
+  });
+
+  it("spans the extreme samples, through the same projection that draws them", () => {
+    const runs = [
+      sampled([
+        [0.2, 0.8, 10],
+        [0.4, 0.6, 40],
+      ]),
+      sampled([
+        [0.6, 0.4, 20],
+        [0.8, 0.2, 90],
+      ]),
+    ];
+    const extent = runExtent(runs, box)!;
+
+    // Pinned to lonLatToMesh rather than to transcribed numbers, so a second
+    // implementation of the projection cannot hide in here.
+    const [westX, lowY, northZ] = lonLatToMesh(0.2, 0.8, 10, box);
+    const [eastX, highY, southZ] = lonLatToMesh(0.8, 0.2, 90, box);
+
+    expect(extent.width).toBeCloseTo(eastX - westX, 6);
+    expect(extent.depth).toBeCloseTo(southZ - northZ, 6);
+    expect(extent.relief).toBeCloseTo(highY - lowY, 6);
+    expect(extent.centre[0]).toBeCloseTo((westX + eastX) / 2, 6);
+    expect(extent.centre[1]).toBeCloseTo((lowY + highY) / 2, 6);
+    expect(extent.centre[2]).toBeCloseTo((northZ + southZ) / 2, 6);
+  });
+});
+
+describe("openingFraming on the committed Lake Louise runs", () => {
+  const file: RunsFile = JSON.parse(
+    readFileSync(new URL("../public/resorts/lake-louise/runs.json", import.meta.url), "utf8"),
+  );
+  const manifest = JSON.parse(
+    readFileSync(new URL("../public/resorts/manifest.json", import.meta.url), "utf8"),
+  );
+  const lakeLouise: Resort = manifest.resorts.find((r: Resort) => r.slug === "lake-louise");
+  const extent = {
+    groundWidth: (lakeLouise.width - 1) * lakeLouise.metres_per_pixel,
+    groundDepth: (lakeLouise.height - 1) * lakeLouise.metres_per_pixel,
+    relief:
+      (lakeLouise.elevation_max_m - lakeLouise.elevation_min_m) * lakeLouise.vertical_exaggeration,
+  };
+  const focus = runExtent(file.runs, lakeLouise)!;
+  const ASPECT = 1.2;
+
+  it("covers a fraction of the mosaic, which is the reason to frame it separately", () => {
+    expect(focus.width).toBeLessThan(extent.groundWidth * 0.6);
+    expect(focus.depth).toBeLessThan(extent.groundDepth * 0.8);
+    // The pistes sit west of the middle of a mosaic cut to whole tiles.
+    expect(focus.centre[0]).toBeLessThan(0);
+  });
+
+  it("comes closer than framing the whole mosaic does", () => {
+    const whole = openingFraming(extent, ASPECT).distance;
+    const runs = openingFraming(extent, ASPECT, focus).distance;
+
+    expect(runs).toBeLessThan(whole * 0.6);
+  });
+
+  it("aims at the runs and still holds them in frame", () => {
+    const { distance, position, target } = openingFraming(extent, ASPECT, focus);
+    const half = Math.tan((FOV * Math.PI) / 360);
+    const onScreenHeight =
+      focus.depth * Math.sin(ELEVATION_ANGLE) + focus.relief * Math.cos(ELEVATION_ANGLE);
+
+    expect(target).toEqual(focus.centre);
+    expect(distance * half).toBeGreaterThan(onScreenHeight / 2);
+    expect(distance * half * ASPECT).toBeGreaterThan(focus.width / 2);
+
+    const [x, y, z] = [0, 1, 2].map((i) => position[i] - target[i]);
+    expect(Math.hypot(x, y, z)).toBeCloseTo(distance, 6);
+    expect(Math.asin(y / distance)).toBeCloseTo(ELEVATION_ANGLE, 6);
+    expect(z).toBeGreaterThan(0);
+  });
+
+  it("keeps the camera over the terrain it is looking at", () => {
+    const { position, target } = openingFraming(extent, ASPECT, focus);
+    const halfWidth = (lakeLouise.width / 2) * lakeLouise.metres_per_pixel;
+    const halfDepth = (lakeLouise.height / 2) * lakeLouise.metres_per_pixel;
+
+    expect(Math.abs(target[0])).toBeLessThan(halfWidth);
+    expect(Math.abs(target[2])).toBeLessThan(halfDepth);
+    expect(position[1]).toBeGreaterThan(extent.relief);
+  });
+
+  it("still backs off further as the viewport narrows", () => {
+    expect(openingFraming(extent, 0.5, focus).distance).toBeGreaterThan(
+      openingFraming(extent, 2, focus).distance,
+    );
   });
 });

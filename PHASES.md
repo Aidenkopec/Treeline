@@ -3,9 +3,10 @@
 Progress tracker for [SPEC.md](./SPEC.md) §11. Each phase ends working, committed and
 deployable, and runs in its own session with its own verification gate.
 
-**Status: phase 3 done. Phase 4 next.** Lake Louise's 168 runs are
-drawn on the terrain coloured by difficulty, with filters, a per-run stats panel, an inline
-SVG elevation profile and the sortable HTML table. 143 tests green.
+**Status: phase 3 done, then revised. Phase 4 next.** Lake Louise's 168 runs are
+drawn on the terrain coloured by difficulty, with search, filters, a per-run stats panel, an
+inline SVG elevation profile and the sortable HTML table, laid out as a map beside a list.
+159 tests green.
 
 > **Next action:** phase 4 — `/api/conditions/[slug]` proxying Open-Meteo with cache
 > headers, every field nullable, tested against recorded fixtures including an API-down
@@ -218,6 +219,122 @@ E.R. 3 on top, which is the right answer for this mountain.
 
 **Known, accepted:** a run line is a small target at the opening camera distance — it is
 easier to pick a run from the table, which is the accessible path anyway.
+
+### Revised after a look at the built page
+
+Phase 3's gate was about whether the numbers were right, and they were. Sat in front of it,
+four things about it were not:
+
+- **The filter card floated over the canvas** and covered the west face, which is where this
+  mountain keeps most of its runs.
+- **Selecting a run changed nothing you could see.** Selection was carried by line width
+  alone, 2px to 4px. 105 of 168 runs are the same near-white; two pixels among them is not a
+  signal. Zooming into a screenshot of a selected run, there was no way to tell which it was.
+- **The map and the table never coexisted.** The map was 707px, the page 7070px, so a run
+  picked six screens down was on a mountain that had long since scrolled away.
+- **The camera framed the DEM mosaic rather than the runs.** The mosaic is cut to whole tiles:
+  measured off the committed artifacts it is 9136m x 6086m, while the runs cover 4428m x
+  4523m — 36% of it, sitting 490m west of centre. Half the canvas was ground with nothing
+  drawn on it.
+
+**Done**
+
+- [x] `lib/terrain-mesh.ts` — `FocusExtent` / `runExtent`, and `openingFraming` takes an
+      optional box to fit. Framed on the runs the camera comes in to under 60% of the mosaic
+      distance, roughly doubling how big they read
+- [x] `components/run-overlay.tsx` — a run that is not being looked at drops its casing and
+      mixes towards the ground colour; the one that is draws after every other, at 5px
+- [x] `components/run-explorer.tsx` — two panes at `xl:`, the map beside the list, stacking
+      into the old single-column flow below it
+- [x] `lib/run-list.ts` — `query` on `RunFilter` and `isFiltered`, both pure and tested
+- [x] `components/run-filters.tsx` — search box, the chips and slider as a block beside the
+      map rather than a card on top of it, and a live "N of 168 shown" with a clear button
+- [x] `components/run-table.tsx` — every header carries a sort glyph, not just the sorted one
+- [x] `hoveredId` alongside `selectedId`: hovering a row lights its run, and the run its row
+
+**Decisions worth recording**
+
+- **A run recedes by colour, not by opacity.** `Line2` draws a polyline as one quad per
+  segment and consecutive quads overlap at the joins, so a blended line composites twice at
+  every join and beads along its length — the same artefact phase 3 fixed, arriving by
+  another route. Mixing towards `--color-shadow-deep` keeps every line opaque. Tried it the
+  other way first and the beading was plain in a screenshot.
+- **No line writes depth any more.** The terrain already has, so a run still hides behind a
+  ridge, and `depthTest` stays on — drawing the picked run through the mountain would put it
+  somewhere it is not. What this avoids is one run's depth rejecting another's where they
+  cross, which became a real risk once the picked run started drawing last.
+- **What recedes is decided by what the reader pointed at, and by nothing else.** Fading runs
+  by pitch would be a steepness ramp with extra steps (SPEC §8).
+- **Search is an addition beyond SPEC §4's filter list**, agreed in session. It is a fourth
+  field on `RunFilter`, so it is one tested predicate rather than a second concept beside the
+  filter, and it stays in React state like the others — not in the URL, which would also mean
+  the hash is no longer just `#run=`.
+- **The camera does not move when a run is selected.** SPEC §4 makes it cinematic until
+  grabbed, and phase 5's first-person run camera is the designed "take me there". Auto-rotate
+  now stops once a run is picked or the list is narrowed, which in a two-pane layout is the
+  difference between cinematic and a fidget.
+- **`maxDistance` is still measured against the whole mountain**, not the closer framing, or
+  the pull-back would stop short of the massif.
+- **The table keeps every filtered row in the prerendered HTML.** The list pane scrolls with
+  CSS, nothing is windowed, and nothing moved to `useSearchParams` (SPEC §9). Checked on the
+  build: 169 `<tr>`, 76.7 KB gzipped against phase 3's 75 KB.
+- **`min-w-3xl` on the table was an asserted minimum, not a real one.** Its true min-content
+  is 529px; left as it was the table scrolled sideways inside the list pane for no reason.
+
+**Verified:** 159 tests green, format/lint/typecheck/build clean, console clean apart from
+the `THREE.Clock` deprecation phase 2 already recorded. In the browser: a selected run reads
+instantly among the other 167 and survives being zoomed into a screenshot; hovering a row
+lights its line and hovering a line lights its row; `ptarmigan` narrows to 7 of 168, which is
+what the test asserts; filtering to Expert leaves 27 in both views, removed rather than
+receded; a cold reload of `#run=883614835` restored Headwall at 22°, 23°, SW 207°, 252m,
+673m, profile 2583m→2331m, matching `runs.json`. Checked at 1710, 1280 and phone widths.
+
+### Revised again, for the map
+
+Sat in front of the two panes, the map was still sharing the page rather than leading it:
+two scrollbars down the middle, a stats card parked across the terrain, and 270px of filter
+controls standing between the reader and the run list.
+
+**Done**
+
+- [x] **One scroll region.** The map pane is `sticky top-0 h-svh` and the list scrolls past
+      it in the document's own scroll. The inner scroller is gone, and with it the second
+      scrollbar and the width it was taking off the table.
+- [x] **Nothing on the terrain but the header.** `run-panel.tsx` moved to the head of the
+      list, laid out across rather than down, with the profile boxed beside the numbers
+      instead of stretched over the full pane.
+- [x] **Filters fold away.** Search stays out; grade, aspect and vertical sit behind a
+      disclosure that carries a count of how many are set. Chrome above the list drops from
+      about 270px to about 130px.
+- [x] **The list collapses.** A control in the map's corner folds the whole pane away and
+      gives the terrain the full window.
+- [x] Long run names clip rather than wrap, so 168 rows stay one height to scan.
+
+**Decisions worth recording**
+
+- **Collapsing hides the list, it never unmounts it.** Without WebGL the table is the site,
+  so the rows stay in the document and the pane opens by default — which is what the
+  prerendered HTML carries and what a visit without JavaScript gets (SPEC §9).
+- **Folded away, the reopen control carries the selected run's name.** A run picked on the
+  terrain has nowhere else to report itself once the panel is shut.
+- **Collapsing does not reframe the camera.** `openingFraming` is still frozen at first
+  render (the phase-2 hardening): a wider pane widens the frustum and shows more mountain,
+  rather than yanking a camera the viewer may have already moved.
+- **The column headers are no longer sticky.** The block above them changes height with the
+  selection, so pinning them under it would mean a magic offset that is wrong half the time.
+  The five figures are labelled in the panel directly above.
+- **`max-w-0` alone clipped the name column to 47px** — the auto table layout handed the
+  slack to the other six columns. It needs `w-full` beside it to take the slack back.
+
+**Verified:** 159 tests green, format/lint/typecheck/build clean. In the browser: one
+scrollbar and no inner scrollers at all; the map holds while 168 rows scroll past it;
+collapsing gives the canvas the full width within about 120ms and all 168 rows stay in the
+DOM while it is shut; reopening restores Headwall at 22°, 23°, SW 207°, 252m, 673m, matching
+`runs.json`. Build carries 169 `<tr>`, 76.6 KB gzipped.
+
+**Known, accepted:** at 1300 the list pane is at its narrowest and 16 of the longest run
+names clip. Widening it further would come out of the map, and the pane now folds away
+entirely when the map is what matters.
 
 ## Phase 4 — Conditions route handler ⬜
 

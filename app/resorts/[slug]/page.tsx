@@ -51,7 +51,7 @@ export default async function ResortPage(props: PageProps<"/resorts/[slug]">) {
             clickable, so a drag anywhere else still turns the mountain. Server
             rendered and passed through, so the facts stay in the document. */}
         <header className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-shadow-deep via-shadow-deep/75 to-transparent">
-          <div className="mx-auto max-w-5xl px-6 pt-8 pb-28">
+          <div className="px-6 pt-8 pb-24">
             <Link className="u-data pointer-events-auto transition-colors hover:text-snow" href="/">
               ← Treeline
             </Link>

@@ -6,7 +6,7 @@ import { Suspense, use, useLayoutEffect, useMemo, useState } from "react";
 import * as THREE from "three";
 import { RunOverlay, type RunOverlayState } from "@/components/run-overlay";
 import { decodeHeightmap } from "@/lib/elevation";
-import { FOV, openingFraming, terrainGeometry } from "@/lib/terrain-mesh";
+import { FOV, openingFraming, runExtent, terrainGeometry } from "@/lib/terrain-mesh";
 import type { Resort } from "@/lib/types";
 
 /**
@@ -186,7 +186,22 @@ function Massif({
   // so this aspect is the real one — and keeping it still is what stops a resize
   // recomputing the orbit clamps and dragging the camera back off wherever the
   // viewer had got to.
-  const [opening] = useState(() => openingFraming(extent, size.width / size.height));
+  //
+  // Framed on the runs, not on the mosaic. The mosaic is cut to whole tiles and
+  // reaches well past the pistes, so fitting it spends most of the canvas on
+  // ground with nothing drawn on it. `overlay.runs` is the unfiltered list: the
+  // opening is frozen, and freezing a filtered framing would bake in whatever
+  // filter happened to be set at mount.
+  const [opening] = useState(() => {
+    const aspect = size.width / size.height;
+    // Zooming out is still measured against the whole mountain — tying it to
+    // the closer framing would stop the pull-back short of the massif.
+    const whole = openingFraming(extent, aspect);
+    return {
+      ...openingFraming(extent, aspect, runExtent(overlay.runs, resort)),
+      maxDistance: whole.distance * 2,
+    };
+  });
 
   useLayoutEffect(() => {
     camera.position.set(...opening.position);
@@ -208,12 +223,21 @@ function Massif({
       <RunOverlay resort={resort} state={overlay} />
 
       <OrbitControls
-        // Cinematic until touched, then it is yours (SPEC §4).
-        autoRotate={idle && !reducedMotion}
+        // Cinematic until touched, then it is yours (SPEC §4). Narrowing the
+        // list or picking a run counts as touching it: the mountain now sits
+        // beside the list rather than above it, and one that keeps turning
+        // while a run is being read is a fidget. Every run still standing and
+        // none picked out is the only state nobody has engaged with yet.
+        autoRotate={
+          idle &&
+          !reducedMotion &&
+          overlay.selectedId === null &&
+          overlay.visibleIds.size === overlay.runs.length
+        }
         autoRotateSpeed={0.3}
         enableDamping
         makeDefault
-        maxDistance={opening.distance * 2}
+        maxDistance={opening.maxDistance}
         maxPolarAngle={1.45}
         minDistance={opening.distance * 0.12}
         onStart={() => setIdle(false)}

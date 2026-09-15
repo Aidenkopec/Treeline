@@ -1,4 +1,4 @@
-import type { ProfileSample, Resort } from "./types";
+import type { ProfileSample, Resort, Run } from "./types";
 
 /**
  * The heightmap as a mesh, in metres.
@@ -146,6 +146,58 @@ export const ELEVATION_ANGLE = (28 * Math.PI) / 180;
 
 export type TerrainExtent = Pick<TerrainGeometry, "groundWidth" | "groundDepth" | "relief">;
 
+/** A box in mesh metres for the camera to fit, and where its middle is. */
+export interface FocusExtent {
+  centre: readonly [number, number, number];
+  /** East-west span, metres. */
+  width: number;
+  /** North-south span, metres. */
+  depth: number;
+  /** Top of the box above its bottom, metres, after exaggeration. */
+  relief: number;
+}
+
+/**
+ * The box the marked runs occupy, or null when there are none to frame.
+ *
+ * The mosaic is cut to whole tiles and runs a long way past the pistes — at Lake
+ * Louise the runs cover about a third of it, sitting west of its middle — so
+ * framing the mosaic spends most of the canvas on ground with nothing drawn on
+ * it. Built through `lonLatToMesh` so the box is where the lines actually land.
+ *
+ * This measures the drawing, not the mountain: no run statistic is computed here
+ * or anywhere else in the app (SPEC §5).
+ */
+export function runExtent(runs: Run[], resort: Resort): FocusExtent | null {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+
+  for (const run of runs) {
+    for (const { lon, lat, e } of run.profile) {
+      const [x, y, z] = lonLatToMesh(lon, lat, e, resort);
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
+      minZ = Math.min(minZ, z);
+      maxZ = Math.max(maxZ, z);
+    }
+  }
+
+  if (minX === Infinity) return null;
+
+  return {
+    centre: [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2],
+    width: maxX - minX,
+    depth: maxZ - minZ,
+    relief: maxY - minY,
+  };
+}
+
 export interface OpeningFraming {
   /** Camera distance from the target, metres. Also sets the orbit clamps. */
   distance: number;
@@ -160,20 +212,38 @@ export interface OpeningFraming {
  * foreshortens and its relief stands up, so fitting a bounding sphere instead
  * would back the camera off to roughly twice the distance it needs.
  *
- * `aspect` is width / height of the canvas. The caller is expected to freeze the
- * result at first render — recomputing it on resize moves the orbit clamps out
- * from under a viewer who has already zoomed.
+ * `aspect` is width / height of the canvas. `focus` is the box to fit; without
+ * one the whole mosaic is framed, aimed low so the massif sits in the frame
+ * rather than the sky above it. The caller is expected to freeze the result at
+ * first render — recomputing it on resize moves the orbit clamps out from under
+ * a viewer who has already zoomed.
  */
-export function openingFraming(extent: TerrainExtent, aspect: number): OpeningFraming {
-  const { groundWidth, groundDepth, relief } = extent;
+export function openingFraming(
+  extent: TerrainExtent,
+  aspect: number,
+  focus: FocusExtent | null = null,
+): OpeningFraming {
+  const box: FocusExtent = focus ?? {
+    centre: [0, extent.relief * 0.35, 0],
+    width: extent.groundWidth,
+    depth: extent.groundDepth,
+    relief: extent.relief,
+  };
+
   const half = Math.tan((FOV * Math.PI) / 360);
   const onScreenHeight =
-    groundDepth * Math.sin(ELEVATION_ANGLE) + relief * Math.cos(ELEVATION_ANGLE);
-  const distance = 1.3 * Math.max(onScreenHeight / (2 * half), groundWidth / (2 * half * aspect));
+    box.depth * Math.sin(ELEVATION_ANGLE) + box.relief * Math.cos(ELEVATION_ANGLE);
+  const distance = 1.3 * Math.max(onScreenHeight / (2 * half), box.width / (2 * half * aspect));
 
   return {
     distance,
-    position: [0, distance * Math.sin(ELEVATION_ANGLE), distance * Math.cos(ELEVATION_ANGLE)],
-    target: [0, relief * 0.35, 0],
+    // Offset from the target, not from the origin: a box that is not centred on
+    // the mosaic has to be looked at from beside itself, not from beside 0,0.
+    position: [
+      box.centre[0],
+      box.centre[1] + distance * Math.sin(ELEVATION_ANGLE),
+      box.centre[2] + distance * Math.cos(ELEVATION_ANGLE),
+    ],
+    target: box.centre,
   };
 }

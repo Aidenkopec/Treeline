@@ -15,7 +15,8 @@ import type { Resort } from "@/lib/types";
  */
 const TerrainScene = dynamic(() => import("./terrain-scene"), { ssr: false });
 
-const FRAME = "h-[76svh] min-h-105 w-full";
+/** The viewer fills the box it is given; the page decides how tall that is. */
+const FRAME = "h-full w-full";
 
 let supported: boolean | undefined;
 

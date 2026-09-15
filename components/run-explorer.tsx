@@ -11,6 +11,7 @@ import {
   type SortDirection,
   type SortKey,
   filterRuns,
+  runCells,
   sortRuns,
 } from "@/lib/run-list";
 import type { Resort, Run } from "@/lib/types";
@@ -67,6 +68,10 @@ export function RunExplorer({
   const [filter, setFilter] = useState<RunFilter>(NO_FILTER);
   const [sortKey, setSortKey] = useState<SortKey>("vertical_m");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [hovered, setHovered] = useState<string | null>(null);
+  // Starts open, so the list is in the prerendered HTML and is what a visit
+  // without JavaScript gets (SPEC §9). Collapsing only ever hides it.
+  const [listOpen, setListOpen] = useState(true);
   const hash = useSyncExternalStore(
     subscribeToHash,
     () => window.location.hash,
@@ -87,6 +92,9 @@ export function RunExplorer({
     selectedId !== null && visibleIds.has(selectedId)
       ? (runs.find((run) => run.id === selectedId) ?? null)
       : null;
+  // Read through the filter for the same reason `selected` is: a run the filter
+  // has just hidden must not still be lit on a mountain it is no longer on.
+  const hoveredId = hovered !== null && visibleIds.has(hovered) ? hovered : null;
   const maxVerticalM = useMemo(() => Math.max(50, ...runs.map((run) => run.vertical_m)), [runs]);
 
   function sortBy(key: SortKey) {
@@ -99,44 +107,82 @@ export function RunExplorer({
   }
 
   return (
-    <>
-      <section className="relative border-b border-line bg-shadow">
-        <TerrainViewer
-          overlay={{ runs, visibleIds, selectedId: selected?.id ?? null, onSelect: selectRun }}
-          resort={resort}
-        />
+    // The map holds still and the list scrolls past it. A pane with its own
+    // scroller put a second scrollbar down the middle of the page and cost the
+    // table the width of it; sticky spends one scrollbar on the whole page and
+    // leaves the footer where it has always been, at the end.
+    <div
+      className={`xl:grid xl:items-start ${
+        listOpen
+          ? "xl:grid-cols-[minmax(0,1fr)_40rem] 2xl:grid-cols-[minmax(0,1fr)_44rem]"
+          : "xl:grid-cols-[minmax(0,1fr)]"
+      }`}
+    >
+      <section className="relative border-b border-line bg-shadow xl:sticky xl:top-0 xl:h-svh xl:border-r xl:border-b-0">
+        <div className="h-[70svh] min-h-105 xl:h-full">
+          <TerrainViewer
+            overlay={{
+              runs,
+              visibleIds,
+              selectedId: selected?.id ?? null,
+              hoveredId,
+              onSelect: selectRun,
+              onHover: setHovered,
+            }}
+            resort={resort}
+          />
+        </div>
+        {/* The header is all that is left over the terrain, and it sits on the
+            sky rather than on the mountain. */}
         {children}
 
-        {/* Over the terrain on a wide screen, below it on a narrow one — the
-            same markup either way, so neither view has a second copy of the
-            filter controls to keep in step. */}
-        <div className="pointer-events-none relative md:absolute md:inset-0">
-          <div className="mx-auto flex h-full max-w-5xl flex-col gap-4 px-6 pb-8 md:flex-row md:items-stretch md:justify-between md:pt-52">
-            <div className="pointer-events-auto md:self-start">
-              <RunFilters maxVerticalM={maxVerticalM} onChange={setFilter} value={filter} />
-            </div>
-            <div className="pointer-events-auto md:self-end">
-              <RunPanel run={selected} />
-            </div>
-          </div>
+        {/* Folded away, the list still has to say what the mountain is showing:
+            a run picked on the terrain has nowhere else to report itself. */}
+        <div className="pointer-events-none absolute top-0 right-0 hidden p-5 xl:block">
+          <button
+            aria-controls="run-list"
+            aria-expanded={listOpen}
+            className="u-data pointer-events-auto flex max-w-64 cursor-pointer items-center gap-2 rounded border border-line bg-surface/90 px-3 py-2 text-rock shadow-panel backdrop-blur-sm transition-colors hover:border-rock-dim hover:text-snow"
+            onClick={() => setListOpen(!listOpen)}
+            type="button"
+          >
+            <span aria-hidden="true">{listOpen ? "→" : "←"}</span>
+            <span className="truncate">
+              {listOpen ? "Hide runs" : (selected && runCells(selected).name) || "Show runs"}
+            </span>
+          </button>
         </div>
       </section>
 
-      <section className="mx-auto max-w-5xl px-6 py-12">
-        <h2 className="u-data">
-          {runs.length} marked runs
-          {visible.length !== runs.length && ` · ${visible.length} shown`}
-        </h2>
+      {/* Hidden, never unmounted: without WebGL this table is the site, and the
+          rows have to stay in the document for it to be (SPEC §9). */}
+      <section className={listOpen ? undefined : "hidden"} id="run-list">
+        {/* Stays put while the list moves under it, so the search box and the
+            run being read are both still there 160 rows down. */}
+        <div className="border-b border-line bg-shadow px-5 py-4 xl:sticky xl:top-0 xl:z-20">
+          <RunFilters
+            maxVerticalM={maxVerticalM}
+            onChange={setFilter}
+            shown={visible.length}
+            total={runs.length}
+            value={filter}
+          />
+          <RunPanel onClear={() => selectRun(null)} run={selected} />
+        </div>
 
-        <RunTable
-          onSelect={(id) => selectRun(id === selected?.id ? null : id)}
-          onSort={sortBy}
-          runs={visible}
-          selectedId={selected?.id ?? null}
-          sortDirection={sortDirection}
-          sortKey={sortKey}
-        />
+        <div className="px-5 pb-10">
+          <RunTable
+            hoveredId={hoveredId}
+            onHover={setHovered}
+            onSelect={(id) => selectRun(id === selected?.id ? null : id)}
+            onSort={sortBy}
+            runs={visible}
+            selectedId={selected?.id ?? null}
+            sortDirection={sortDirection}
+            sortKey={sortKey}
+          />
+        </div>
       </section>
-    </>
+    </div>
   );
 }

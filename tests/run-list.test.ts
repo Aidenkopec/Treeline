@@ -5,6 +5,7 @@ import {
   NO_FILTER,
   UNNAMED_RUN,
   filterRuns,
+  isFiltered,
   matchesFilter,
   runCells,
   sortRuns,
@@ -55,13 +56,58 @@ describe("matchesFilter", () => {
   });
 
   it("requires every criterion at once", () => {
-    const filter: RunFilter = { aspects: ["E"], difficulties: ["expert"], minVerticalM: 100 };
+    const filter: RunFilter = {
+      aspects: ["E"],
+      difficulties: ["expert"],
+      minVerticalM: 100,
+      query: "",
+    };
     expect(matchesFilter(run({ aspect_label: "E", difficulty: "expert" }), filter)).toBe(true);
     expect(matchesFilter(run({ aspect_label: "E", difficulty: "easy" }), filter)).toBe(false);
     expect(matchesFilter(run({ aspect_label: "N", difficulty: "expert" }), filter)).toBe(false);
     expect(
       matchesFilter(run({ aspect_label: "E", difficulty: "expert", vertical_m: 50 }), filter),
     ).toBe(false);
+  });
+
+  it("treats a blank query as no constraint, whitespace included", () => {
+    expect(matchesFilter(run({ name: "Larch" }), { ...NO_FILTER, query: "" })).toBe(true);
+    expect(matchesFilter(run({ name: "Larch" }), { ...NO_FILTER, query: "   " })).toBe(true);
+  });
+
+  it("matches part of a name, in any case", () => {
+    const larch = run({ name: "Upper Larch" });
+    expect(matchesFilter(larch, { ...NO_FILTER, query: "larch" })).toBe(true);
+    expect(matchesFilter(larch, { ...NO_FILTER, query: "LARCH" })).toBe(true);
+    expect(matchesFilter(larch, { ...NO_FILTER, query: "per lar" })).toBe(true);
+    expect(matchesFilter(larch, { ...NO_FILTER, query: "birch" })).toBe(false);
+  });
+
+  it("reaches an accented name from a plain keyboard, and the other way round", () => {
+    expect(matchesFilter(run({ name: "Annupuri" }), { ...NO_FILTER, query: "annupuri" })).toBe(
+      true,
+    );
+    expect(matchesFilter(run({ name: "Ānnupuri" }), { ...NO_FILTER, query: "annupuri" })).toBe(
+      true,
+    );
+    expect(matchesFilter(run({ name: "Annupuri" }), { ...NO_FILTER, query: "ānnupuri" })).toBe(
+      true,
+    );
+  });
+
+  it("searches an unnamed way by the name the table prints for it", () => {
+    const anonymous = run({ name: null });
+    expect(matchesFilter(anonymous, { ...NO_FILTER, query: "unnamed" })).toBe(true);
+    expect(matchesFilter(anonymous, { ...NO_FILTER, query: "larch" })).toBe(false);
+  });
+
+  it("applies the query alongside the other criteria, not instead of them", () => {
+    const filter: RunFilter = { ...NO_FILTER, difficulties: ["expert"], query: "gully" };
+    expect(matchesFilter(run({ name: "Whitehorn Gully", difficulty: "expert" }), filter)).toBe(
+      true,
+    );
+    expect(matchesFilter(run({ name: "Whitehorn Gully", difficulty: "easy" }), filter)).toBe(false);
+    expect(matchesFilter(run({ name: "Meadowlark", difficulty: "expert" }), filter)).toBe(false);
   });
 });
 
@@ -70,6 +116,23 @@ describe("filterRuns", () => {
     const runs = [run({ id: "a", vertical_m: 10 }), run({ id: "b", vertical_m: 300 })];
     expect(filterRuns(runs, { ...NO_FILTER, minVerticalM: 100 })).toHaveLength(1);
     expect(runs).toHaveLength(2);
+  });
+});
+
+describe("isFiltered", () => {
+  it("is false when nothing is constrained", () => {
+    expect(isFiltered(NO_FILTER)).toBe(false);
+  });
+
+  it("is true for any one criterion on its own", () => {
+    expect(isFiltered({ ...NO_FILTER, aspects: ["N"] })).toBe(true);
+    expect(isFiltered({ ...NO_FILTER, difficulties: [null] })).toBe(true);
+    expect(isFiltered({ ...NO_FILTER, minVerticalM: 1 })).toBe(true);
+    expect(isFiltered({ ...NO_FILTER, query: "a" })).toBe(true);
+  });
+
+  it("reads a whitespace query as no constraint, the way matchesFilter does", () => {
+    expect(isFiltered({ ...NO_FILTER, query: "   " })).toBe(false);
   });
 });
 
@@ -177,5 +240,13 @@ describe("runCells against the committed Lake Louise artifact", () => {
     for (const r of file.runs) {
       expect(runCells(r).aspect.startsWith(aspectLabel(r.aspect_deg))).toBe(true);
     }
+  });
+
+  it("narrows the real list by name", () => {
+    expect(filterRuns(file.runs, { ...NO_FILTER, query: "ptarmigan" })).toHaveLength(7);
+    expect(filterRuns(file.runs, { ...NO_FILTER, query: "GULLY" })).toHaveLength(15);
+    // The seven ways with no name, found by the string the table shows for them.
+    expect(filterRuns(file.runs, { ...NO_FILTER, query: "unnamed" })).toHaveLength(7);
+    expect(filterRuns(file.runs, { ...NO_FILTER, query: "no run is called this" })).toHaveLength(0);
   });
 });
