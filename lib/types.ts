@@ -82,6 +82,13 @@ export interface Resort {
   width: number;
   height: number;
   /**
+   * Ground size of one heightmap pixel, metres. Web Mercator, so this is exact
+   * at the resort's latitude and stretches by under half a percent across the
+   * box. The app scales the terrain mesh by it — without it there is no way to
+   * put the heightmap in real space, and `vertical_exaggeration` means nothing.
+   */
+  metres_per_pixel: number;
+  /**
    * Vertical exaggeration applied when displacing the terrain plane.
    * Tuned by eye per resort — SPEC §13 calls flat-looking terrain a real risk.
    */

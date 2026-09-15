@@ -37,7 +37,8 @@ import {
   unionBounds,
 } from "./bake/overpass";
 import { deriveRun, summariseCoverage } from "./bake/runs";
-import { decodeHeightmap, terrariumTileUrl } from "./bake/terrarium";
+import { decodeHeightmap } from "@/lib/elevation";
+import { terrariumTileUrl } from "./bake/terrarium";
 import {
   metresPerPixel,
   mosaicBounds,
@@ -123,6 +124,7 @@ async function bakeResort(resort: ResortInput): Promise<void> {
     lat: resort.lat,
     lon: resort.lon,
     ...heightmap,
+    metres_per_pixel: grid.cellSize,
     vertical_exaggeration: resort.vertical_exaggeration,
     baked_at,
   };
