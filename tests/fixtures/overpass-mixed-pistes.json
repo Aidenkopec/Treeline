@@ -1,0 +1,47 @@
+{
+  "$comment": "Deliberately mixed. SPEC §11 phase 1 requires the downhill-only filter to be asserted against a fixture containing backcountry ways, because the filter is a safety rule (§8) and a test that only ever sees valid input cannot prove it holds.",
+  "elements": [
+    {
+      "type": "way",
+      "id": 1001,
+      "tags": { "piste:type": "downhill", "piste:difficulty": "advanced", "name": "Whitehorn Glades" },
+      "geometry": [{ "lat": 51.44, "lon": -116.16 }, { "lat": 51.442, "lon": -116.158 }]
+    },
+    {
+      "type": "way",
+      "id": 1002,
+      "tags": { "piste:type": "downhill", "name": "Wiwaxy" },
+      "geometry": [{ "lat": 51.43, "lon": -116.17 }, { "lat": 51.432, "lon": -116.168 }]
+    },
+    {
+      "type": "way",
+      "id": 2001,
+      "tags": { "piste:type": "backcountry", "name": "Unpatrolled bowl" },
+      "geometry": [{ "lat": 51.45, "lon": -116.19 }, { "lat": 51.452, "lon": -116.188 }]
+    },
+    {
+      "type": "way",
+      "id": 2002,
+      "tags": { "piste:type": "skitour", "name": "Skin track" },
+      "geometry": [{ "lat": 51.46, "lon": -116.2 }, { "lat": 51.462, "lon": -116.198 }]
+    },
+    {
+      "type": "way",
+      "id": 2003,
+      "tags": { "piste:type": "nordic", "name": "Valley loop" },
+      "geometry": [{ "lat": 51.41, "lon": -116.21 }, { "lat": 51.412, "lon": -116.208 }]
+    },
+    {
+      "type": "way",
+      "id": 2004,
+      "tags": { "piste:type": "downhill", "piste:type:skitour": "yes", "name": "Dual-tagged access" },
+      "geometry": [{ "lat": 51.47, "lon": -116.22 }, { "lat": 51.472, "lon": -116.218 }]
+    },
+    {
+      "type": "way",
+      "id": 3001,
+      "tags": { "piste:type": "downhill", "piste:difficulty": "freeride", "name": "Odd grade" },
+      "geometry": [{ "lat": 51.48, "lon": -116.23 }, { "lat": 51.482, "lon": -116.228 }]
+    }
+  ]
+}
