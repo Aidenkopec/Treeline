@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Component, type ReactNode, useSyncExternalStore } from "react";
+import type { RunOverlayState } from "@/components/run-overlay";
 import type { Resort } from "@/lib/types";
 
 /**
@@ -71,7 +72,7 @@ class SceneBoundary extends Component<{ children: ReactNode }, { failed: boolean
   }
 }
 
-export function TerrainViewer({ resort }: { resort: Resort }) {
+export function TerrainViewer({ overlay, resort }: { overlay: RunOverlayState; resort: Resort }) {
   // Read on the client only: the server has no canvas to ask, and answering
   // either way during the server render would be a hydration mismatch.
   const webgl = useSyncExternalStore(noop, hasWebGL, () => null);
@@ -92,7 +93,7 @@ export function TerrainViewer({ resort }: { resort: Resort }) {
   return (
     <div aria-hidden="true" className={FRAME}>
       <SceneBoundary>
-        <TerrainScene resort={resort} />
+        <TerrainScene overlay={overlay} resort={resort} />
       </SceneBoundary>
     </div>
   );

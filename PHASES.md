@@ -3,14 +3,14 @@
 Progress tracker for [SPEC.md](./SPEC.md) §11. Each phase ends working, committed and
 deployable, and runs in its own session with its own verification gate.
 
-**Status: phase 2 done. Phase 3 next.** Lake Louise renders in 3D at
-`/resorts/lake-louise` — heightmap displaced to real metres, satellite draped, orbit
-camera. 110 tests green.
+**Status: phase 3 done. Phase 4 next.** Lake Louise's 168 runs are
+drawn on the terrain coloured by difficulty, with filters, a per-run stats panel, an inline
+SVG elevation profile and the sortable HTML table. 143 tests green.
 
-> **Next action:** phase 3 — draw the 168 runs on the surface, coloured by difficulty,
-> with the stats panel, filters, elevation profile and the sortable HTML table. The mesh
-> puts lon/lat on the terrain through `lib/terrain-mesh.ts`, which is where the projection
-> from a run polyline to a surface point attaches.
+> **Next action:** phase 4 — `/api/conditions/[slug]` proxying Open-Meteo with cache
+> headers, every field nullable, tested against recorded fixtures including an API-down
+> case. `lib/types.ts` already carries the `Conditions` shape and
+> `app/api/conditions/[slug]/route.ts` is a skeleton from phase 0.
 
 ---
 
@@ -142,13 +142,82 @@ one `THREE.Clock is deprecated` warning from its own internals.
   orbit clamps and drags a zoomed-out camera back in (`openingFraming`, 4 tests)
 - A missing or malformed `runs.json` reads as `—`, not as the fact "0 marked runs"
 
-## Phase 3 — Run overlay, stats panel, filters, elevation profile ⬜
+## Phase 3 — Run overlay, stats panel, filters, elevation profile ✅ done
 
-Runs drawn on the surface coloured by difficulty. Per-run stats panel. Filters by aspect,
-difficulty and minimum vertical. Inline SVG elevation profile — no chart library.
-The sortable HTML table (SPEC §9) belongs here too: filters operate on both views.
+**Gate (SPEC §11):**
 
-**Gate:** stats in UI match `runs.json`; filter unit tests; profile renders from a fixture.
+- [x] Stats in UI match `runs.json` — `runCells` asserted against the committed artifact
+      rather than checked by eye (`tests/run-list.test.ts`)
+- [x] Filter unit tests — boundaries, `[]` meaning "all", `[null]` meaning untagged
+- [x] Profile renders from a fixture — a descent with corners known by construction,
+      plus the degenerate cases (`tests/profile-path.test.ts`)
+
+### Done
+
+- [x] `lib/terrain-mesh.ts` — `lonLatToMesh` / `runMeshPoints`, the projection the phase-2
+      UV comment was written anticipating. Longitude is linear in Mercator and latitude is
+      not, so it goes through `mercatorY`; `bounds` sits on pixel _edges_ while vertices sit
+      at pixel _centres_, and that half-pixel cancels against the recentre
+- [x] `lib/run-list.ts` — filter, sort and the table's cells, pure and tested in node
+- [x] `lib/profile-path.ts` — the profile as SVG path data, straight segments between
+      samples because the corners are the data
+- [x] `components/run-overlay.tsx` — one drei `<Line>` per run inside the R3F scene
+- [x] `components/run-explorer.tsx` — one filter and one selection driving both views
+- [x] `components/run-filters.tsx`, `run-panel.tsx`, `elevation-profile.tsx`, `run-table.tsx`
+- [x] Selected run in `#run=<id>`, shareable, read through `useSyncExternalStore`
+
+**No bake change and no re-bake:** every field phase 3 needed was already in `runs.json`,
+including the full 25m resampled profile.
+
+### Decisions worth recording
+
+- **Advanced and expert are near-white** (`--color-diff-advanced` / `-expert`), which is
+  right on a dark panel and invisible drawn over snow — and 105 of 168 runs are one of the
+  two. Each run is drawn twice, a dark casing under a coloured core, the way a map keeps a
+  road legible over any background. No palette change, no steepness ramp (SPEC §8).
+- **The selected run is in the URL hash, not in `searchParams`.** `useSearchParams` would
+  de-opt the route to client-side rendering up to the nearest Suspense boundary and take the
+  table out of the prerendered HTML, undoing phase 2's no-JS guarantee. Verified: the built
+  `lake-louise.html` carries all 168 rows, 75 KB gzipped, 1.78 MB of the 5 MB budget.
+- **Filters stay in React state**, so they are deliberately not shareable.
+- **The phase-1 question about same-named ways was reviewed with the list on screen and
+  left as it is.** 168 OSM ways, one row each: 7 unnamed render as "Unnamed run", and the
+  16 that share a name are told apart by their own numbers. Merging them into one run per
+  named trail is bake math — stitching ways and recomputing pitch across the joins — and
+  belongs in its own change, not in a UI phase.
+- **Pitch prints whole degrees.** `runs.json` stores 7.3 and `lib/format.ts` rounds it, on
+  the standing judgement that a 30m DEM does not support the decimal. So "stats match
+  `runs.json`" means after that rounding, which is what the test asserts.
+
+**Verified:** 143 tests green, format/lint/typecheck/build clean, console clean apart from
+the `THREE.Clock` deprecation phase 2 already recorded. Checked in the browser: runs sit on
+the landform and follow the trails visible in the imagery; white advanced/expert runs read
+clearly against snow; filtering to Expert left 27 runs in both the table and the scene;
+clicking a line on the mountain selected Headwall, and every figure in the panel matched its
+row in `runs.json` (22°, 23°, SW 207°, 252m, 673m, profile 2583m→2331m); a cold reload of
+`#run=883614835` restored that selection; sorting by average pitch put the Gullies and
+E.R. 3 on top, which is the right answer for this mountain.
+
+**Found and fixed during that pass** — none of these were things a test would have caught:
+
+- The coloured cores beaded along their length: a wide casing and a narrow core on identical
+  geometry z-fight, and the casing won in patches. The casing now draws first and writes no
+  depth, so the core always lands on top while both still hide behind a ridge.
+- The profile's axis labels were reversed. The profile descends left to right, so the left
+  end is the top of the run; it was printing the bottom there. It also reprinted the length,
+  which rounds a metre differently from the baked `length_m` — that is gone, since the panel
+  prints length directly above the chart.
+- A selected run stayed in the panel after a filter hid it from both views. `selected` is now
+  read through the filter, so the panel empties while the run is hidden. The hash is left
+  alone deliberately: clearing it would break a shared link the moment a filter was touched,
+  and clearing the filter brings the selection straight back.
+- Click-to-select uses R3F's own `onClick`, which already refuses to fire when the pointer
+  moved more than two pixels, rather than a hand-rolled pointerdown/up comparison. The
+  handler sits on the casing because it is the wider of the two lines and a two-pixel core is
+  a hard thing to hit on a mountain.
+
+**Known, accepted:** a run line is a small target at the opening camera distance — it is
+easier to pick a run from the table, which is the accessible path anyway.
 
 ## Phase 4 — Conditions route handler ⬜
 

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { TerrainViewer } from "@/components/terrain-viewer";
+import { RunExplorer } from "@/components/run-explorer";
 import { metres } from "@/lib/format";
 import { readManifest, readResort, readRuns } from "@/lib/manifest";
 
@@ -46,11 +46,10 @@ export default async function ResortPage(props: PageProps<"/resorts/[slug]">) {
 
   return (
     <main>
-      <section className="relative border-b border-line bg-shadow">
-        <TerrainViewer resort={resort} />
-
+      <RunExplorer resort={resort} runs={runs?.runs ?? []}>
         {/* Over the terrain, and deliberately not in its way: only the link is
-            clickable, so a drag anywhere else still turns the mountain. */}
+            clickable, so a drag anywhere else still turns the mountain. Server
+            rendered and passed through, so the facts stay in the document. */}
         <header className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-shadow-deep via-shadow-deep/75 to-transparent">
           <div className="mx-auto max-w-5xl px-6 pt-8 pb-28">
             <Link className="u-data pointer-events-auto transition-colors hover:text-snow" href="/">
@@ -68,7 +67,7 @@ export default async function ResortPage(props: PageProps<"/resorts/[slug]">) {
             </dl>
           </div>
         </header>
-      </section>
+      </RunExplorer>
     </main>
   );
 }

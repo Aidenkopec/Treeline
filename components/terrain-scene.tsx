@@ -4,6 +4,7 @@ import { OrbitControls } from "@react-three/drei";
 import { Canvas, useThree } from "@react-three/fiber";
 import { Suspense, use, useLayoutEffect, useMemo, useState } from "react";
 import * as THREE from "three";
+import { RunOverlay, type RunOverlayState } from "@/components/run-overlay";
 import { decodeHeightmap } from "@/lib/elevation";
 import { FOV, openingFraming, terrainGeometry } from "@/lib/terrain-mesh";
 import type { Resort } from "@/lib/types";
@@ -118,18 +119,24 @@ function lightColor(name: string, tint: number): THREE.Color {
   return new THREE.Color(0xffffff).lerp(paletteColor(name), tint);
 }
 
-export default function TerrainScene({ resort }: { resort: Resort }) {
+export default function TerrainScene({
+  overlay,
+  resort,
+}: {
+  overlay: RunOverlayState;
+  resort: Resort;
+}) {
   // Suspending out here rather than inside <Canvas> is deliberate: R3F renders
   // canvas children through its own reconciler, so a failed load thrown in
   // there would not reach the error boundary in terrain-viewer.tsx.
   return (
     <Suspense fallback={<div className="h-full w-full bg-shadow-deep" />}>
-      <LoadedScene resort={resort} />
+      <LoadedScene overlay={overlay} resort={resort} />
     </Suspense>
   );
 }
 
-function LoadedScene({ resort }: { resort: Resort }) {
+function LoadedScene({ overlay, resort }: { overlay: RunOverlayState; resort: Resort }) {
   const terrain = use(loadTerrain(resort));
   const palette = useMemo(
     () => ({
@@ -149,12 +156,22 @@ function LoadedScene({ resort }: { resort: Resort }) {
       gl={{ toneMapping: THREE.NoToneMapping }}
     >
       <color args={[palette.ground]} attach="background" />
-      <Massif palette={palette} terrain={terrain} />
+      <Massif overlay={overlay} palette={palette} resort={resort} terrain={terrain} />
     </Canvas>
   );
 }
 
-function Massif({ palette, terrain }: { palette: Palette; terrain: Terrain }) {
+function Massif({
+  overlay,
+  palette,
+  resort,
+  terrain,
+}: {
+  overlay: RunOverlayState;
+  palette: Palette;
+  resort: Resort;
+  terrain: Terrain;
+}) {
   const { geometry, texture, ...extent } = terrain;
   const camera = useThree((state) => state.camera);
   const size = useThree((state) => state.size);
@@ -187,6 +204,8 @@ function Massif({ palette, terrain }: { palette: Palette; terrain: Terrain }) {
       <mesh geometry={geometry}>
         <meshStandardMaterial map={texture} metalness={0} roughness={1} />
       </mesh>
+
+      <RunOverlay resort={resort} state={overlay} />
 
       <OrbitControls
         // Cinematic until touched, then it is yours (SPEC §4).

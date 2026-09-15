@@ -1,0 +1,47 @@
+import { profileGeometry } from "@/lib/profile-path";
+import { metres } from "@/lib/format";
+import type { ProfileSample } from "@/lib/types";
+
+const WIDTH = 600;
+const HEIGHT = 150;
+
+/**
+ * A run's shape, drawn from the samples the pitch was measured over (SPEC §4).
+ *
+ * Inline SVG rather than a chart library — the shape is a polyline and a fill,
+ * and a dependency would weigh more than the drawing (SPEC §5.2). The numbers
+ * sit beside it as text, so the chart itself carries nothing a reader needs.
+ */
+export function ElevationProfile({ profile }: { profile: ProfileSample[] }) {
+  const { line, area, topM, bottomM } = profileGeometry(profile, WIDTH, HEIGHT);
+  if (!line) return null;
+
+  return (
+    <figure className="mt-4">
+      <svg
+        aria-hidden="true"
+        className="block h-24 w-full"
+        preserveAspectRatio="none"
+        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+      >
+        <path d={area} fill="var(--color-shade-dim)" opacity="0.55" />
+        <path
+          d={line}
+          fill="none"
+          stroke="var(--color-sun)"
+          strokeWidth="2"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+
+      {/* The profile descends left to right, so the top of the run labels the
+          left end. Length is not repeated here: the panel already prints it,
+          and the profile's own last sample rounds a metre off the baked figure. */}
+      <figcaption className="mt-2 flex justify-between">
+        <span className="u-data">{metres(topM)}</span>
+        <span className="u-data">{metres(bottomM)}</span>
+      </figcaption>
+    </figure>
+  );
+}
