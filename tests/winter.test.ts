@@ -43,6 +43,41 @@ function corridor(ground: number[], cut: number[], width: number, stripe: number
   return { centre: at(Math.floor(width / 2)), edge: at(1) };
 }
 
+/** A left-to-right sweep through every grey, as one image. */
+function greyRamp(width = 256, height = 16): number[] {
+  const pixels = Buffer.alloc(width * height * 3);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) pixels.fill(x, (y * width + x) * 3, (y * width + x) * 3 + 3);
+  }
+  const out = winterize(pixels, width, height);
+  const row = height / 2;
+  return Array.from({ length: width }, (_, x) =>
+    luminance([...out.subarray((row * width + x) * 3, (row * width + x) * 3 + 3)]),
+  );
+}
+
+/**
+ * A field of one grey carrying a one-texel checkerboard of amplitude `amp`,
+ * returning how far two neighbouring texels end up apart. Measures the stipple
+ * that survives, not the mean: a checkerboard straddles the class edges, so its
+ * mean legitimately moves where the transfer curves.
+ */
+function speckleSurviving(level: number, amp: number, width = 48): number {
+  const pixels = Buffer.alloc(width * width * 3);
+  for (let y = 0; y < width; y++) {
+    for (let x = 0; x < width; x++) {
+      const v = level + ((x + y) % 2 ? amp : -amp);
+      pixels.fill(v, (y * width + x) * 3, (y * width + x) * 3 + 3);
+    }
+  }
+  const out = winterize(pixels, width, width);
+  const at = (x: number) => {
+    const p = (width / 2) * width + x;
+    return luminance([...out.subarray(p * 3, p * 3 + 3)]);
+  };
+  return Math.abs(at(width / 2) - at(width / 2 + 1));
+}
+
 function luminance([r, g, b]: number[]): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
@@ -76,16 +111,44 @@ describe("winter surface", () => {
     expect(luminance(remap(LYING_SNOW))).toBeGreaterThan(240);
   });
 
-  it("keeps alpine rock cooler and darker than the snow beside it", () => {
-    // Probed inside the band the rock gate actually guards. The measured rock
-    // cluster sits below it on purpose: at that luminance the pixel is as
-    // likely to be the ring of ground around a snow patch, and treating those
-    // as rock outlines every snowfield in grey.
-    const rock = remap([168, 168, 160]);
-    expect(luminance(rock)).toBeLessThan(luminance(remap(LYING_SNOW)));
-    // Cool, not warm. A warm grey here reads as desert rather than as a winter
+  it("keeps a cliff face cooler and darker than the snow beside it", () => {
+    // There is no rock class: a cliff the sun was not on is dark in the
+    // photograph, falls the forest side of the split and takes the same cool
+    // dark tone — which is what a cliff band under snow looks like anyway.
+    // What must hold is the contrast and the hue, not which branch draws it.
+    const cliff = remap(ROCK);
+    expect(luminance(cliff)).toBeLessThan(luminance(remap(LYING_SNOW)));
+    // Cool, not warm. A warm grey reads as desert rather than as a winter
     // cliff band, which is what the first tuning pass looked like.
-    expect(rock[2]).toBeGreaterThan(rock[0]);
+    expect(cliff[2]).toBeGreaterThan(cliff[0]);
+  });
+
+  it("never makes brighter ground come out darker", () => {
+    // The defect this file did not catch. Keying a class on a *band* of
+    // brightness is a band-pass on the very quantity being remapped, and it
+    // folds the transfer back on itself — source 138 once came out 91 levels
+    // brighter than source 169. The fold is not an abstraction: it draws a grey
+    // rim around every snow patch, because crossing a patch edge sweeps
+    // brightness through the notch.
+    //
+    // Probed as a gradient image rather than as separate greys, because the
+    // remap reads a pixel's neighbourhood: a ramp is where a fold shows up.
+    const ramp = greyRamp();
+    for (let x = 1; x < ramp.length; x++) {
+      expect(ramp[x]).toBeGreaterThanOrEqual(ramp[x - 1]);
+    }
+  });
+
+  it("does not mistake one-texel stipple for canopy", () => {
+    // Esri's tiles are JPEG, so the finest scale in the mosaic is compression,
+    // not ground. Classified off that scale, flat forest came out as
+    // salt-and-pepper dither rather than as crowns — measured over Lake Louise,
+    // local variation in the forest band ran 20.6 and is now 8.4.
+    //
+    // Probed in dense forest at the amplitude a quality-82 JPEG actually
+    // produces. The stipple went through at 45.8 before the canopy was
+    // classified off a blurred plane instead of the raw one.
+    expect(speckleSurviving(60, 12)).toBeLessThan(12);
   });
 
   it("never returns true black", () => {

@@ -16,23 +16,22 @@
  * one's: the mesh normals and the light already carry it, and the drape fighting
  * them with summer texture is what buried it.
  *
- * So the two halves of the image are treated as opposites. Snow is keyed and
- * toned from a blurred luminance, which throws the photograph's fine detail
- * away and leaves a smooth field. Forest keeps the sharp luminance, because
- * trees really are the texture at this scale. The gap between the two is wide
- * on purpose — in a real winter aerial the forest/snow contrast is enormous,
- * and closing it is what made earlier passes read as grey mush.
+ * So there are two classes and not three. There is no rock term: a shadowed
+ * cliff is already dark in the photograph, so it falls the forest side of the
+ * split and takes the same cool dark tone, which is what a cliff band looks like
+ * under snow anyway. A third class keyed on a *band* of brightness — which is
+ * what this had — is a band-pass on the very quantity being remapped, and it
+ * folds the transfer back on itself: brighter ground comes out darker, and the
+ * fold draws a grey rim around every snow patch on the mountain. The transfer
+ * below is monotonic, which is the property that keeps the rim away.
  */
 
 /**
  * Landcover tones. Answering to --color-shadow, --color-snow and --color-rock,
  * matched here as literals because the bake has no DOM to read them from.
  *
- * Snow is near-white and spans a narrow band: the range it does have is there
- * so a snowfield is not a dead flat fill, and the light supplies the rest.
- * Rock is cool, because a warm grey reads as desert.
- *
- * Forest spans a wide band on purpose, and this is the one place the remap
+ * FOREST_* is the dark half of the mountain, which is conifer by area but also
+ * takes every cliff face the sun was not on. It spans a wide band on purpose, and this is the one place the remap
  * wants more contrast rather than less. At ~3 m/texel a canopy is not resolved
  * into trees, so a narrow band averages it into flat grey and the treed half of
  * the massif reads as a smudge. Stretched, the crowns stay dark while the gaps
@@ -44,20 +43,31 @@ const FOREST_DEEP = [50, 58, 64];
 const FOREST_OPEN = [136, 145, 152];
 const SNOW_LOW = [204, 213, 221];
 const SNOW_HIGH = [250, 252, 253];
-const ROCK = [126, 137, 152];
 
 /** Where the landcover split sits, in source luminance. Measured over Lake Louise. */
 const FOREST_EDGE = 88;
 const SNOW_EDGE = 116;
 
+/** The canopy stretch, in source luminance — see FOREST_DEEP above. */
+const CANOPY_LOW = 30;
+const CANOPY_HIGH = 95;
+
 /**
- * Radius of the blur that the snow half is keyed and toned from, in texels.
- *
- * Small enough that a run corridor keeps its edges — they are ~10 texels wide
- * at this zoom — and large enough to take the canopy stipple out of the open
- * ground between them.
+ * The snow stretch. The top edge sits above the brightest ground in the mosaic
+ * on purpose: an icefield that reaches it flattens to one colour, and a snowfield
+ * with no tonal drift in it reads as paper.
  */
-const SMOOTHING = 3;
+const FIELD_LOW = 100;
+const FIELD_HIGH = 250;
+
+/**
+ * The two blur radii, in texels. Classification and canopy tone read the tighter
+ * plane so a run corridor keeps its edges and a one-texel JPEG speck does not
+ * become a tree; the snow tone reads the wider one so an open slope comes out
+ * smooth.
+ */
+const CANOPY_SMOOTHING = 1;
+const FIELD_SMOOTHING = 3;
 
 function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
@@ -108,33 +118,19 @@ export function winterize(rgb: Buffer, width: number, height: number): Buffer {
     const i = p * 3;
     detail[p] = 0.2126 * rgb[i] + 0.7152 * rgb[i + 1] + 0.0722 * rgb[i + 2];
   }
-  const smoothed = blur(detail, width, height, SMOOTHING);
+  const crisp = blur(detail, width, height, CANOPY_SMOOTHING);
+  const smoothed = blur(crisp, width, height, FIELD_SMOOTHING);
 
   for (let p = 0; p < count; p++) {
     const i = p * 3;
-    const max = Math.max(rgb[i], rgb[i + 1], rgb[i + 2]);
-    const saturation = max === 0 ? 0 : (max - Math.min(rgb[i], rgb[i + 1], rgb[i + 2])) / max;
-
-    // Classified on the blurred plane so a bright pixel inside the canopy does
-    // not punch a white speck through the trees.
-    const snow = smoothstep(FOREST_EDGE, SNOW_EDGE, smoothed[p]);
-    const canopy = smoothstep(30, 95, detail[p]);
-    const field = smoothstep(96, 196, smoothed[p]);
-    // Rock survives across the alpine mid-tones and lets go again at the
-    // brightness of lying snow, so a cliff band keeps its colour while the
-    // icefield above it does not. The saturation gate is tight because the ring
-    // of ground around every snow patch sits at the same luminance as rock and
-    // a loose one outlines all of them in grey.
-    const rock =
-      smoothstep(138, 170, smoothed[p]) *
-      (1 - smoothstep(198, 224, smoothed[p])) *
-      (1 - smoothstep(0.07, 0.15, saturation));
+    const snow = smoothstep(FOREST_EDGE, SNOW_EDGE, crisp[p]);
+    const canopy = smoothstep(CANOPY_LOW, CANOPY_HIGH, crisp[p]);
+    const field = smoothstep(FIELD_LOW, FIELD_HIGH, smoothed[p]);
 
     for (let c = 0; c < 3; c++) {
       const trees = FOREST_DEEP[c] + (FOREST_OPEN[c] - FOREST_DEEP[c]) * canopy;
       const white = SNOW_LOW[c] + (SNOW_HIGH[c] - SNOW_LOW[c]) * field;
-      const ground = trees + (white - trees) * snow;
-      rgb[i + c] = Math.min(255, Math.round(ground + (ROCK[c] - ground) * rock * snow));
+      rgb[i + c] = Math.round(trees + (white - trees) * snow);
     }
   }
 

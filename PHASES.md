@@ -668,6 +668,55 @@ opening framing looks at is lit. It was a backlight, which cost nothing on a dar
 photograph and left the whole front side flat on a bright one. Phase 5 replaces this
 position with a real sun and will have to answer the same question honestly.
 
+### Follow-up — the transfer was not monotonic
+
+The drape above shipped with a defect that reads as a contour map once you look for it: a
+grey rim around every snow patch on the mountain.
+
+**The cause was structural, not a mistuning.** The rock term was a band-pass on source
+brightness — `smoothstep(138,170,·) * (1-smoothstep(198,224,·))` — multiplied into a pull
+toward a _constant_ dark colour. A band-pass on the very quantity being remapped folds the
+transfer back on itself. Measured on a grey ramp: source 138 came out 227 while source 169
+came out 136, so **brighter ground came out 91 levels darker**, across 29 of 255 levels.
+Crossing a patch edge sweeps brightness through that notch, which is what drew the rim.
+
+**Decisions worth recording:**
+
+- **There is no rock class any more, and the drape is better for it.** A cliff the sun was
+  not on is already dark in the photograph, so it falls the forest side of the split and
+  takes the same cool dark tone — which is what a cliff band under snow looks like anyway.
+  Rock was ~1% of the frame, was the sole source of the rim, and measured over Lake Louise
+  its interiors barely separated from snow interiors (texture energy 5.79 against 5.36).
+  Deleting it is simpler, provably monotonic, and keeps the cliff bands.
+- **The saturation gate was inverted.** It was meant to hold rock back from going white.
+  Measured, it evaluated to 0.16 where real rock lives and 0.97–1.00 on lying snow — closed
+  where it was needed and open where it did harm. It went with the rock term.
+- **Classification moved off the raw plane onto a one-texel blur.** Esri's tiles are JPEG,
+  so the finest scale in the mosaic is compression rather than ground, and keying canopy on
+  it turned flat forest into salt-and-pepper dither. This also fixed a second thing: a
+  narrow corridor classified from the radius-3 plane averaged the trees back in and so came
+  out dimmer than a wide one.
+- **The snow stretch tops out above the brightest ground in the mosaic.** It ended at 196
+  where the rock gate did not release until 224, so there was no brightness at which clean
+  snow existed. Sharp detail is deliberately _not_ reinjected to give snowfields texture —
+  that is the first version's mistake, and measured, the tonal spread within snow was
+  already 39 levels without it.
+- **Monotonicity is now a test, not a hope.** `tests/winter.test.ts` probes a grey _ramp
+  image_ rather than isolated colours — the old suite could not see this defect because it
+  probed single pixels, and its rock case sat inside the notch and asserted the bug's own
+  output as correct.
+
+**Verified:** 228 tests green; format, lint, typecheck clean. Measured over the real Lake
+Louise mosaic, before → after: descending grey levels 29 → **0**; local contrast inversions
+in the mid band 56.3% → **15.3%**; forest-band local variation 20.6 → **8.4**; clipped
+highlights 2.08% → **1.59%**. Re-baked at 1.73 MB, down from 2.09 MB — there is less
+high-frequency content to encode.
+
+**Measured and dropped:** keying rock on image roughness instead of brightness. It is the
+obvious replacement and it does fix the fold, but roughness is high at every patch _edge_
+as well as on scree, so it drew a softer rim of its own — the mid-band inversion rate only
+fell to 39.1% against 15.3% for having no rock term at all.
+
 ## Phase 5 — Sun/shade + first-person run camera ⬜
 
 Directional light positioned by `suncalc`. The run's polyline becomes a camera path at
