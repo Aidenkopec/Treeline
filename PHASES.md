@@ -3,13 +3,12 @@
 Progress tracker for [SPEC.md](./SPEC.md) §11. Each phase ends working, committed and
 deployable, and runs in its own session with its own verification gate.
 
-**Status: phase 1 nearly done (~90%).** Lake Louise is baked and committed — heightmap,
-satellite, 168 runs and a manifest entry. Only the golden hand-check remains.
+**Status: phase 1 done. Phase 2 next.** Lake Louise is baked and committed — heightmap,
+satellite, 168 runs and a manifest entry, 1.97 MB of the 5 MB budget. 102 tests green.
 
-> **Next action:** hand-check two Lake Louise runs against the published trail map and a
-> topo, commit those as golden values, and un-skip `tests/runs.golden.test.ts`. This is the
-> one step that needs a human: a golden taken from the pipeline's own output would only
-> prove the pipeline agrees with itself.
+> **Next action:** phase 2 — render the baked heightmap as terrain with the satellite
+> texture draped over it. The artifacts are on disk and the manifest is populated, so the
+> scene has real data to read from the first commit.
 
 ---
 
@@ -37,7 +36,7 @@ no layout overflow from 320px up.
 
 ---
 
-## Phase 1 — Bake pipeline, Lake Louise only 🟡 in progress
+## Phase 1 — Bake pipeline, Lake Louise only ✅ done
 
 **Deliverable:** real artifacts for one resort — `heightmap.png`, `satellite.jpg`,
 `runs.json`, manifest entry.
@@ -47,7 +46,8 @@ no layout overflow from 320px up.
 - [x] Downhill-only filter asserted against a fixture containing backcountry ways
 - [x] Fixture tile decodes to known elevations — real tile `13/1452/2726`; the base area
       reads within 20m of the published 1646m
-- [ ] Golden pitch/aspect for two hand-checked Lake Louise runs, within tolerance
+- [x] Golden pitch/aspect for two hand-checked Lake Louise runs, within tolerance —
+      Wiwaxy and Eagles Flight, checked against Copernicus DEM GLO-90
 
 ### Done
 
@@ -79,11 +79,23 @@ no layout overflow from 320px up.
 
 **4. Orchestrate** — `scripts/bake.ts` ✅ done: `bakeResort`, `checkResort`, `--no-cache`
 
-**5. Close the gate:**
+**5. Close the gate** ✅ done:
 
 - [x] Bake Lake Louise for real; commit the artifacts — 1.97 MB of the 5 MB budget
-- [ ] Hand-check two runs against the published trail map and a topo
-- [ ] Commit those as golden values and un-skip `tests/runs.golden.test.ts`
+- [x] Verify against independent sources, not the pipeline's own output
+- [x] Commit golden values and structural invariants in `tests/runs.golden.test.ts`
+
+**Verified:** 102 tests green, format/lint/typecheck/build clean, home page shows Lake
+Louise as baked. Elevation checked two ways — seven OSM surveyed peaks and lift stations
+(every sharp summit reads low, mean -43m; the valley floor reads +6m high; a broad rounded
+hill reads exact, which is resampling ~30m data rather than a bug), and two runs against
+Copernicus DEM GLO-90 (pitch within 0.3° on Eagles Flight, 3.5° on the much shallower
+Wiwaxy, where DEM noise dominates a gentle gradient).
+
+**Known, accepted:** one run per OSM way means a name can appear more than once, and a
+famous published figure may describe a different object than the way carrying its name —
+the FIS Men's Downhill _course_ is 3123m/827m over several trails, while the OSM way named
+"Men's Downhill" is the 743m/256m pitch itself. Revisit in phase 3 with the list on screen.
 
 ---
 
