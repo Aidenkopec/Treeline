@@ -1,10 +1,24 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import sharp from "sharp";
 import { decodeHeightmap } from "@/lib/elevation";
-import { ELEVATION_ANGLE, FOV, openingFraming, terrainGeometry } from "@/lib/terrain-mesh";
+import {
+  DRAPE_OFFSET_M,
+  ELEVATION_ANGLE,
+  FOV,
+  type FocusExtent,
+  type Framing,
+  focusFraming,
+  lonLatToMesh,
+  openingFraming,
+  runExtent,
+  runMeshPoints,
+  terrainGeometry,
+} from "@/lib/terrain-mesh";
 import { encodeHeightmap } from "@/scripts/bake/emit";
 import type { Grid } from "@/scripts/bake/terrain";
-import type { Resort } from "@/lib/types";
+import { lonLatToMosaicPixel, tileRangeForBounds } from "@/scripts/bake/tiles";
+import type { Resort, Run, RunsFile } from "@/lib/types";
 
 function resort(over: Partial<Resort> = {}): Resort {
   return {
@@ -128,6 +142,115 @@ describe("a baked heightmap read back as a mesh", () => {
   });
 });
 
+/**
+ * Putting a run where it belongs on the mountain.
+ *
+ * The bake maps lon/lat to a mosaic pixel through `scripts/bake/tiles.ts`; the
+ * app has to reach the same place from `bounds` and `width`/`height` alone,
+ * because the manifest carries no tile range. Two implementations of one
+ * projection is a drift risk, so the agreement is asserted rather than assumed
+ * — and asserted on the real Lake Louise range, where a transposed axis or a
+ * latitude treated as linear would show up.
+ */
+describe("lonLatToMesh", () => {
+  const lakeLouise = resort({
+    bounds: {
+      west: -116.19140625,
+      north: 51.481382896100975,
+      east: -116.0595703125,
+      south: 51.42661449707482,
+    },
+    width: 768,
+    height: 512,
+    metres_per_pixel: 11.91095107773933,
+    elevation_min_m: 1560,
+    elevation_max_m: 2827,
+    vertical_exaggeration: 1.8,
+  });
+
+  it("agrees with the bake's own projection across the mosaic", () => {
+    const range = tileRangeForBounds(lakeLouise.bounds, 13);
+    const { width, height, metres_per_pixel: mpp } = lakeLouise;
+
+    for (let i = 0; i <= 10; i++) {
+      for (let j = 0; j <= 10; j++) {
+        const lon =
+          lakeLouise.bounds.west + ((lakeLouise.bounds.east - lakeLouise.bounds.west) * i) / 10;
+        const lat =
+          lakeLouise.bounds.north - ((lakeLouise.bounds.north - lakeLouise.bounds.south) * j) / 10;
+
+        const { px, py } = lonLatToMosaicPixel(lon, lat, range);
+        const [x, , z] = lonLatToMesh(lon, lat, 0, lakeLouise);
+
+        expect(x).toBeCloseTo((px - width / 2) * mpp, 6);
+        expect(z).toBeCloseTo((py - height / 2) * mpp, 6);
+      }
+    }
+  });
+
+  it("lands the mosaic corners on the mesh corners", () => {
+    const { bounds, width, height, metres_per_pixel: mpp } = lakeLouise;
+    const [westX, , northZ] = lonLatToMesh(bounds.west, bounds.north, 0, lakeLouise);
+    const [eastX, , southZ] = lonLatToMesh(bounds.east, bounds.south, 0, lakeLouise);
+
+    expect(westX).toBeCloseTo((-width / 2) * mpp, 6);
+    expect(eastX).toBeCloseTo((width / 2) * mpp, 6);
+    expect(northZ).toBeCloseTo((-height / 2) * mpp, 6);
+    expect(southZ).toBeCloseTo((height / 2) * mpp, 6);
+  });
+
+  it("bows away from a latitude read as linear", () => {
+    // Mid-box is where Mercator and a straight interpolation differ most. The
+    // gap is small at this size, but it is the sign the projection is real.
+    const { bounds } = lakeLouise;
+    const midLat = (bounds.north + bounds.south) / 2;
+    const [, , z] = lonLatToMesh(bounds.west, midLat, 0, lakeLouise);
+
+    expect(z).not.toBe(0);
+    expect(Math.abs(z)).toBeLessThan(lakeLouise.metres_per_pixel);
+  });
+
+  it("stands a run above the surface by the drape offset", () => {
+    const { bounds, elevation_min_m, vertical_exaggeration } = lakeLouise;
+    const [, y] = lonLatToMesh(bounds.west, bounds.north, elevation_min_m + 100, lakeLouise);
+
+    expect(y).toBeCloseTo(100 * vertical_exaggeration + DRAPE_OFFSET_M, 6);
+  });
+});
+
+/**
+ * Every baked run, drawn on the mesh it was baked against.
+ *
+ * `runs.golden.test.ts` already asserts each profile point falls inside
+ * `bounds`. This is the same claim one step further on: that the projection
+ * turns those points into somewhere the terrain actually is.
+ */
+describe("the committed Lake Louise runs on the mesh", () => {
+  const file: RunsFile = JSON.parse(
+    readFileSync(new URL("../public/resorts/lake-louise/runs.json", import.meta.url), "utf8"),
+  );
+  const manifest = JSON.parse(
+    readFileSync(new URL("../public/resorts/manifest.json", import.meta.url), "utf8"),
+  );
+  const lakeLouise: Resort = manifest.resorts.find((r: Resort) => r.slug === "lake-louise");
+
+  it("keeps every run inside the terrain and above its floor", () => {
+    const halfWidth = (lakeLouise.width / 2) * lakeLouise.metres_per_pixel;
+    const halfDepth = (lakeLouise.height / 2) * lakeLouise.metres_per_pixel;
+
+    for (const run of file.runs) {
+      const points = runMeshPoints(run.profile, lakeLouise);
+      expect(points).toHaveLength(run.profile.length * 3);
+
+      for (let i = 0; i < points.length; i += 3) {
+        expect(Math.abs(points[i])).toBeLessThanOrEqual(halfWidth);
+        expect(Math.abs(points[i + 2])).toBeLessThanOrEqual(halfDepth);
+        expect(points[i + 1]).toBeGreaterThan(0);
+      }
+    }
+  });
+});
+
 const EXTENT = { groundWidth: 4000, groundDepth: 3000, relief: 1000 };
 
 describe("openingFraming", () => {
@@ -139,9 +262,12 @@ describe("openingFraming", () => {
 
   it("puts the camera on the elevation-angle ray, looking at the lower third", () => {
     const { distance, position, target } = openingFraming(EXTENT, 2);
-    const [x, y, z] = position;
+    // Measured from the target, not from the origin. Without a focus box the
+    // two sit on the same vertical, but the ray has always been the one the
+    // camera looks along, and a focus box moves the target off centre.
+    const [x, y, z] = [0, 1, 2].map((i) => position[i] - target[i]);
 
-    expect(x).toBe(0);
+    expect(position[0]).toBe(0);
     expect(Math.hypot(x, y, z)).toBeCloseTo(distance, 6);
     expect(Math.asin(y / distance)).toBeCloseTo(ELEVATION_ANGLE, 6);
     expect(z).toBeGreaterThan(0);
@@ -165,5 +291,278 @@ describe("openingFraming", () => {
     const narrow = openingFraming(EXTENT, 0.5).distance;
 
     expect(narrow).toBeGreaterThan(wide);
+  });
+});
+
+describe("runExtent", () => {
+  const box = resort({ elevation_min_m: 0, elevation_max_m: 100 });
+
+  function sampled(lonLatE: [number, number, number][]): Run {
+    return {
+      id: "r",
+      name: null,
+      difficulty: null,
+      vertical_m: 0,
+      length_m: 0,
+      pitch_avg_deg: 0,
+      pitch_max_deg: 0,
+      aspect_deg: 0,
+      aspect_label: "N",
+      profile: lonLatE.map(([lon, lat, e], i) => ({ d: i, e, lon, lat })),
+    };
+  }
+
+  it("has nothing to frame without runs", () => {
+    expect(runExtent([], box)).toBeNull();
+    expect(runExtent([sampled([])], box)).toBeNull();
+  });
+
+  it("spans the extreme samples, through the same projection that draws them", () => {
+    const runs = [
+      sampled([
+        [0.2, 0.8, 10],
+        [0.4, 0.6, 40],
+      ]),
+      sampled([
+        [0.6, 0.4, 20],
+        [0.8, 0.2, 90],
+      ]),
+    ];
+    const extent = runExtent(runs, box)!;
+
+    // Pinned to lonLatToMesh rather than to transcribed numbers, so a second
+    // implementation of the projection cannot hide in here.
+    const [westX, lowY, northZ] = lonLatToMesh(0.2, 0.8, 10, box);
+    const [eastX, highY, southZ] = lonLatToMesh(0.8, 0.2, 90, box);
+
+    expect(extent.width).toBeCloseTo(eastX - westX, 6);
+    expect(extent.depth).toBeCloseTo(southZ - northZ, 6);
+    expect(extent.relief).toBeCloseTo(highY - lowY, 6);
+    expect(extent.centre[0]).toBeCloseTo((westX + eastX) / 2, 6);
+    expect(extent.centre[1]).toBeCloseTo((lowY + highY) / 2, 6);
+    expect(extent.centre[2]).toBeCloseTo((northZ + southZ) / 2, 6);
+  });
+});
+
+describe("openingFraming on the committed Lake Louise runs", () => {
+  const file: RunsFile = JSON.parse(
+    readFileSync(new URL("../public/resorts/lake-louise/runs.json", import.meta.url), "utf8"),
+  );
+  const manifest = JSON.parse(
+    readFileSync(new URL("../public/resorts/manifest.json", import.meta.url), "utf8"),
+  );
+  const lakeLouise: Resort = manifest.resorts.find((r: Resort) => r.slug === "lake-louise");
+  const extent = {
+    groundWidth: (lakeLouise.width - 1) * lakeLouise.metres_per_pixel,
+    groundDepth: (lakeLouise.height - 1) * lakeLouise.metres_per_pixel,
+    relief:
+      (lakeLouise.elevation_max_m - lakeLouise.elevation_min_m) * lakeLouise.vertical_exaggeration,
+  };
+  const focus = runExtent(file.runs, lakeLouise)!;
+  const ASPECT = 1.2;
+
+  it("covers a fraction of the mosaic, which is the reason to frame it separately", () => {
+    expect(focus.width).toBeLessThan(extent.groundWidth * 0.6);
+    expect(focus.depth).toBeLessThan(extent.groundDepth * 0.8);
+    // The pistes sit west of the middle of a mosaic cut to whole tiles.
+    expect(focus.centre[0]).toBeLessThan(0);
+  });
+
+  it("comes closer than framing the whole mosaic does", () => {
+    const whole = openingFraming(extent, ASPECT).distance;
+    const runs = openingFraming(extent, ASPECT, focus).distance;
+
+    expect(runs).toBeLessThan(whole * 0.6);
+  });
+
+  it("aims at the runs and still holds them in frame", () => {
+    const { distance, position, target } = openingFraming(extent, ASPECT, focus);
+    const half = Math.tan((FOV * Math.PI) / 360);
+    const onScreenHeight =
+      focus.depth * Math.sin(ELEVATION_ANGLE) + focus.relief * Math.cos(ELEVATION_ANGLE);
+
+    expect(target).toEqual(focus.centre);
+    expect(distance * half).toBeGreaterThan(onScreenHeight / 2);
+    expect(distance * half * ASPECT).toBeGreaterThan(focus.width / 2);
+
+    const [x, y, z] = [0, 1, 2].map((i) => position[i] - target[i]);
+    expect(Math.hypot(x, y, z)).toBeCloseTo(distance, 6);
+    expect(Math.asin(y / distance)).toBeCloseTo(ELEVATION_ANGLE, 6);
+    expect(z).toBeGreaterThan(0);
+  });
+
+  it("keeps the camera over the terrain it is looking at", () => {
+    const { position, target } = openingFraming(extent, ASPECT, focus);
+    const halfWidth = (lakeLouise.width / 2) * lakeLouise.metres_per_pixel;
+    const halfDepth = (lakeLouise.height / 2) * lakeLouise.metres_per_pixel;
+
+    expect(Math.abs(target[0])).toBeLessThan(halfWidth);
+    expect(Math.abs(target[2])).toBeLessThan(halfDepth);
+    expect(position[1]).toBeGreaterThan(extent.relief);
+  });
+
+  it("still backs off further as the viewport narrows", () => {
+    expect(openingFraming(extent, 0.5, focus).distance).toBeGreaterThan(
+      openingFraming(extent, 2, focus).distance,
+    );
+  });
+});
+
+describe("focusFraming", () => {
+  const LIMITS = { minDistance: 500, maxDistance: 20000, maxPolarAngle: 1.45 };
+  const BOX: FocusExtent = { centre: [100, 200, -300], width: 800, depth: 1400, relief: 400 };
+  const CANVAS = 1.2;
+
+  /** A camera `distance` out from the box on a compass bearing, `elevation` above it. */
+  function standing(bearingDeg: number, elevation = ELEVATION_ANGLE, distance = 4000) {
+    const b = (bearingDeg * Math.PI) / 180;
+    const flat = Math.cos(elevation) * distance;
+    return {
+      target: BOX.centre,
+      position: [
+        BOX.centre[0] + Math.sin(b) * flat,
+        BOX.centre[1] + Math.sin(elevation) * distance,
+        BOX.centre[2] - Math.cos(b) * flat,
+      ] as readonly [number, number, number],
+    };
+  }
+
+  /** Compass bearing of a framing's camera, read from the target it looks at. */
+  function bearing({ position, target }: Framing): number {
+    const [x, , z] = [0, 1, 2].map((i) => position[i] - target[i]);
+    return ((Math.atan2(x, -z) * 180) / Math.PI + 360) % 360;
+  }
+
+  function elevationOf({ position, target, distance }: Framing): number {
+    return Math.asin((position[1] - target[1]) / distance);
+  }
+
+  it("keeps the viewer's azimuth when the run already faces them", () => {
+    // A south-facing run seen from the south, and from the south-east: both are
+    // in front of the slope, so the gentler move is to come closer and no more.
+    expect(bearing(focusFraming(BOX, 180, standing(180), CANVAS, LIMITS))).toBeCloseTo(180, 6);
+    expect(bearing(focusFraming(BOX, 180, standing(135), CANVAS, LIMITS))).toBeCloseTo(135, 6);
+  });
+
+  it("swings round to the face when the camera is behind the slope", () => {
+    // Marmot's aspect. From the opening shot, south of the massif, this run is
+    // over the back — foreshortened and partly behind its own ridge.
+    const framing = focusFraming(BOX, 325, standing(180), CANVAS, LIMITS);
+
+    expect(bearing(framing)).toBeCloseTo(325, 6);
+    expect(framing.position[0]).toBeLessThan(BOX.centre[0]);
+    expect(framing.position[2]).toBeLessThan(BOX.centre[2]);
+  });
+
+  it("aims at the middle of the box", () => {
+    expect(focusFraming(BOX, 325, standing(180), CANVAS, LIMITS).target).toEqual(BOX.centre);
+  });
+
+  it("keeps the viewer's elevation angle", () => {
+    expect(elevationOf(focusFraming(BOX, 180, standing(180, 0.6), CANVAS, LIMITS))).toBeCloseTo(
+      0.6,
+      6,
+    );
+  });
+
+  it("lifts an elevation the controls would not hold to the lowest they will", () => {
+    const framing = focusFraming(BOX, 180, standing(180, 0.05), CANVAS, LIMITS);
+
+    expect(elevationOf(framing)).toBeCloseTo(Math.PI / 2 - LIMITS.maxPolarAngle, 6);
+  });
+
+  it("re-aims rather than flying into a sixty-metre connector", () => {
+    const connector: FocusExtent = { centre: [0, 0, 0], width: 40, depth: 50, relief: 10 };
+    const framing = focusFraming(connector, 180, standing(180), CANVAS, LIMITS);
+
+    expect(framing.distance).toBe(LIMITS.minDistance);
+  });
+
+  it("does not back off past the orbit clamp for a box it cannot fit", () => {
+    const massif: FocusExtent = { centre: [0, 0, 0], width: 90000, depth: 90000, relief: 3000 };
+
+    expect(focusFraming(massif, 180, standing(180), CANVAS, LIMITS).distance).toBe(
+      LIMITS.maxDistance,
+    );
+  });
+
+  it("holds the box in frame at whichever azimuth it settled on", () => {
+    const framing = focusFraming(BOX, 325, standing(180), CANVAS, LIMITS);
+    const [hx, , hz] = [0, 1, 2].map(
+      (i) => (framing.position[i] - framing.target[i]) / framing.distance,
+    );
+    const flat = Math.hypot(hx, hz);
+    const half = Math.tan((FOV * Math.PI) / 360);
+
+    const across = BOX.width * Math.abs(hz / flat) + BOX.depth * Math.abs(hx / flat);
+    const into = BOX.width * Math.abs(hx / flat) + BOX.depth * Math.abs(hz / flat);
+    const elevation = elevationOf(framing);
+    const up = into * Math.sin(elevation) + BOX.relief * Math.cos(elevation);
+
+    expect(framing.distance * half).toBeGreaterThan(up / 2);
+    expect(framing.distance * half * CANVAS).toBeGreaterThan(across / 2);
+  });
+
+  it("falls back to the opening azimuth when there is none to read", () => {
+    const onTarget = { position: BOX.centre, target: BOX.centre };
+    const framing = focusFraming(BOX, 180, onTarget, CANVAS, LIMITS);
+
+    expect(bearing(framing)).toBeCloseTo(180, 6);
+    expect(elevationOf(framing)).toBeCloseTo(ELEVATION_ANGLE, 6);
+  });
+});
+
+describe("focusFraming on Marmot, the run that started this", () => {
+  const file: RunsFile = JSON.parse(
+    readFileSync(new URL("../public/resorts/lake-louise/runs.json", import.meta.url), "utf8"),
+  );
+  const manifest = JSON.parse(
+    readFileSync(new URL("../public/resorts/manifest.json", import.meta.url), "utf8"),
+  );
+  const lakeLouise: Resort = manifest.resorts.find((r: Resort) => r.slug === "lake-louise");
+  const extent = {
+    groundWidth: (lakeLouise.width - 1) * lakeLouise.metres_per_pixel,
+    groundDepth: (lakeLouise.height - 1) * lakeLouise.metres_per_pixel,
+    relief:
+      (lakeLouise.elevation_max_m - lakeLouise.elevation_min_m) * lakeLouise.vertical_exaggeration,
+  };
+  const ASPECT = 1.2;
+
+  const marmot = file.runs.find((run) => run.name === "Marmot")!;
+  const opening = openingFraming(extent, ASPECT, runExtent(file.runs, lakeLouise)!);
+  const limits = {
+    minDistance: opening.distance * 0.12,
+    maxDistance: openingFraming(extent, ASPECT).distance * 2,
+    maxPolarAngle: 1.45,
+  };
+
+  it("is a north-west facing run, which is why the opening shot hides it", () => {
+    expect(marmot.aspect_deg).toBeGreaterThan(270);
+    expect(marmot.aspect_deg).toBeLessThan(360);
+    // The opening camera stands due south of the runs and looks north at them.
+    expect(opening.position[2]).toBeGreaterThan(opening.target[2]);
+  });
+
+  it("swings to the north-west side and comes closer", () => {
+    const box = runExtent([marmot], lakeLouise)!;
+    const framing = focusFraming(box, marmot.aspect_deg, opening, ASPECT, limits);
+
+    expect(framing.position[0]).toBeLessThan(framing.target[0]);
+    expect(framing.position[2]).toBeLessThan(framing.target[2]);
+    expect(framing.distance).toBeLessThan(opening.distance);
+    expect(framing.distance).toBeGreaterThan(limits.minDistance);
+  });
+
+  it("frames the run itself, not the mountain around it", () => {
+    const box = runExtent([marmot], lakeLouise)!;
+    const framing = focusFraming(box, marmot.aspect_deg, opening, ASPECT, limits);
+
+    expect(framing.target).toEqual(box.centre);
+    // Every sample of the run sits inside the distance the camera pulled back to.
+    for (const { lon, lat, e } of marmot.profile) {
+      const point = lonLatToMesh(lon, lat, e, lakeLouise);
+      const reach = Math.hypot(...[0, 1, 2].map((i) => point[i] - framing.position[i]));
+      expect(reach).toBeLessThan(framing.distance * 2);
+    }
   });
 });
