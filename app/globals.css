@@ -148,3 +148,146 @@
     border-top: 1px solid var(--color-line);
   }
 }
+
+@layer components {
+  /* --- Masthead motion ----------------------------------------------------
+     The header figure plays the loop of a ski day once on load: a chair rides
+     up the lift, then a run draws itself back down the same face.
+
+     Both travelling marks ride CSS offset-path, so neither the component nor
+     any script has to measure a path. The run's trailing line is the one dash
+     trick here — it carries pathLength="1", so a normalized stroke-dashoffset
+     draws it from the summit down.
+
+     Timing lives here rather than in either component because the figure
+     (components/ridgeline.tsx) and the readout (app/page.tsx) have to stay in
+     step across two files. */
+
+  @keyframes masthead-ride {
+    from {
+      offset-distance: 0%;
+    }
+    to {
+      offset-distance: 100%;
+    }
+  }
+
+  @keyframes masthead-draw {
+    from {
+      stroke-dashoffset: 1;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes masthead-settle {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* offset-rotate is pinned so the chair hangs off the cable rather than
+     tipping to follow its angle. */
+  .masthead-chair,
+  .masthead-skier {
+    offset-distance: 0%;
+    offset-rotate: 0deg;
+  }
+
+  /* The lift keeps turning. Slow and linear, because a running lift should read
+     as ambient rather than as something asking to be watched. The negative
+     delays start the other two part-way up instead of bunched at the bottom. */
+  .masthead-chair {
+    animation: masthead-ride 9s linear infinite;
+  }
+
+  .masthead-chair-2 {
+    animation-delay: -3s;
+  }
+
+  .masthead-chair-3 {
+    animation-delay: -6s;
+  }
+
+  /* The hill draws its own trail map first, then one run is skied down it.
+     Fill mode is `both` throughout: with `forwards` alone a delayed draw sits
+     fully rendered until its delay elapses, then blanks and starts over. */
+  .masthead-trail {
+    animation: masthead-draw 0.9s ease-out both;
+  }
+
+  .masthead-trail:nth-child(1) {
+    animation-delay: 0.25s;
+  }
+
+  .masthead-trail:nth-child(2) {
+    animation-delay: 0.37s;
+  }
+
+  .masthead-trail:nth-child(3) {
+    animation-delay: 0.49s;
+  }
+
+  .masthead-trail:nth-child(4) {
+    animation-delay: 0.61s;
+  }
+
+  .masthead-trail:nth-child(5) {
+    animation-delay: 0.73s;
+  }
+
+  .masthead-skier {
+    animation: masthead-ride 2.1s cubic-bezier(0.32, 0, 0.3, 1) 1.5s both;
+  }
+
+  .masthead-trace {
+    animation: masthead-draw 2.1s cubic-bezier(0.32, 0, 0.3, 1) 1.5s both;
+  }
+
+  /* Exactly three siblings, each one stat row, landing as the run comes down. */
+  .masthead-stat {
+    animation: masthead-settle 0.5s ease-out both;
+  }
+
+  .masthead-stat:nth-child(1) {
+    animation-delay: 2s;
+  }
+
+  .masthead-stat:nth-child(2) {
+    animation-delay: 2.4s;
+  }
+
+  .masthead-stat:nth-child(3) {
+    animation-delay: 2.8s;
+  }
+
+  /* The base rule collapses animation *durations* but leaves delays intact,
+     which would still play the whole sequence out over three seconds. */
+  @media (prefers-reduced-motion: reduce) {
+    .masthead-trail,
+    .masthead-skier,
+    .masthead-trace,
+    .masthead-stat {
+      animation-delay: 0s;
+    }
+
+    /* Collapsing the loop's duration would pile all three chairs at the top
+       terminal, so they are stopped where they would have been instead. */
+    .masthead-chair {
+      animation: none;
+      offset-distance: 20%;
+    }
+
+    .masthead-chair-2 {
+      offset-distance: 53%;
+    }
+
+    .masthead-chair-3 {
+      offset-distance: 86%;
+    }
+  }
+}

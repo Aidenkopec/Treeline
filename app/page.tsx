@@ -1,7 +1,17 @@
 import { DifficultyMark } from "@/components/difficulty-mark";
-import { Ridgeline } from "@/components/ridgeline";
+import { PROFILE_STATS, Ridgeline } from "@/components/ridgeline";
+import { aspectLabel } from "@/lib/aspect";
 import { DIFFICULTY_ORDER, difficultyStyle } from "@/lib/difficulty";
+import { degrees, metres } from "@/lib/format";
 import { plannedResorts, readManifest } from "@/lib/manifest";
+
+/** Readouts for the masthead diagram, formatted the way every other number on
+ *  the site is — whole degrees and whole metres, the most a 30m DEM supports. */
+const STATS = [
+  ["Pitch avg", degrees(PROFILE_STATS.pitch_avg_deg)],
+  ["Aspect", aspectLabel(PROFILE_STATS.aspect_deg)],
+  ["Vertical", metres(PROFILE_STATS.vertical_m)],
+] as const;
 
 export default async function Home() {
   const manifest = await readManifest();
@@ -10,16 +20,39 @@ export default async function Home() {
 
   return (
     <main>
-      <header className="relative overflow-hidden border-b border-line bg-shadow">
-        <Ridgeline className="absolute inset-x-0 bottom-0 h-40 w-full opacity-70" />
-        <div className="relative mx-auto max-w-5xl px-6 pt-20 pb-44 md:pb-48">
+      <header className="overflow-hidden border-b border-line bg-shadow">
+        <div className="mx-auto max-w-5xl px-6 pt-20 pb-14">
           <h1 className="u-massif text-2xl text-snow sm:text-3xl">Treeline</h1>
-          <p className="mt-6 max-w-[54ch] text-lg text-rock">
-            Resort trail maps flatten the mountain. This one doesn&rsquo;t: real pitch, aspect and
-            vertical for every marked run, computed from elevation data and drawn on the terrain it
-            actually crosses.
-          </p>
+
+          <div className="mt-6 flex flex-wrap items-start justify-between gap-x-12 gap-y-8">
+            <p className="max-w-[54ch] text-lg text-rock">
+              Resort trail maps flatten the mountain. This one doesn&rsquo;t: real pitch, aspect and
+              vertical for every marked run, computed from elevation data and drawn on the terrain
+              it actually crosses.
+            </p>
+
+            {/* The figure is a diagram, so its numbers are labelled as one and kept
+                out of the accessibility tree until a bake can make them true. */}
+            <div aria-hidden="true" className="w-48 shrink-0">
+              {STATS.map(([label, value]) => (
+                <div
+                  key={label}
+                  className="masthead-stat flex items-baseline justify-between gap-6 border-b border-line py-2"
+                >
+                  <span className="u-data">{label}</span>
+                  <span className="u-feature text-sm text-snow tabular-nums">{value}</span>
+                </div>
+              ))}
+              <p className="u-data pt-2">Sample section</p>
+            </div>
+          </div>
         </div>
+
+        {/* In flow, sized by ratio rather than a fixed height: the figure then
+            grows with the viewport instead of being cropped harder the wider it
+            gets. The floor is for phones, where the ratio alone would leave a
+            strip too thin to read as terrain. */}
+        <Ridgeline className="block aspect-6/1 min-h-36 w-full" />
       </header>
 
       <section className="mx-auto max-w-5xl px-6 py-14">
