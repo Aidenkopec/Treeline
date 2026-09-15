@@ -12,12 +12,7 @@ import { type OverpassWay, readDifficulty } from "./overpass";
  */
 
 /** Great-circle distance between two points, metres. */
-export function haversineM(
-  aLon: number,
-  aLat: number,
-  bLon: number,
-  bLat: number,
-): number {
+export function haversineM(aLon: number, aLat: number, bLon: number, bLat: number): number {
   const R = 6371008.8;
   const toRad = Math.PI / 180;
   const dLat = (bLat - aLat) * toRad;

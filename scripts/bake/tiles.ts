@@ -30,7 +30,11 @@ export interface TileRange {
 }
 
 /** Longitude/latitude to fractional tile coordinates at zoom `z`. */
-export function lonLatToTileFraction(lon: number, lat: number, z: number): { x: number; y: number } {
+export function lonLatToTileFraction(
+  lon: number,
+  lat: number,
+  z: number,
+): { x: number; y: number } {
   const n = 2 ** z;
   const latRad = (lat * Math.PI) / 180;
   return {

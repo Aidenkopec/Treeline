@@ -11,7 +11,13 @@ import { aspectLabel } from "@/lib/aspect";
  * north to south). Getting this backwards silently mirrors every aspect in the
  * project, which is why it is asserted here rather than assumed.
  */
-function plane(options: { width: number; height: number; cellSize: number; dx: number; dy: number }): Grid {
+function plane(options: {
+  width: number;
+  height: number;
+  cellSize: number;
+  dx: number;
+  dy: number;
+}): Grid {
   const { width, height, cellSize, dx, dy } = options;
   const data = new Float32Array(width * height);
   for (let y = 0; y < height; y++) {
