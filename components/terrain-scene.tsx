@@ -30,8 +30,8 @@ import type { Resort } from "@/lib/types";
  * The baked artifacts, rendered.
  *
  * Nothing here computes a run statistic or shades the mountain by steepness
- * (SPEC §8): this draws the ground the bake measured, with the imagery that
- * covers it, and stops. The lighting is the Imhof convention the palette is
+ * (SPEC §8): this draws the ground the bake measured, with the winter surface
+ * the bake remapped Esri's imagery into, and stops. The lighting is the Imhof convention the palette is
  * already built on — warm where the sun lands, cool blue in shadow — and its
  * direction becomes a real sun position in phase 5.
  */
@@ -48,6 +48,8 @@ interface Palette {
   sun: THREE.Color;
   shade: THREE.Color;
   ground: THREE.Color;
+  /** Bounce under a downward-facing slope. The page colour reads as dirt on snow. */
+  fill: THREE.Color;
 }
 
 const loading = new Map<string, Promise<Terrain>>();
@@ -128,9 +130,11 @@ function paletteColor(name: string): THREE.Color {
 /**
  * A palette token as a light colour, pulled most of the way back to white.
  *
- * At full strength these are interface colours. A light multiplies the
- * satellite photograph by its colour, and gold at full saturation turns snow
- * into sand — the hue has to read as a lean, not as a filter.
+ * At full strength these are interface colours. A light multiplies the drape
+ * by its colour, and gold at full saturation turns snow into sand — the hue has
+ * to read as a lean, not as a filter. The leans are wider than they look like
+ * they should be because the drape is near-neutral: these two are the only
+ * colour in the scene, where over a photograph they were only a tilt on one.
  */
 function lightColor(name: string, tint: number): THREE.Color {
   return new THREE.Color(0xffffff).lerp(paletteColor(name), tint);
@@ -188,9 +192,10 @@ function LoadedScene({
   const terrain = use(loadTerrain(resort));
   const palette = useMemo(
     () => ({
-      sun: lightColor("--color-sun", 0.3),
-      shade: lightColor("--color-shade", 0.45),
+      sun: lightColor("--color-sun", 0.5),
+      shade: lightColor("--color-shade", 0.62),
       ground: paletteColor("--color-shadow-deep"),
+      fill: paletteColor("--color-shade-dim"),
     }),
     [],
   );
@@ -199,8 +204,11 @@ function LoadedScene({
     <Canvas
       camera={{ far: 200000, fov: FOV, near: 10 }}
       dpr={[1, 2]}
-      // The imagery is already a photograph of lit ground; a film curve on top
-      // of it washes out the snow and greys the rock.
+      // Lambert divides by pi, so the lights below are exposed for the
+      // mid-tones — the drape's forest — rather than for its brightest snow,
+      // which is left free to blow out on a slope facing the sun the way a
+      // snowfield does. A film curve would pull that back and would flatten the
+      // warm/cool split, which is the only colour a near-neutral snow has.
       gl={{ toneMapping: THREE.NoToneMapping }}
     >
       <color args={[palette.ground]} attach="background" />
@@ -373,11 +381,11 @@ function Massif({
 
   return (
     <>
-      <hemisphereLight args={[palette.shade, palette.ground, 1.6]} />
+      <hemisphereLight args={[palette.shade, palette.fill, 1.4]} />
       <directionalLight
         color={palette.sun}
-        intensity={2.6}
-        position={[-opening.distance, opening.distance, -opening.distance * 0.6]}
+        intensity={2.8}
+        position={[-opening.distance, opening.distance, opening.distance * 0.6]}
       />
 
       <mesh geometry={geometry}>

@@ -97,6 +97,11 @@ export function RunOverlay({ resort, state }: { resort: Resort; state: RunOverla
   const { runs, visibleIds, selectedId, hoveredId, onSelect, onHover } = state;
 
   const casing = useMemo(() => paletteColor("--color-shadow-deep"), []);
+  // Where a receded run is mixed to, which is not where the casing is. Mixing a
+  // line toward the ground colour over snow roughly doubles its contrast — it
+  // promotes the run instead of receding it. Rock sits between the two
+  // backgrounds the drape now has, so it steps back over both.
+  const receded = useMemo(() => paletteColor("--color-rock"), []);
   const halo = useMemo(() => paletteColor("--color-sun-bright"), []);
   const ghost = useMemo(() => paletteColor("--color-sun"), []);
 
@@ -142,7 +147,7 @@ export function RunOverlay({ resort, state }: { resort: Resort; state: RunOverla
           // half the step back.
           return (
             <Line
-              color={color.clone().lerp(casing, RECEDED_MIX)}
+              color={color.clone().lerp(receded, RECEDED_MIX)}
               depthWrite={false}
               key={id}
               lineWidth={RECEDED_WIDTH}

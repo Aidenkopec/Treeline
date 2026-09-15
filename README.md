@@ -68,6 +68,6 @@ skiing.
 ## Attribution
 
 Elevation from [AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/).
-Imagery from Esri World Imagery. Runs and resort boundaries from
+Winter surface rendered from Esri World Imagery. Runs and resort boundaries from
 [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, ODbL.
 Weather from [Open-Meteo](https://open-meteo.com).

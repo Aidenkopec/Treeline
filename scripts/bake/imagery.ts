@@ -1,9 +1,12 @@
 import sharp from "sharp";
 import { fetchMosaic } from "./mosaic";
 import { type TileRange, zoomedRange } from "./tiles";
+import { winterize } from "./winter";
 
 /**
- * Esri World Imagery tiles, draped over the terrain as the surface texture.
+ * Esri World Imagery tiles, remapped to a winter surface and draped over the
+ * terrain as the texture. Esri's mosaic is a summer scene and there is no
+ * seasonal variant of it — see scripts/bake/winter.ts for what is done about it.
  *
  * Same XYZ grid as the elevation tiles, so scripts/bake/tiles.ts serves both.
  * Attribution is required and is rendered in components/site-footer.tsx.
@@ -34,7 +37,7 @@ export const IMAGERY_ZOOM_OFFSET = 2;
 export async function bakeSatelliteTexture(range: TileRange, quality: number): Promise<Buffer> {
   const deeper = zoomedRange(range, IMAGERY_ZOOM_OFFSET);
   const mosaic = await fetchMosaic(deeper, esriTileUrl);
-  return sharp(mosaic.data, {
+  return sharp(winterize(mosaic.data, mosaic.width, mosaic.height), {
     raw: { width: mosaic.width, height: mosaic.height, channels: 3 },
   })
     .jpeg({ quality })
