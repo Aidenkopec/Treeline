@@ -1,3 +1,4 @@
+import { LIFT_STYLES } from "@/lib/mountain";
 import type { Bounds, Difficulty, LiftKind, PlaceKind } from "@/lib/types";
 import { cachedFetch } from "./cache";
 
@@ -26,12 +27,25 @@ const KNOWN_DIFFICULTIES = new Set(["easy", "intermediate", "advanced", "expert"
  */
 const GRADE_ALIASES: Record<string, string> = { novice: "easy" };
 
+const RESORT_RADIUS_M = 8000;
+
+/**
+ * The ways and relations that make up the resort itself.
+ *
+ * Shared so the runs mosaic and the lift clip below cannot come to disagree
+ * about what "the resort" is — two copies of this would drift the first time
+ * anyone touched the radius.
+ */
+function resortAreas(lat: number, lon: number, radiusM: number): string {
+  return `  way(around:${radiusM},${lat},${lon})["landuse"="winter_sports"];
+  relation(around:${radiusM},${lat},${lon})["landuse"="winter_sports"];`;
+}
+
 /** Query for the resort's own boundary polygon, to derive its bounding box. */
-export function resortBoundsQuery(lat: number, lon: number, radiusM = 8000): string {
+export function resortBoundsQuery(lat: number, lon: number, radiusM = RESORT_RADIUS_M): string {
   return `[out:json][timeout:90];
 (
-  way(around:${radiusM},${lat},${lon})["landuse"="winter_sports"];
-  relation(around:${radiusM},${lat},${lon})["landuse"="winter_sports"];
+${resortAreas(lat, lon, radiusM)}
 );
 out geom;`;
 }
@@ -51,9 +65,9 @@ out geom;`;
  *
  * Clipped to the `landuse=winter_sports` polygon through `map_to_area`, not to
  * the mosaic rectangle: the mosaic is cut to whole tiles and reaches down into
- * the valley, where a village's restaurants and hotels are. At Lake Louise the
- * area clip is the difference between six lodges on the hill and those six plus
- * the Post Hotel, the railway station and the pizza place.
+ * the valley, where a village's restaurants and hotels are. At Lake Louise it is
+ * what keeps the Post Hotel, the railway station and the pizza place out of a
+ * list of lodges on the hill.
  *
  * Two `out` statements over named sets, which is load-bearing. A single
  * `out tags center` answers with a centre point and *no* `geometry`, so the
@@ -64,11 +78,10 @@ out geom;`;
  * Separate from `downhillRunsQuery` on purpose. The downhill filter is a safety
  * rule (§8), and a query with no `piste:type` clause in it cannot widen one.
  */
-export function mountainQuery(lat: number, lon: number, radiusM = 8000): string {
+export function mountainQuery(lat: number, lon: number, radiusM = RESORT_RADIUS_M): string {
   return `[out:json][timeout:180];
 (
-  way(around:${radiusM},${lat},${lon})["landuse"="winter_sports"];
-  relation(around:${radiusM},${lat},${lon})["landuse"="winter_sports"];
+${resortAreas(lat, lon, radiusM)}
 )->.resort;
 .resort map_to_area -> .a;
 way(area.a)["aerialway"] -> .lifts;
@@ -121,18 +134,12 @@ export function isInboundsDownhill(way: OverpassWay): boolean {
   return true;
 }
 
-/** The lift kinds this project draws. Anything else is not a lift as far as the bake is concerned. */
-const LIFT_KINDS = new Set<LiftKind>([
-  "gondola",
-  "chair_lift",
-  "cable_car",
-  "mixed_lift",
-  "magic_carpet",
-  "platter",
-  "t-bar",
-  "rope_tow",
-  "drag_lift",
-]);
+/**
+ * The lift kinds this project draws. Anything else is not a lift as far as the
+ * bake is concerned. Taken from the styles so the bake cannot accept a kind the
+ * app has no way to draw.
+ */
+const LIFT_KINDS = new Set<string>(Object.keys(LIFT_STYLES));
 
 /**
  * Read a lift kind from OSM tags, or null when this is not a lift to draw.
@@ -150,7 +157,7 @@ const LIFT_KINDS = new Set<LiftKind>([
 export function readLiftKind(el: { tags?: Record<string, string> }): LiftKind | null {
   const kind = el.tags?.aerialway;
   if (kind === undefined || el.tags?.proposed === "yes") return null;
-  return LIFT_KINDS.has(kind as LiftKind) ? (kind as LiftKind) : null;
+  return LIFT_KINDS.has(kind) ? (kind as LiftKind) : null;
 }
 
 /**

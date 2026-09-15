@@ -1,3 +1,4 @@
+import { liftStyle } from "@/lib/mountain";
 import type { Lift, LiftTower, Place } from "@/lib/types";
 import { elevationAt, type Grid } from "./terrain";
 import { lonLatToMosaicPixel, type TileRange } from "./tiles";
@@ -25,15 +26,9 @@ import { haversineM } from "./runs";
 /**
  * How far the cable rides above the ground, metres, before exaggeration.
  *
- * A single constant rather than a per-span fit, which is the same answer
- * `DRAPE_OFFSET_M` gives for run lines and for the same reason: it is a height
- * chosen to draw with. Fitting each tower to clear the ground under its own
- * span would make the clearance vary along a lift, and a length accumulated
- * over a varying cable is no longer a length measured on the ground — which is
- * how a rendering constant would end up inside a published number.
- *
- * Real pylons run 5–25m. Twelve reads as a lift at every zoom the camera
- * reaches without making a gondola look like it is on stilts.
+ * One constant, never a per-span fit: a clearance that varied along a lift
+ * would put this rendering height inside `length_m`. Tuned by eye, like
+ * `DRAPE_OFFSET_M`.
  */
 export const CABLE_CLEARANCE_M = 12;
 
@@ -158,9 +153,6 @@ export interface MountainCoverage {
   mostWaysPerName: number;
 }
 
-/** Aerial kinds hang from a cable; the rest run along the snow. */
-const AERIAL = new Set(["gondola", "chair_lift", "cable_car", "mixed_lift"]);
-
 export function summariseMountain(elements: (OverpassWay | OverpassPlace)[]): MountainCoverage {
   const coverage: MountainCoverage = {
     lifts: 0,
@@ -177,7 +169,7 @@ export function summariseMountain(elements: (OverpassWay | OverpassPlace)[]): Mo
     const kind = readLiftKind(el);
     if (kind !== null) {
       coverage.lifts++;
-      if (AERIAL.has(kind)) coverage.aerial++;
+      if (liftStyle(kind).aerial) coverage.aerial++;
       else coverage.surface++;
       const name = el.tags?.name;
       if (name) {

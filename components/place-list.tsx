@@ -7,9 +7,9 @@ import type { Place } from "@/lib/types";
 /**
  * The named places, as a list.
  *
- * A list rather than a third table: two facts each, and at most nine of them.
- * Renders nothing at all where OSM has named nothing, which is the ordinary
- * case at three of the six resorts rather than a failure to report.
+ * A list rather than a third table: two facts each, and a handful of them.
+ * Renders nothing at all where OSM has named nothing, which is an ordinary
+ * case rather than a failure to report.
  */
 export function PlaceList({
   places,

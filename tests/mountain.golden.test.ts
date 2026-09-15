@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { aspectLabel } from "@/lib/aspect";
+import { ASPECT_LABELS } from "@/lib/aspect";
 import type { Manifest, MountainFile } from "@/lib/types";
 
 /**
@@ -80,10 +80,9 @@ describe("the committed Lake Louise mountain artifact", () => {
     // Belt and braces: a label smuggled in as a value would read as terrain
     // data on the page just as loudly as a field called `aspect_deg`.
     const serialised = JSON.stringify(mountain);
-    for (const label of ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]) {
-      expect(serialised).not.toContain(`"${label}"`);
-      expect(aspectLabel(0)).toBeTypeOf("string");
-    }
+    // Walked from `ASPECT_LABELS` rather than a copy of it, so a ninth aspect
+    // is covered here the day it is added.
+    for (const label of ASPECT_LABELS) expect(serialised).not.toContain(`"${label}"`);
   });
 });
 

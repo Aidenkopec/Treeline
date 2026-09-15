@@ -237,17 +237,17 @@ describe("deriveLift", () => {
     expect(spread).toBeGreaterThan(terminals);
   });
 
-  it("measures length on the ground, so the cable clearance cannot reach a published number", () => {
-    const flat: Grid = (() => {
-      const { width, height } = mosaicSize(RANGE);
-      return { data: new Float32Array(width * height).fill(2000), width, height, cellSize: CELL };
-    })();
-    const lift = deriveLift(northwardLift(1, 900, 4), flat, RANGE)!;
+  it("measures length along the ground, so the climb is added to the map distance", () => {
+    const lift = deriveLift(northwardLift(1, 900, 4), northRisingPlane(GRADIENT), RANGE)!;
 
-    // Over flat ground the ground path is the map distance. A length taken off
-    // the cable would be identical here too — which is the point of pinning it
-    // on terrain where the cable and the ground are parallel.
-    expect(lift.length_m).toBeCloseTo(900, -1);
+    // 900m across the map up a 20° slope is 958m travelled. Sloped ground
+    // rather than flat because flat ground cannot tell this apart from the map
+    // distance. The other half of the rule — that the clearance can never reach
+    // this number — holds by construction and not by test: `cable_m` is
+    // `ground_m` plus one constant, so both lines rise identically over every
+    // segment and no terrain makes them differ.
+    expect(lift.length_m).toBeGreaterThan(900);
+    expect(lift.length_m).toBeCloseTo(900 / Math.cos(20 * (Math.PI / 180)), -1);
   });
 
   it("returns nothing for a way that is not a lift, rather than an empty lift", () => {

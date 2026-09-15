@@ -56,7 +56,7 @@ async function loadResorts(): Promise<ResortInput[]> {
   return (JSON.parse(raw) as { resorts: ResortInput[] }).resorts;
 }
 
-/** Resolve the resort's box and the runs inside it — the two Overpass calls. */
+/** Resolve the resort's box, the runs inside it, and what is built on it. */
 async function resolveTerrain(resort: ResortInput) {
   const areas = await runQuery<OverpassArea>(resortBoundsQuery(resort.lat, resort.lon));
   const polygon = boundsFromElements(areas.elements, resort.lat, resort.lon);
@@ -219,7 +219,6 @@ async function checkResort(resort: ResortInput): Promise<void> {
   const problems: string[] = [];
   if (c.kept < 30) problems.push(`only ${c.kept} downhill runs`);
   // Zero lifts means the area clip found nothing, not that the hill has none.
-  // Zero *places* is an ordinary fact — three of the six resorts have no peak.
   if (m.lifts === 0) problems.push("no lifts — check that the resort polygon maps to an area");
   if (c.kept > 0 && c.named / c.kept < 0.7) problems.push(`only ${pct(c.named)} named`);
   if (c.kept > 0 && c.graded / c.kept < 0.7) problems.push(`only ${pct(c.graded)} graded`);
