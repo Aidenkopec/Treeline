@@ -44,3 +44,6 @@ next-env.d.ts
 
 # claude code (personal overrides stay local)
 .claude/settings.local.json
+
+# bake-time download cache (tiles, Overpass responses)
+.bake-cache/

@@ -1,0 +1,24 @@
+{
+  "generated_at": "2026-09-15T19:16:29.731Z",
+  "resorts": [
+    {
+      "slug": "lake-louise",
+      "name": "Lake Louise",
+      "country": "Canada",
+      "bounds": {
+        "west": -116.19140625,
+        "north": 51.481382896100975,
+        "east": -116.0595703125,
+        "south": 51.42661449707482
+      },
+      "lat": 51.4419,
+      "lon": -116.1622,
+      "elevation_min_m": 1560,
+      "elevation_max_m": 2827,
+      "width": 768,
+      "height": 512,
+      "vertical_exaggeration": 1.4,
+      "baked_at": "2026-09-15"
+    }
+  ]
+}

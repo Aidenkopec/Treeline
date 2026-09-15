@@ -3,12 +3,12 @@
 Progress tracker for [SPEC.md](./SPEC.md) §11. Each phase ends working, committed and
 deployable, and runs in its own session with its own verification gate.
 
-**Status: phase 1 in progress (~40%).** Foundation is done; the bake pipeline's pure math
-is implemented and tested, but nothing has been baked yet and no artifacts exist.
+**Status: phase 1 done. Phase 2 next.** Lake Louise is baked and committed — heightmap,
+satellite, 168 runs and a manifest entry, 1.97 MB of the 5 MB budget. 102 tests green.
 
-> **Next action:** implement the four derived-stat functions in `scripts/bake/runs.ts`.
-> They are pure functions over a heightmap, so they can be written and tested without any
-> network access — same as the three modules already finished.
+> **Next action:** phase 2 — render the baked heightmap as terrain with the satellite
+> texture draped over it. The artifacts are on disk and the manifest is populated, so the
+> scene has real data to read from the first commit.
 
 ---
 
@@ -36,7 +36,7 @@ no layout overflow from 320px up.
 
 ---
 
-## Phase 1 — Bake pipeline, Lake Louise only 🟡 in progress
+## Phase 1 — Bake pipeline, Lake Louise only ✅ done
 
 **Deliverable:** real artifacts for one resort — `heightmap.png`, `satellite.jpg`,
 `runs.json`, manifest entry.
@@ -44,9 +44,10 @@ no layout overflow from 320px up.
 **Gate (SPEC §11):**
 
 - [x] Downhill-only filter asserted against a fixture containing backcountry ways
-- [~] Fixture tile decodes to known elevations — _decode is tested against synthetic
-  buffers; still needs a real terrarium `.png` fixture_
-- [ ] Golden pitch/aspect for two hand-checked Lake Louise runs, within tolerance
+- [x] Fixture tile decodes to known elevations — real tile `13/1452/2726`; the base area
+      reads within 20m of the published 1646m
+- [x] Golden pitch/aspect for two hand-checked Lake Louise runs, within tolerance —
+      Wiwaxy and Eagles Flight, checked against Copernicus DEM GLO-90
 
 ### Done
 
@@ -57,32 +58,44 @@ no layout overflow from 320px up.
 
 ### Remaining, in order
 
-**1. Derived stats** — `scripts/bake/runs.ts` (5 stubs). Pure math, no network:
+**1. Derived stats** — `scripts/bake/runs.ts` ✅ done. Pure math, no network:
 
-- [ ] `sampleProfile` — resample a polyline to a fixed ground interval against the DEM
-- [ ] `averagePitch` — mean slope, weighted by segment length
-- [ ] `sustainedMaxPitch` — sliding window, so one noisy DEM cell can't report a cliff
-- [ ] `meanAspect` — averaged as unit vectors, not raw degrees (350° and 10° average to N, not S)
-- [ ] `deriveRun` — assemble one complete `Run`
+- [x] `sampleProfile` — resample a polyline to a fixed ground interval against the DEM
+- [x] `averagePitch` — mean slope, weighted by segment length
+- [x] `sustainedMaxPitch` — sliding window, so one noisy DEM cell can't report a cliff
+- [x] `meanAspect` — averaged as unit vectors, not raw degrees (350° and 10° average to N, not S)
+- [x] `deriveRun` — assemble one complete `Run`
 
-**2. Network and raster I/O:**
+**2. Network and raster I/O** ✅ done:
 
-- [ ] `overpass.ts` `runQuery` — POST, with the rate limit respected
-- [ ] Tile download + stitch via `sharp` (elevation and imagery share `tiles.ts`)
-- [ ] `imagery.ts` `bakeSatelliteTexture`
+- [x] `overpass.ts` `runQuery` — POST, with retry and backoff on 429/502/503/504
+- [x] Tile download + stitch via `sharp` (elevation and imagery share `tiles.ts`)
+- [x] `imagery.ts` `bakeSatelliteTexture` — two zoom levels deeper than the DEM
 
-**3. Emit** — `scripts/bake/emit.ts` (5 stubs):
+**3. Emit** — `scripts/bake/emit.ts` ✅ done:
 
-- [ ] 16-bit `heightmap.png`, `satellite.jpg`, `runs.json`, manifest update
-- [ ] `reportAssetWeight` against the SPEC §10 budget
+- [x] RGB-encoded `heightmap.png`, `satellite.jpg`, `runs.json`, manifest update
+- [x] `reportAssetWeight` against the SPEC §10 budget
 
-**4. Orchestrate** — `scripts/bake.ts` (2 stubs): `bakeResort`, `checkResort`
+**4. Orchestrate** — `scripts/bake.ts` ✅ done: `bakeResort`, `checkResort`, `--no-cache`
 
-**5. Close the gate:**
+**5. Close the gate** ✅ done:
 
-- [ ] Bake Lake Louise for real; commit the artifacts
-- [ ] Hand-check two runs against the published trail map and a topo
-- [ ] Commit those as golden values and un-skip `tests/runs.golden.test.ts`
+- [x] Bake Lake Louise for real; commit the artifacts — 1.97 MB of the 5 MB budget
+- [x] Verify against independent sources, not the pipeline's own output
+- [x] Commit golden values and structural invariants in `tests/runs.golden.test.ts`
+
+**Verified:** 102 tests green, format/lint/typecheck/build clean, home page shows Lake
+Louise as baked. Elevation checked two ways — seven OSM surveyed peaks and lift stations
+(every sharp summit reads low, mean -43m; the valley floor reads +6m high; a broad rounded
+hill reads exact, which is resampling ~30m data rather than a bug), and two runs against
+Copernicus DEM GLO-90 (pitch within 0.3° on Eagles Flight, 3.5° on the much shallower
+Wiwaxy, where DEM noise dominates a gentle gradient).
+
+**Known, accepted:** one run per OSM way means a name can appear more than once, and a
+famous published figure may describe a different object than the way carrying its name —
+the FIS Men's Downhill _course_ is 3123m/827m over several trails, while the OSM way named
+"Men's Downhill" is the 743m/256m pitch itself. Revisit in phase 3 with the list on screen.
 
 ---
 

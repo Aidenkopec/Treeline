@@ -1,3 +1,7 @@
+import sharp from "sharp";
+import { fetchMosaic } from "./mosaic";
+import { type TileRange, zoomedRange } from "./tiles";
+
 /**
  * Esri World Imagery tiles, draped over the terrain as the surface texture.
  *
@@ -13,7 +17,26 @@ export function esriTileUrl(x: number, y: number, z: number): string {
   return `${ESRI_WORLD_IMAGERY_URL}/${z}/${y}/${x}`;
 }
 
-/** Download and stitch imagery tiles into a single JPEG buffer. */
-export async function bakeSatelliteTexture(): Promise<Buffer> {
-  throw new Error("Not implemented — phase 1");
+/**
+ * Imagery is baked deeper than the DEM: at the elevation zoom the drape is one
+ * texel per ~12m of ground, which reads as a blurry photograph rather than a
+ * mountain. Two levels is 4x the linear resolution for a file the §10 budget
+ * still has room for.
+ */
+export const IMAGERY_ZOOM_OFFSET = 2;
+
+/**
+ * Download and stitch imagery covering exactly the same rectangle as `range`.
+ *
+ * Alignment with the heightmap is arithmetic rather than a crop: tile (x,y,z)
+ * is exactly the tiles x·2ᵏ … x·2ᵏ+2ᵏ−1 at z+k.
+ */
+export async function bakeSatelliteTexture(range: TileRange, quality: number): Promise<Buffer> {
+  const deeper = zoomedRange(range, IMAGERY_ZOOM_OFFSET);
+  const mosaic = await fetchMosaic(deeper, esriTileUrl);
+  return sharp(mosaic.data, {
+    raw: { width: mosaic.width, height: mosaic.height, channels: 3 },
+  })
+    .jpeg({ quality })
+    .toBuffer();
 }
