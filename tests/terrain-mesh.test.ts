@@ -1,10 +1,20 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import sharp from "sharp";
 import { decodeHeightmap } from "@/lib/elevation";
-import { ELEVATION_ANGLE, FOV, openingFraming, terrainGeometry } from "@/lib/terrain-mesh";
+import {
+  DRAPE_OFFSET_M,
+  ELEVATION_ANGLE,
+  FOV,
+  lonLatToMesh,
+  openingFraming,
+  runMeshPoints,
+  terrainGeometry,
+} from "@/lib/terrain-mesh";
 import { encodeHeightmap } from "@/scripts/bake/emit";
 import type { Grid } from "@/scripts/bake/terrain";
-import type { Resort } from "@/lib/types";
+import { lonLatToMosaicPixel, tileRangeForBounds } from "@/scripts/bake/tiles";
+import type { Resort, RunsFile } from "@/lib/types";
 
 function resort(over: Partial<Resort> = {}): Resort {
   return {
@@ -124,6 +134,115 @@ describe("a baked heightmap read back as a mesh", () => {
     for (let v = 0; v < data.length; v++) {
       const rendered = g.positions[v * 3 + 1] + encoded.elevation_min_m;
       expect(Math.abs(rendered - data[v])).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
+/**
+ * Putting a run where it belongs on the mountain.
+ *
+ * The bake maps lon/lat to a mosaic pixel through `scripts/bake/tiles.ts`; the
+ * app has to reach the same place from `bounds` and `width`/`height` alone,
+ * because the manifest carries no tile range. Two implementations of one
+ * projection is a drift risk, so the agreement is asserted rather than assumed
+ * — and asserted on the real Lake Louise range, where a transposed axis or a
+ * latitude treated as linear would show up.
+ */
+describe("lonLatToMesh", () => {
+  const lakeLouise = resort({
+    bounds: {
+      west: -116.19140625,
+      north: 51.481382896100975,
+      east: -116.0595703125,
+      south: 51.42661449707482,
+    },
+    width: 768,
+    height: 512,
+    metres_per_pixel: 11.91095107773933,
+    elevation_min_m: 1560,
+    elevation_max_m: 2827,
+    vertical_exaggeration: 1.8,
+  });
+
+  it("agrees with the bake's own projection across the mosaic", () => {
+    const range = tileRangeForBounds(lakeLouise.bounds, 13);
+    const { width, height, metres_per_pixel: mpp } = lakeLouise;
+
+    for (let i = 0; i <= 10; i++) {
+      for (let j = 0; j <= 10; j++) {
+        const lon =
+          lakeLouise.bounds.west + ((lakeLouise.bounds.east - lakeLouise.bounds.west) * i) / 10;
+        const lat =
+          lakeLouise.bounds.north - ((lakeLouise.bounds.north - lakeLouise.bounds.south) * j) / 10;
+
+        const { px, py } = lonLatToMosaicPixel(lon, lat, range);
+        const [x, , z] = lonLatToMesh(lon, lat, 0, lakeLouise);
+
+        expect(x).toBeCloseTo((px - width / 2) * mpp, 6);
+        expect(z).toBeCloseTo((py - height / 2) * mpp, 6);
+      }
+    }
+  });
+
+  it("lands the mosaic corners on the mesh corners", () => {
+    const { bounds, width, height, metres_per_pixel: mpp } = lakeLouise;
+    const [westX, , northZ] = lonLatToMesh(bounds.west, bounds.north, 0, lakeLouise);
+    const [eastX, , southZ] = lonLatToMesh(bounds.east, bounds.south, 0, lakeLouise);
+
+    expect(westX).toBeCloseTo((-width / 2) * mpp, 6);
+    expect(eastX).toBeCloseTo((width / 2) * mpp, 6);
+    expect(northZ).toBeCloseTo((-height / 2) * mpp, 6);
+    expect(southZ).toBeCloseTo((height / 2) * mpp, 6);
+  });
+
+  it("bows away from a latitude read as linear", () => {
+    // Mid-box is where Mercator and a straight interpolation differ most. The
+    // gap is small at this size, but it is the sign the projection is real.
+    const { bounds } = lakeLouise;
+    const midLat = (bounds.north + bounds.south) / 2;
+    const [, , z] = lonLatToMesh(bounds.west, midLat, 0, lakeLouise);
+
+    expect(z).not.toBe(0);
+    expect(Math.abs(z)).toBeLessThan(lakeLouise.metres_per_pixel);
+  });
+
+  it("stands a run above the surface by the drape offset", () => {
+    const { bounds, elevation_min_m, vertical_exaggeration } = lakeLouise;
+    const [, y] = lonLatToMesh(bounds.west, bounds.north, elevation_min_m + 100, lakeLouise);
+
+    expect(y).toBeCloseTo(100 * vertical_exaggeration + DRAPE_OFFSET_M, 6);
+  });
+});
+
+/**
+ * Every baked run, drawn on the mesh it was baked against.
+ *
+ * `runs.golden.test.ts` already asserts each profile point falls inside
+ * `bounds`. This is the same claim one step further on: that the projection
+ * turns those points into somewhere the terrain actually is.
+ */
+describe("the committed Lake Louise runs on the mesh", () => {
+  const file: RunsFile = JSON.parse(
+    readFileSync(new URL("../public/resorts/lake-louise/runs.json", import.meta.url), "utf8"),
+  );
+  const manifest = JSON.parse(
+    readFileSync(new URL("../public/resorts/manifest.json", import.meta.url), "utf8"),
+  );
+  const lakeLouise: Resort = manifest.resorts.find((r: Resort) => r.slug === "lake-louise");
+
+  it("keeps every run inside the terrain and above its floor", () => {
+    const halfWidth = (lakeLouise.width / 2) * lakeLouise.metres_per_pixel;
+    const halfDepth = (lakeLouise.height / 2) * lakeLouise.metres_per_pixel;
+
+    for (const run of file.runs) {
+      const points = runMeshPoints(run.profile, lakeLouise);
+      expect(points).toHaveLength(run.profile.length * 3);
+
+      for (let i = 0; i < points.length; i += 3) {
+        expect(Math.abs(points[i])).toBeLessThanOrEqual(halfWidth);
+        expect(Math.abs(points[i + 2])).toBeLessThanOrEqual(halfDepth);
+        expect(points[i + 1]).toBeGreaterThan(0);
+      }
     }
   });
 });

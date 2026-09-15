@@ -1,4 +1,4 @@
-import type { Resort } from "./types";
+import type { ProfileSample, Resort } from "./types";
 
 /**
  * The heightmap as a mesh, in metres.
@@ -77,6 +77,65 @@ export function terrainGeometry(elevations: Float32Array, resort: Resort): Terra
     groundDepth: (height - 1) * mpp,
     relief: (resort.elevation_max_m - floor) * exaggeration,
   };
+}
+
+/**
+ * Metres of clearance between a draped polyline and the surface it follows,
+ * in exaggerated space.
+ *
+ * The bake sampled a run's elevation bilinearly across a heightmap cell; the
+ * mesh spans the same cell with two flat triangles. Inside a cell the two
+ * disagree by a little, and a line laid exactly on the sampled elevation
+ * submerges wherever the triangles fall below it. Tuned by eye.
+ */
+export const DRAPE_OFFSET_M = 8;
+
+/** Web Mercator northing, in radians of latitude. Longitude needs no such map. */
+function mercatorY(latDeg: number): number {
+  return Math.log(Math.tan(Math.PI / 4 + (latDeg * Math.PI) / 360));
+}
+
+/**
+ * A geographic point as a point in the terrain mesh's metres.
+ *
+ * `resort.bounds` is the mosaic rectangle, so it lies on the *outer edges* of
+ * the border pixels while `terrainGeometry` puts vertices at pixel *centres*.
+ * The half-pixel that separates them cancels against the recentring — hence
+ * `width / 2` here where the mesh uses `(width - 1) / 2`.
+ *
+ * `elevationM` is the bake's own sample, not a reading off the heightmap: the
+ * app renders the terrain it was given and does not measure it (SPEC §5).
+ */
+export function lonLatToMesh(
+  lon: number,
+  lat: number,
+  elevationM: number,
+  resort: Resort,
+): [number, number, number] {
+  const { bounds, width, height, metres_per_pixel: mpp } = resort;
+  const north = mercatorY(bounds.north);
+
+  const fx = ((lon - bounds.west) / (bounds.east - bounds.west)) * width;
+  const fy = ((north - mercatorY(lat)) / (north - mercatorY(bounds.south))) * height;
+
+  return [
+    (fx - width / 2) * mpp,
+    (elevationM - resort.elevation_min_m) * resort.vertical_exaggeration + DRAPE_OFFSET_M,
+    (fy - height / 2) * mpp,
+  ];
+}
+
+/** A run's sampled polyline as a flat XYZ buffer, ready for line geometry. */
+export function runMeshPoints(profile: ProfileSample[], resort: Resort): Float32Array {
+  const points = new Float32Array(profile.length * 3);
+  for (let i = 0; i < profile.length; i++) {
+    const { lon, lat, e } = profile[i];
+    const [x, y, z] = lonLatToMesh(lon, lat, e, resort);
+    points[i * 3] = x;
+    points[i * 3 + 1] = y;
+    points[i * 3 + 2] = z;
+  }
+  return points;
 }
 
 /** Vertical field of view of the scene camera, degrees. */
