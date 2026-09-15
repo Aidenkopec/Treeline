@@ -28,6 +28,7 @@ function resort(over: Partial<Resort> = {}): Resort {
     bounds: { west: 0, south: 0, east: 1, north: 1 },
     lat: 51,
     lon: -116,
+    timezone: "America/Edmonton",
     elevation_min_m: 1000,
     elevation_max_m: 2000,
     width: 5,

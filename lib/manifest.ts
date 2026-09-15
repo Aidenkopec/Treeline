@@ -19,6 +19,7 @@ export interface ResortInput {
   country: string;
   lat: number;
   lon: number;
+  timezone: string;
   zoom: number;
   texture_quality: number;
   vertical_exaggeration: number;

@@ -1,11 +1,12 @@
 import { readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import sharp from "sharp";
 import { encodeHeightmap, mergeResort, RESORT_BUDGET_BYTES } from "@/scripts/bake/emit";
 import { decodeElevation } from "@/lib/elevation";
 import type { Grid } from "@/scripts/bake/terrain";
 import { metresPerPixel } from "@/scripts/bake/tiles";
-import type { ResortInput } from "@/lib/manifest";
+import { plannedResorts, type ResortInput } from "@/lib/manifest";
 import type { Manifest, Resort } from "@/lib/types";
 
 function ramp(width: number, height: number, from: number, to: number): Grid {
@@ -62,6 +63,7 @@ describe("mergeResort", () => {
     bounds: { west: 0, south: 0, east: 1, north: 1 },
     lat: 0,
     lon: 0,
+    timezone: "UTC",
     elevation_min_m: 0,
     elevation_max_m: 1,
     width: 1,
@@ -109,6 +111,29 @@ describe("the committed manifest", () => {
       const input = inputs.find((r) => r.slug === resort.slug);
       expect(input, `${resort.slug} is baked but missing from resorts.json`).toBeDefined();
       expect(resort.metres_per_pixel).toBeCloseTo(metresPerPixel(input!.lat, input!.zoom), 6);
+    }
+  });
+});
+
+describe("every resort's configured zone", () => {
+  it("is one Intl recognises", () => {
+    // lib/format.ts carries a catch for a zone Intl rejects. That guard is for
+    // a name Open-Meteo chose; these six are ours and must never reach it.
+    for (const { slug, timezone } of plannedResorts()) {
+      const format = () =>
+        new Intl.DateTimeFormat("en-US", { timeZone: timezone }).format(new Date());
+      expect(format, slug).not.toThrow();
+    }
+  });
+
+  it("is baked into the manifest as configured", () => {
+    const manifest = JSON.parse(
+      readFileSync(new URL("../public/resorts/manifest.json", import.meta.url), "utf8"),
+    ) as Manifest;
+    const configured = new Map(plannedResorts().map((r) => [r.slug, r.timezone]));
+
+    for (const baked of manifest.resorts) {
+      expect(baked.timezone, baked.slug).toBe(configured.get(baked.slug));
     }
   });
 });
