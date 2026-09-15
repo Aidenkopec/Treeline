@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Component, type ReactNode, useState, useSyncExternalStore } from "react";
+import type { MountainOverlayState } from "@/components/lift-overlay";
 import type { RunOverlayState } from "@/components/run-overlay";
 import type { Resort } from "@/lib/types";
 
@@ -74,10 +75,12 @@ class SceneBoundary extends Component<{ children: ReactNode }, { failed: boolean
 }
 
 export function TerrainViewer({
+  mountain,
   overlay,
   resort,
   sunAt,
 }: {
+  mountain: MountainOverlayState;
   overlay: RunOverlayState;
   resort: Resort;
   /** The instant the sun is drawn at. Null until the client has a clock. */
@@ -116,7 +119,13 @@ export function TerrainViewer({
         className={`${FRAME} bg-[linear-gradient(to_bottom,var(--color-shadow-deep)_0%,var(--color-shade-dim)_72%)]`}
       >
         <SceneBoundary>
-          <TerrainScene overlay={overlay} resetSignal={resetSignal} resort={resort} sunAt={sunAt} />
+          <TerrainScene
+            mountain={mountain}
+            overlay={overlay}
+            resetSignal={resetSignal}
+            resort={resort}
+            sunAt={sunAt}
+          />
         </SceneBoundary>
       </div>
 

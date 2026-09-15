@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { ConditionsStrip } from "@/components/conditions-strip";
 import { RunExplorer } from "@/components/run-explorer";
 import { metres } from "@/lib/format";
-import { readManifest, readResort, readRuns } from "@/lib/manifest";
+import { readManifest, readMountain, readResort, readRuns } from "@/lib/manifest";
 
 export async function generateStaticParams() {
   const manifest = await readManifest();
@@ -28,6 +28,7 @@ export default async function ResortPage(props: PageProps<"/resorts/[slug]">) {
   if (!resort) notFound();
 
   const runs = await readRuns(slug);
+  const mountain = await readMountain(slug);
 
   // Facts rather than a description: what this is, where it came from and when.
   // They are also the whole of the page without WebGL, so they are plain HTML
@@ -39,6 +40,10 @@ export default async function ResortPage(props: PageProps<"/resorts/[slug]">) {
     // artifact as well as for a resort with no runs, and only the last of those
     // is a fact about the mountain.
     ["Marked runs", runs ? `${runs.runs.length}` : "—"],
+    // Beside the runs rather than below the table, which is where the lift list
+    // itself has to go: a hundred and sixty-eight rows above it is a long way
+    // to scroll before finding out the mountain has lifts at all.
+    ["Lifts", mountain ? `${mountain.lifts.length}` : "—"],
     // The view is stretched vertically to read as a mountain; the numbers are
     // not. Saying which is which is the honest half of that trade.
     ["Vertical scale", `×${resort.vertical_exaggeration}`],
@@ -47,11 +52,16 @@ export default async function ResortPage(props: PageProps<"/resorts/[slug]">) {
 
   return (
     <main>
-      <RunExplorer resort={resort} runs={runs?.runs ?? []}>
+      <RunExplorer
+        lifts={mountain?.lifts ?? []}
+        places={mountain?.places ?? []}
+        resort={resort}
+        runs={runs?.runs ?? []}
+      >
         {/* Over the terrain, and deliberately not in its way: only the link is
             clickable, so a drag anywhere else still turns the mountain. Server
             rendered and passed through, so the facts stay in the document. */}
-        <header className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-shadow-deep via-shadow-deep/85 via-85% to-transparent">
+        <header className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-shadow-deep via-shadow-deep/85 via-85% to-transparent">
           <div className="px-6 pt-8 pb-12">
             <Link className="u-data pointer-events-auto transition-colors hover:text-snow" href="/">
               ← Treeline

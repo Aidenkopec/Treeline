@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import type { Manifest, Resort, RunsFile } from "./types";
+import type { Manifest, MountainFile, Resort, RunsFile } from "./types";
 import resortsInput from "@/resorts.json";
 
 /**
@@ -49,6 +49,15 @@ export async function readRuns(slug: string): Promise<RunsFile | null> {
   try {
     const raw = await readFile(path.join(PUBLIC_RESORTS, slug, "runs.json"), "utf8");
     return JSON.parse(raw) as RunsFile;
+  } catch {
+    return null;
+  }
+}
+
+export async function readMountain(slug: string): Promise<MountainFile | null> {
+  try {
+    const raw = await readFile(path.join(PUBLIC_RESORTS, slug, "mountain.json"), "utf8");
+    return JSON.parse(raw) as MountainFile;
   } catch {
     return null;
   }

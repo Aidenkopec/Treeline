@@ -14,6 +14,7 @@ import {
   useState,
 } from "react";
 import * as THREE from "three";
+import { LiftOverlay, type MountainOverlayState } from "@/components/lift-overlay";
 import { RunOverlay, type RunOverlayState } from "@/components/run-overlay";
 import { decodeHeightmap } from "@/lib/elevation";
 import { sunDirection, sunPosition } from "@/lib/sun";
@@ -202,11 +203,13 @@ function easeInOutCubic(t: number): number {
 }
 
 export default function TerrainScene({
+  mountain,
   overlay,
   resetSignal,
   resort,
   sunAt,
 }: {
+  mountain: MountainOverlayState;
   overlay: RunOverlayState;
   resetSignal: number;
   resort: Resort;
@@ -217,17 +220,25 @@ export default function TerrainScene({
   // there would not reach the error boundary in terrain-viewer.tsx.
   return (
     <Suspense fallback={<div className="h-full w-full bg-shadow-deep" />}>
-      <LoadedScene overlay={overlay} resetSignal={resetSignal} resort={resort} sunAt={sunAt} />
+      <LoadedScene
+        mountain={mountain}
+        overlay={overlay}
+        resetSignal={resetSignal}
+        resort={resort}
+        sunAt={sunAt}
+      />
     </Suspense>
   );
 }
 
 function LoadedScene({
+  mountain,
   overlay,
   resetSignal,
   resort,
   sunAt,
 }: {
+  mountain: MountainOverlayState;
   overlay: RunOverlayState;
   resetSignal: number;
   resort: Resort;
@@ -261,6 +272,7 @@ function LoadedScene({
       shadows
     >
       <Massif
+        mountain={mountain}
         overlay={overlay}
         palette={palette}
         resetSignal={resetSignal}
@@ -273,6 +285,7 @@ function LoadedScene({
 }
 
 function Massif({
+  mountain,
   overlay,
   palette,
   resetSignal,
@@ -280,6 +293,7 @@ function Massif({
   sunAt,
   terrain,
 }: {
+  mountain: MountainOverlayState;
   overlay: RunOverlayState;
   palette: Palette;
   resetSignal: number;
@@ -511,6 +525,10 @@ function Massif({
       <mesh castShadow geometry={geometry} receiveShadow>
         <meshStandardMaterial map={texture} metalness={0} roughness={1} />
       </mesh>
+
+      {/* Drawn before the runs so a run always reads over a cable: a lift is
+          context, a run is the subject. */}
+      <LiftOverlay resort={resort} state={mountain} />
 
       <RunOverlay resort={resort} state={overlay} />
 

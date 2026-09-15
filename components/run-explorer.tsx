@@ -1,6 +1,8 @@
 "use client";
 
 import { type ReactNode, useMemo, useState, useSyncExternalStore } from "react";
+import { LiftTable } from "@/components/lift-table";
+import { PlaceList } from "@/components/place-list";
 import { RunFilters } from "@/components/run-filters";
 import { SunControl } from "@/components/sun-control";
 import { RunPanel } from "@/components/run-panel";
@@ -16,7 +18,7 @@ import {
   sortRuns,
 } from "@/lib/run-list";
 import { type WallClock, instantAt, openingWallClock } from "@/lib/sun";
-import type { Resort, Run } from "@/lib/types";
+import type { Lift, Place, Resort, Run } from "@/lib/types";
 import { type ViewState, parseViewHash, viewHash } from "@/lib/view-hash";
 
 /**
@@ -85,13 +87,23 @@ const noop = () => () => {};
 export function RunExplorer({
   resort,
   runs,
+  lifts,
+  places,
   children,
 }: {
   resort: Resort;
   runs: Run[];
+  lifts: Lift[];
+  places: Place[];
   children: ReactNode;
 }) {
   const [filter, setFilter] = useState<RunFilter>(NO_FILTER);
+  // Lifts and places answer to hover and to nothing else. They are not
+  // selectable, not filtered and not in the URL: a cable is drawn where it runs
+  // and reads from the opening framing, so there is no state a reader could
+  // want back later. Pointing at one is the whole interaction.
+  const [hoveredLiftId, setHoveredLiftId] = useState<string | null>(null);
+  const [hoveredPlaceId, setHoveredPlaceId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("vertical_m");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [hovered, setHovered] = useState<string | null>(null);
@@ -161,6 +173,14 @@ export function RunExplorer({
       <section className="relative border-b border-line bg-shadow xl:sticky xl:top-0 xl:h-svh xl:border-r xl:border-b-0">
         <div className="h-[70svh] min-h-105 xl:h-full">
           <TerrainViewer
+            mountain={{
+              lifts,
+              places,
+              hoveredLiftId,
+              hoveredPlaceId,
+              onHoverLift: setHoveredLiftId,
+              onHoverPlace: setHoveredPlaceId,
+            }}
             overlay={{
               runs,
               visibleIds,
@@ -179,7 +199,7 @@ export function RunExplorer({
 
         {/* Folded away, the list still has to say what the mountain is showing:
             a run picked on the terrain has nowhere else to report itself. */}
-        <div className="pointer-events-none absolute top-0 right-0 hidden p-5 xl:block">
+        <div className="pointer-events-none absolute top-0 right-0 z-20 hidden p-5 xl:block">
           <button
             aria-controls="run-list"
             aria-expanded={listOpen}
@@ -228,6 +248,29 @@ export function RunExplorer({
             sortDirection={sortDirection}
             sortKey={sortKey}
           />
+
+          {/* Below the runs, and headed, because a hundred and sixty-eight rows
+              above it is otherwise no signal that the subject has changed. The
+              header count is what makes any of this findable from the top. */}
+          {lifts.length > 0 && (
+            <section className="mt-12">
+              <h2 className="u-massif text-sm text-snow">Lifts</h2>
+              <p className="mt-1.5 mb-3 text-xs text-rock">
+                Every lift on the mountain. The run filters above do not apply here.
+              </p>
+              <LiftTable hoveredId={hoveredLiftId} lifts={lifts} onHover={setHoveredLiftId} />
+            </section>
+          )}
+
+          {places.length > 0 && (
+            <section className="mt-10">
+              <h2 className="u-massif text-sm text-snow">On the mountain</h2>
+              <p className="mt-1.5 mb-1 text-xs text-rock">
+                Places OpenStreetMap names inside the ski area.
+              </p>
+              <PlaceList hoveredId={hoveredPlaceId} onHover={setHoveredPlaceId} places={places} />
+            </section>
+          )}
         </div>
       </section>
     </div>

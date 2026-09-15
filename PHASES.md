@@ -3,7 +3,7 @@
 Progress tracker for [SPEC.md](./SPEC.md) §11. Each phase ends working, committed and
 deployable, and runs in its own session with its own verification gate.
 
-**Status: phase 5 done. The ⛳ stopping point is reached once three resorts are baked.**
+**Status: phase 5.5 done. The ⛳ stopping point is reached once three resorts are baked.**
 Lake Louise's 168 runs are drawn on the terrain coloured by difficulty, with search,
 filters, a per-run stats panel, an inline SVG elevation profile and the sortable HTML
 table, laid out as a map beside a list. Picking a run flies the camera to it, and Reset
@@ -11,7 +11,9 @@ view always brings the whole mountain back. Today's snow, temperature and wind r
 from Open-Meteo under the resort facts, on the mountain's own clock. The mountain itself is
 a winter surface, remapped from Esri's summer imagery at bake time rather than
 photographed, and it is lit by the sun that is actually over it at an hour the reader
-picks — with the shadows that sun throws. 260 tests green.
+picks — with the shadows that sun throws. The mountain now also carries the things built on
+it: thirteen lifts drawn as cables over their real pylons, and the lodges, summit and
+viewpoint OpenStreetMap names inside the ski area. 328 tests green.
 
 > **Next action:** bake Sunshine Village and Panorama, which is what the ⛳ stopping point
 > below is waiting on. Everything after that is phase 6 onward and is addition rather than
@@ -873,6 +875,105 @@ reduced-motion branch that places the view and holds it. It is not shipped.
   the question phase 3 raised and the one a reader actually asks.
 - Decided in session after looking at it running. The elevation profile, the flight and the
   sun are what the `profile` samples are for.
+
+---
+
+## Phase 5.5 — Lifts and named places ✅ done
+
+Not in SPEC §11 as written. Added because the mountain read as a survey rather than as a
+ski area: a trail map shows the lifts that get you up it and the lodges at the top, and
+this showed neither. SPEC §3 rejects lift _status_, which is live operational data with no
+standard API; where a lift runs is a permanent fact about the mountain, and §3 and §4 now
+say which is which. Numbered 5.5 rather than renumbering 6–9, which would churn SPEC §11
+for nothing.
+
+**Gate:** the baked artifact carries no pitch or aspect on any lift; one tower per OSM
+node; cable clearance uniform within a lift.
+
+- [x] `mountain.json` — a fourth artifact beside `runs.json`, read at build time
+- [x] A third Overpass query, clipped to the `landuse=winter_sports` polygon via
+      `map_to_area`. Separate from the runs query on purpose: the downhill filter is a
+      safety rule, and a query with no piste clause cannot widen one
+- [x] Lift polylines kept exactly as mapped — the OSM nodes are the surveyed pylons, so
+      resampling would invent towers that do not exist and discard the ones that do
+- [x] Cables drawn over their pylons, surface lifts draped on the snow
+- [x] Places as labelled callouts on leader lines, carrying the same `PlaceMark`
+      component the list renders
+- [x] Lift table and place list below the runs, plus a lift count in the header facts
+- [x] Hover cross-lights the cable and its row both ways, with a readout in the canvas
+      chrome. No selection and no camera flight — see below
+
+**§8 additions.** A lift carries no pitch and no aspect. The ground under a cable is not a
+marked run, and reporting its steepness would publish the angle of unpatrolled terrain
+through an infrastructure feature. Enforced at three levels: the type has no such field,
+`tests/mountain.test.ts` walks a derived lift's keys, and `tests/mountain.golden.test.ts`
+walks the committed artifact — so a future bake cannot add one quietly.
+
+**Vertical is terminal to terminal, not max−min**, which is the opposite of a run: a lift
+crossing a gully has not climbed the dip. Vertical and length are both measured on
+`ground_m` and never on `cable_m`, and clearance is asserted uniform within a lift, so the
+rendering constant is structurally unable to reach a published number.
+
+**Verified against physics rather than against the pipeline.** Baked length over OSM's
+tagged ride time gives 2.2–2.4 m/s for Lake Louise's three fixed-grip lifts and 4.4–5.6
+m/s for its five detachables, which is what that cable actually runs at. A length wrong by
+fifteen percent leaves the band.
+
+### The second pass, which is the one that works
+
+The first pass drew a lift as a quiet steel line under the runs, reasoning that a lift is
+context and a run is the subject. On the mountain it was invisible: a thin dark line that
+vanished into forest and read as a scratch on snow. Three changes fixed it, and all three
+are borrowed rather than invented.
+
+- **The cableway hatch.** Short bars across the line at every mapped pylon — the symbol
+  every topographic map uses for an aerial cableway, and the same device that draws a
+  railway. Identity by texture rather than by weight, so it survives being drawn thin, and
+  nothing else on the mountain looks remotely like it.
+- **The line inverted.** A run is a coloured core inside a dark casing; a lift is a dark
+  core inside a light one. The drape carries snow, bare rock and forest in one frame and a
+  single hairline holds up over exactly one of the three. It also means a lift can never be
+  misread as a grade, because no grade is drawn inside out.
+- **Lifts over runs.** An ordinary run now draws under the cable and only a hovered or
+  picked one draws over it, which is the order a trail map uses: the lifts are the skeleton
+  the runs hang off.
+
+The place markers were replaced outright. Fat filled pictograms floating on the terrain read
+as clip art pasted on a photograph. They are now labelled callouts on leader lines, carrying
+the same `PlaceMark` component the list renders — one SVG path for both, so the map and the
+list cannot drift — with the name in `.u-feature` and a summit's height in `.u-data`. The
+mark got small and fine; the label does the work, which is the way round a map does it.
+
+Five of Lake Louise's lodges sit within a hundred metres of each other at the base, so a
+cluster's labels are lifted a tier apart and hang to the right of their leaders, stacking
+into a column that shares one left edge. The tier is decided once from the baked
+coordinates — nothing measures the screen or runs per frame.
+
+### Not shipped, and why
+
+- **Clicking a lift.** The camera flight exists because a run tilted away from the viewer
+  is foreshortened and then eaten by its own ridge — that is what `focusFraming` and the
+  ghost line are for. A cable held above the surface in a straight line has none of that
+  problem, so flying to one would be motion without information, and it would collide with
+  run selection: clicking a lift while a run is selected either clears the stats being read
+  or leaves two things selected. Lifts are styled not to look clickable as a result.
+- **Per-span cable clearance.** Raising a tower until its own span clears is not a pure
+  function — raising one moves the two spans either side, so it is a relaxation with a
+  termination condition. It would also make clearance vary along a lift, which reopens the
+  measured-on-the-ground rule by the side door. One constant, and nothing on Lake Louise
+  needed more.
+
+### Open
+
+- **Grizzly Express Gondola** rises 713m over 2862m, monotonically, 1657m → 2371m. That is
+  a longer alignment than the operator publishes for the gondola. The geometry is
+  internally consistent, so this is a question about what OSM has mapped rather than about
+  the arithmetic, and the bake is not fudged to match a brochure.
+- **Richardson's Ridge Express** has 3 towers over 1739m — a sparse alignment for a lift
+  still under construction. It will redraw itself as OSM fills in.
+
+**Verified:** 328 tests green, format/lint/typecheck/build clean, lifts and places present
+in the prerendered HTML so they survive without WebGL, hover cross-light working both ways.
 
 ---
 
