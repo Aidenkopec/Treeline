@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-15T21:58:58.986Z",
+  "generated_at": "2026-09-15T22:15:07.395Z",
   "resorts": [
     {
       "slug": "lake-louise",
@@ -13,6 +13,7 @@
       },
       "lat": 51.4419,
       "lon": -116.1622,
+      "timezone": "America/Edmonton",
       "elevation_min_m": 1560,
       "elevation_max_m": 2827,
       "width": 768,

@@ -1,5 +1,5 @@
 {
-  "$comment": "The bake input. lat/lon are search anchors only — the real bounding box is resolved from OSM landuse=winter_sports at bake time (SPEC §5.1 step 1). zoom, texture_quality and vertical_exaggeration are per-resort knobs: when a resort blows the asset budget its resolution drops, the budget does not move (SPEC §10).",
+  "$comment": "The bake input. lat/lon are search anchors only — the real bounding box is resolved from OSM landuse=winter_sports at bake time (SPEC §5.1 step 1). timezone is the IANA zone the sun slider reads a wall clock against. zoom, texture_quality and vertical_exaggeration are per-resort knobs: when a resort blows the asset budget its resolution drops, the budget does not move (SPEC §10).",
   "resorts": [
     {
       "slug": "lake-louise",
@@ -7,6 +7,7 @@
       "country": "Canada",
       "lat": 51.4419,
       "lon": -116.1622,
+      "timezone": "America/Edmonton",
       "zoom": 13,
       "texture_quality": 82,
       "vertical_exaggeration": 1.8
@@ -17,6 +18,7 @@
       "country": "Canada",
       "lat": 51.0784,
       "lon": -115.7767,
+      "timezone": "America/Edmonton",
       "zoom": 13,
       "texture_quality": 82,
       "vertical_exaggeration": 1.4
@@ -27,6 +29,7 @@
       "country": "Canada",
       "lat": 50.4597,
       "lon": -116.2386,
+      "timezone": "America/Edmonton",
       "zoom": 13,
       "texture_quality": 82,
       "vertical_exaggeration": 1.4
@@ -37,6 +40,7 @@
       "country": "Canada",
       "lat": 49.6739,
       "lon": -115.9939,
+      "timezone": "America/Edmonton",
       "zoom": 13,
       "texture_quality": 82,
       "vertical_exaggeration": 1.6
@@ -47,6 +51,7 @@
       "country": "Canada",
       "lat": 49.4627,
       "lon": -115.0881,
+      "timezone": "America/Edmonton",
       "zoom": 13,
       "texture_quality": 82,
       "vertical_exaggeration": 1.4
@@ -57,6 +62,7 @@
       "country": "Japan",
       "lat": 42.8608,
       "lon": 140.6997,
+      "timezone": "Asia/Tokyo",
       "zoom": 13,
       "texture_quality": 82,
       "vertical_exaggeration": 1.5

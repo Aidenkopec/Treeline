@@ -75,6 +75,14 @@ export interface Resort {
   /** Centre point, used for sun position (SPEC §5.2). */
   lat: number;
   lon: number;
+  /**
+   * IANA zone of the resort, so the sun slider reads a wall clock on the
+   * mountain rather than on the visitor. Configured in `resorts.json` and baked
+   * rather than resolved at runtime: the page is prerendered, and
+   * `Conditions.timezone` — the same zone, as Open-Meteo resolved it from the
+   * coordinates — only arrives after hydration and is null when that call fails.
+   */
+  timezone: string;
   /** Elevation range across the baked heightmap, metres. */
   elevation_min_m: number;
   elevation_max_m: number;

@@ -123,6 +123,7 @@ async function bakeResort(resort: ResortInput): Promise<void> {
     bounds: mosaicBounds(range),
     lat: resort.lat,
     lon: resort.lon,
+    timezone: resort.timezone,
     ...heightmap,
     metres_per_pixel: grid.cellSize,
     vertical_exaggeration: resort.vertical_exaggeration,
