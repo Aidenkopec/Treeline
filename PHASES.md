@@ -3,19 +3,19 @@
 Progress tracker for [SPEC.md](./SPEC.md) §11. Each phase ends working, committed and
 deployable, and runs in its own session with its own verification gate.
 
-**Status: phase 4 and the winter drape done. Phase 5 next.** Lake Louise's 168 runs are drawn on the terrain
-coloured by difficulty, with search, filters, a per-run stats panel, an inline SVG elevation
-profile and the sortable HTML table, laid out as a map beside a list. Picking a run flies the
-camera to it, and Reset view always brings the whole mountain back. Today's snow, temperature
-and wind read live from Open-Meteo under the resort facts, on the mountain's own clock.
-The mountain itself is now a winter surface, remapped from Esri's summer imagery at bake
-time rather than photographed. 224 tests green.
+**Status: phase 5 done. The ⛳ stopping point is reached once three resorts are baked.**
+Lake Louise's 168 runs are drawn on the terrain coloured by difficulty, with search,
+filters, a per-run stats panel, an inline SVG elevation profile and the sortable HTML
+table, laid out as a map beside a list. Picking a run flies the camera to it, and Reset
+view always brings the whole mountain back. Today's snow, temperature and wind read live
+from Open-Meteo under the resort facts, on the mountain's own clock. The mountain itself is
+a winter surface, remapped from Esri's summer imagery at bake time rather than
+photographed, and it is lit by the sun that is actually over it at an hour the reader
+picks — with the shadows that sun throws. 260 tests green.
 
-> **Next action:** phase 5 — sun/shade from `suncalc` and the first-person run camera.
-> `suncalc` and `@types/suncalc` are already installed and unused; `Resort.lat`/`lon` and
-> each run's `profile` samples carry lon, lat and elevation, so both halves have their input
-> baked already. Gate: a known sunrise/sunset asserted for a fixed date and latitude, and a
-> camera path that stays on the polyline within tolerance.
+> **Next action:** bake Sunshine Village and Panorama, which is what the ⛳ stopping point
+> below is waiting on. Everything after that is phase 6 onward and is addition rather than
+> completion.
 
 ---
 
@@ -739,22 +739,149 @@ the near corners. Haze does not cover it — that edge is close to the camera, w
 exactly where linear fog is weakest. It wants a skirt or an edge fade, and it is not this
 change's to make.
 
-## Phase 5 — Sun/shade + first-person run camera ⬜
+## Phase 5 — Sun/shade ✅ done
 
-Directional light positioned by `suncalc`. The run's polyline becomes a camera path at
-skier speed, look-ahead target a few samples down the line.
+Directional light positioned by `suncalc`, casting the shadows that position throws. The
+first-person run camera was built against the same data and dropped; it has its own section
+below.
 
-**Gate:** known sunrise/sunset asserted for a fixed date and latitude; camera path stays
-on the polyline within tolerance.
+**Gate (SPEC §11):**
+
+- [x] Known sunrise/sunset asserted for a fixed date and latitude — `tests/sun.test.ts`,
+      derived from the hour angle rather than pinned from the library's own answer
+- [x] ~~Camera path stays on the polyline within tolerance~~ — met, and then the camera it
+      gated was dropped. See "Built and dropped" below
+
+### Done
+
+- [x] `resorts.json`, `lib/manifest.ts`, `lib/types.ts`, `scripts/bake.ts` — the resort's
+      IANA zone through to the manifest, so a slider can say "2pm at Lake Louise" with no
+      network call
+- [x] `lib/sun.ts` — `sunPosition`, `sunTimes`, `sunDirection`, `openingWallClock`, and the
+      wall-clock/instant pair `Intl` has no inverse for
+- [x] `lib/view-hash.ts` — the hash parser lifted out of `run-explorer.tsx` and widened to
+      carry the hour beside the run, tested without a DOM
+- [x] `components/sun-control.tsx` — date, time, the hour on the mountain's clock, and
+      sunrise/sunset, beside the filters
+- [x] `components/terrain-scene.tsx` — the real key light, an altitude ramp on it and on the
+      fill, and a shadow map rendered only when the sun moves
+- [x] `lib/format.ts` — `clockTime`, `observedAt` with the zone left unsaid
+- [x] `package.json` — `@types/suncalc` dropped
+
+### Decisions worth recording
+
+- **The installed `suncalc` is not the one in anyone's memory.** v2 answers in **degrees**
+  with azimuth **clockwise from north**, where every older example is radians from south,
+  and its `getTimes` fields are nullable. It ships its own types, so
+  `@types/suncalc@1.9` was both redundant and actively wrong — a declaration file
+  describing the opposite convention is a trap and it is gone.
+- **The sun's vertical component is scaled by the exaggeration, and the terminator is why.**
+  Mesh positions are the real terrain under `diag(1, k, 1)`; a direction scales the same
+  way, a normal by the inverse transpose, and the two `k`s cancel in `L·N` before either is
+  normalised. Normalising leaves one positive factor per pitch — a contrast trim that
+  cannot move a sign. So lit and shaded fall exactly where the real mountain has them, and
+  among slopes of one pitch the shading is the real proportions to the last digit.
+  Unscaled, the sun sits `k` times too low: measured over 67,000 slope-and-sun
+  combinations, 6.3% come out on the wrong side of lit.
+- **"Known sunrise" has to mean known independently.** Pinning suncalc's own output would
+  assert the library as its own reference, which is the mistake `tests/winter.test.ts` was
+  rewritten to stop making. The solstice day lengths are derived in the test from the
+  hour-angle formula with the obliquity of the ecliptic as the declination, and the noon
+  altitudes from `90° − φ ± ε` — textbook identities that owe suncalc nothing. They agree
+  to 18 seconds and 0.005°. The February clock times are pinned on top of that as a
+  regression anchor, which is all a pin is good for.
+- **The shadow frustum is a proven bound, not a guess.** Every mesh vertex lies within
+  `hypot(half-diagonal, relief)` of the origin, so an orthographic frustum that wide
+  contains the massif at every sun angle — low ones included, which was the worry. At Lake
+  Louise that is 5.8m per texel across 2048, against an 11.9m heightmap pixel, so the
+  shadow map is provably not what limits the shadow.
+- **The shadow camera has to be constructed, not assigned.** Setting `shadow-camera-near`
+  and its neighbours as props leaves the projection matrix on the ten-unit box the default
+  was built with. The symptom is not a missing shadow: a frustum covering ten metres of a
+  ten-kilometre massif reports the whole mountain as shadowed, and the massif renders as
+  the sky gradient. `<orthographicCamera attach="shadow-camera" args={…}>` builds it.
+- **The map is re-rendered when the sun moves and at no other time.** The terrain is the
+  only caster and it never moves, so `shadowMap.autoUpdate` is off and `needsUpdate` is set
+  from an effect on the sun direction. Measured at 60fps idle and 60fps with the slider
+  being dragged, so SPEC §10 is unaffected by having shadows at all.
+- **The light ramps on altitude, not on `N·L`.** The geometry of a slope turning away is
+  already the material's job and folding it in here would count it twice. What altitude
+  changes is extinction, so the key smoothsteps to nothing over the last twelve degrees
+  while the hemisphere term rises to meet it — a blue mountain at night rather than a black
+  one, and not a flat overcast day at noon.
+- **The opening hour is now on the mountain, unless the sun is down, in which case it is
+  solar noon of that same local day.** A visitor arriving at 11pm would otherwise meet a
+  black massif, which says nothing about the terrain the rest of the page is about — the
+  same kind of framing decision `openingFraming` makes about where to stand. Nothing is
+  hidden: the readout states the hour being drawn and the slider is sitting on it.
+- **The zone is configuration, not a reading.** Phase 4 gets an IANA name from Open-Meteo's
+  `timezone=auto`, but that arrives after hydration, is null when the call fails, and the
+  page is prerendered. A zone is a static fact about a place. `Conditions.timezone` stays
+  where it is; the two agree, and a test says so.
+- **No per-run sun readout, in the panel or the table.** An incidence angle off baked
+  aspect and pitch is blind to the ridge in front of the run, so it would disagree with
+  what the render shows — and a sortable sun column is a hair from ranking runs (SPEC §8).
+  The mountain answers. What the control prints instead is sunrise and sunset, which are
+  facts about the place rather than about the render, so the readout still says something
+  with no GPU (SPEC §9).
+- **The hour travels in the hash; nothing about the camera does.** SPEC §15 ends with
+  sending that exact view to a friend. A link that starts moving the camera on arrival is a
+  surprise.
+- **The haze and the CSS sky were left alone.** The aerial-perspective follow-up flagged
+  that a real sun would want both revisited. Looked at across the day and they hold: the
+  horizon gradient is a sky, not a sunlit sky, and it does not fight a low sun. Recording
+  that it was checked rather than forgotten.
+
+**Verified:** 260 tests green (32 new), format/lint/typecheck/build clean. The build still
+lists `/resorts/[slug]` as `●` prerendered and the built `lake-louise.html` still carries
+169 `<tr>`, now at 77,760 bytes gzipped against 77,492 — the sun control is 265 bytes of
+prerendered HTML and renders its dashes before hydration, the same shape as the conditions
+strip. Re-baked: only the manifest moved, so the heightmap, drape and runs are
+byte-identical and the bake is confirmed deterministic over the new field.
+
+In the browser at Lake Louise on 14 February: at 9am the marked terrain — which faces west
+— is in shade with the far ridge lit; at 2pm the face the opening framing looks at is lit;
+at 4:40pm ridge shadows run out across the lower slopes; at 9pm the massif is a blue night
+mountain with the runs still readable rather than a hole. Pika faces E 112° and is shaded at
+2pm, which is the product working. Without a hash the control resolves to the hour it is on
+the mountain, with the right daylight-saving abbreviation. Console clean apart from the
+`THREE.Clock` deprecation phase 2 already recorded.
+
+**Closed, and it had been open since phase 3:** `prefers-reduced-motion` was recorded there
+as "typechecked and in place but not verified at runtime". It is verified now — with the
+query emulated, the flight snaps rather than eases and auto-rotate stays off.
+
+### Built and dropped — the first-person run camera
+
+SPEC §4 and §5.2 both list it, and it was built: `lib/run-camera.ts` walking
+`ProfileSample.d` rather than the sample index, its gate met at 0.01m off the polyline, the
+near plane dropped for the ride and restored after, four ways out of it, and a
+reduced-motion branch that places the view and holds it. It is not shipped.
+
+- **It does not look like skiing, and it cannot.** The heightmap is 11.9m per pixel and the
+  drape is 2.98m; from a few metres off the snow both are a smooth white blur. The thing a
+  skier wants from a first-person view is the shape of the fall line at the scale they turn
+  on, which is metres, and this project measures the mountain in tens of them.
+- **Nor can the camera get down to a skier's eye.** `DRAPE_OFFSET_M` lifts the line eight
+  exaggerated metres clear of the mesh because the bake samples elevation bilinearly while
+  the mesh spans the cell with two flat triangles, and a camera below those triangles is
+  looking at the inside of the mountain. So the ride sat about five and a half real metres
+  up, which reads as a drone.
+- **A view that misrepresents the terrain is worse than no view**, on a site whose whole
+  claim is that the numbers come from the elevation model rather than from a trail map. The
+  camera flight onto a picked run already answers "where on this mountain is it", which is
+  the question phase 3 raised and the one a reader actually asks.
+- Decided in session after looking at it running. The elevation profile, the flight and the
+  sun are what the `profile` samples are for.
 
 ---
 
 ## ⛳ Valid stopping point
 
 **After phase 5, with three resorts baked, this is a finished, pinnable thing.**
-Terrain, runs, stats, filters, sun and a first-person camera. SPEC §11 is explicit:
-everything past here is addition, not completion. If the calendar tightens, stop and ship
-rather than half-building phase 7.
+Terrain, runs, stats, filters and a real sun. SPEC §11 is explicit: everything past here is
+addition, not completion. If the calendar tightens, stop and ship rather than
+half-building phase 7.
 
 ---
 
