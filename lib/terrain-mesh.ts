@@ -138,6 +138,94 @@ export function runMeshPoints(profile: ProfileSample[], resort: Resort): Float32
   return points;
 }
 
+/**
+ * The mesh surface as something that can be asked a question.
+ *
+ * Reads the vertex buffer `terrainGeometry` already built, with stride 3 — no
+ * copy, and no second expression for the same elevation that could drift from
+ * the first one.
+ */
+export interface Heightfield {
+  /** `TerrainGeometry.positions`: mesh XYZ per heightmap pixel, row-major. */
+  positions: Float32Array;
+  width: number;
+  height: number;
+  metresPerPixel: number;
+}
+
+export function heightfield(positions: Float32Array, resort: Resort): Heightfield {
+  return {
+    positions,
+    width: resort.width,
+    height: resort.height,
+    metresPerPixel: resort.metres_per_pixel,
+  };
+}
+
+/** Mesh Y at a point in the mesh's XZ plane, bilinear, clamped at the edges. */
+export function surfaceHeightAt(field: Heightfield, x: number, z: number): number {
+  const { positions, width, height, metresPerPixel: mpp } = field;
+  const fi = Math.min(width - 1, Math.max(0, x / mpp + (width - 1) / 2));
+  const fj = Math.min(height - 1, Math.max(0, z / mpp + (height - 1) / 2));
+
+  const i0 = Math.floor(fi);
+  const j0 = Math.floor(fj);
+  const i1 = Math.min(width - 1, i0 + 1);
+  const j1 = Math.min(height - 1, j0 + 1);
+  const ti = fi - i0;
+  const tj = fj - j0;
+
+  const y = (i: number, j: number) => positions[(j * width + i) * 3 + 1];
+  const north = y(i0, j0) + (y(i1, j0) - y(i0, j0)) * ti;
+  const south = y(i0, j1) + (y(i1, j1) - y(i0, j1)) * ti;
+  return north + (south - north) * tj;
+}
+
+/**
+ * How many points along the ray are tested against the ground.
+ *
+ * Forty-eight across a nine kilometre massif is a reading every 190m against a
+ * 30m model, so a knife-edge arête can still be stepped over. That is the right
+ * trade for what this decides: a label that survives one frame it should have
+ * been hidden in costs nothing, and a per-pixel answer costs a depth readback.
+ */
+const LINE_OF_SIGHT_SAMPLES = 48;
+
+/**
+ * Ground this far above the ray still counts as clear, in exaggerated metres.
+ *
+ * A label anchors `DRAPE_OFFSET_M` above the surface, and the ray is tested
+ * against `surfaceHeightAt`, which samples half a pixel off where the bake
+ * sampled — the bake reads an edge-based pixel coordinate as a centre one.
+ * Both gaps are small and both are in play at the far end of the ray, where it
+ * has come down to meet the ground. Without the slack, every label on an
+ * unobstructed slope would occlude itself on its own last few samples.
+ */
+const LINE_OF_SIGHT_CLEARANCE = 12;
+
+/**
+ * Whether the ground leaves `to` in view from `from`, both in mesh metres.
+ *
+ * A heightfield walk rather than a raycast: the mosaic is hundreds of thousands
+ * of triangles with no acceleration structure over it, and this runs for every
+ * label on every camera move. Walking the grid is the same answer for a
+ * thousandth of the work, and unlike a raycast it can be tested without a GPU.
+ */
+export function isVisibleFrom(
+  field: Heightfield,
+  from: readonly [number, number, number],
+  to: readonly [number, number, number],
+): boolean {
+  for (let s = 1; s <= LINE_OF_SIGHT_SAMPLES; s++) {
+    const t = s / LINE_OF_SIGHT_SAMPLES;
+    const x = from[0] + (to[0] - from[0]) * t;
+    const z = from[2] + (to[2] - from[2]) * t;
+    const ray = from[1] + (to[1] - from[1]) * t;
+    if (surfaceHeightAt(field, x, z) > ray + LINE_OF_SIGHT_CLEARANCE) return false;
+  }
+  return true;
+}
+
 /** Vertical field of view of the scene camera, degrees. */
 export const FOV = 45;
 

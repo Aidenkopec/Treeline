@@ -30,21 +30,6 @@ export function centimetres(value: number | null): string {
 }
 
 /**
- * A lift's ride time.
- *
- * Rounded to the half minute rather than the whole one, which is the exception
- * the rest of this file's precision rule earns: a ride time is a figure the
- * operator publishes and OSM transcribes, not something derived from the DEM,
- * and rounding 3.6 and 4.4 both to "4 min" would flatten the difference
- * between a six-pack and a quad that riders actually feel.
- */
-export function rideTime(minutes: number | null): string {
-  if (minutes === null) return "—";
-  const half = Math.round(minutes * 2) / 2;
-  return `${half % 1 === 0 ? half.toFixed(0) : half.toFixed(1)} min`;
-}
-
-/**
  * Wind speed with the direction it blows *from*, which is what the reading
  * means and not how a bare compass point would be read. One function because
  * the fields fail independently: a speed without a direction is still a

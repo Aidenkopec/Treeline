@@ -1,11 +1,11 @@
 "use client";
 
-import { Html, Line } from "@react-three/drei";
+import { Line } from "@react-three/drei";
 import { useMemo } from "react";
 import * as THREE from "three";
-import { PlaceMark } from "@/components/place-mark";
-import { liftCells, liftStyle, placeCells } from "@/lib/mountain";
-import { lonLatToMesh } from "@/lib/terrain-mesh";
+import { MountainLabels } from "@/components/mountain-labels";
+import { liftStyle } from "@/lib/mountain";
+import { type Heightfield, lonLatToMesh } from "@/lib/terrain-mesh";
 import type { Lift, Place, Resort } from "@/lib/types";
 
 /**
@@ -17,6 +17,9 @@ import type { Lift, Place, Resort } from "@/lib/types";
  *
  * The cable is carried over the lift's real pylons — the OSM way nodes are the
  * surveyed tower positions, so the shape is measured rather than suggested.
+ *
+ * The lines are here; the type over them is `mountain-labels.tsx`, which needs
+ * every label at once to keep them off each other.
  */
 
 export interface MountainOverlayState {
@@ -73,37 +76,23 @@ const TICK_WIDTH = 1.3;
  */
 const LAYER = { lift: 2.5, hovered: 2.8 };
 
-/** How far a place's label floats above the ground it marks, in exaggerated metres. */
-const LEADER_HEIGHT_M = 100;
-
-/**
- * Places closer together than this share a base area and will collide.
- *
- * Four of Lake Louise's lodges sit inside a hundred metres of each other at the
- * bottom of the hill, and four labels at one height is an unreadable stack.
- */
-const CLUSTER_M = 400;
-
-/**
- * How much further each label in a cluster is lifted above the last.
- *
- * Staggering the leaders is what a printed map does with a crowded corner, and
- * it costs nothing at runtime: the tier is decided once from the baked
- * positions rather than measured on screen every frame.
- */
-const TIER_RISE = 1.9;
-
 /** The palette lives in app/globals.css and is read from there, never re-typed. */
 function paletteColor(name: string): THREE.Color {
   return new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue(name).trim());
 }
 
-/** A label's plate. Matched to the canvas chrome so the map reads as one thing. */
-const PLATE =
-  "pointer-events-none flex select-none items-center gap-1.5 rounded border border-line/80 " +
-  "bg-shadow-deep/85 px-1.5 py-0.5 whitespace-nowrap backdrop-blur-[2px]";
-
-export function LiftOverlay({ resort, state }: { resort: Resort; state: MountainOverlayState }) {
+export function LiftOverlay({
+  resort,
+  state,
+  field,
+  receded,
+}: {
+  resort: Resort;
+  state: MountainOverlayState;
+  field: Heightfield;
+  /** True while a run is being read, which is when the lifts are not the subject. */
+  receded: boolean;
+}) {
   const { lifts, places, hoveredLiftId, hoveredPlaceId, onHoverLift, onHoverPlace } = state;
 
   const cable = useMemo(() => paletteColor("--color-shadow-deep"), []);
@@ -119,8 +108,8 @@ export function LiftOverlay({ resort, state }: { resort: Resort; state: Mountain
           return new THREE.Vector3(x, y, z);
         });
 
-        // Pylons and hatch bars in one buffer. At Niseko thirty-two lifts of a
-        // dozen towers each would otherwise be hundreds of separate line
+        // Pylons and hatch bars in one buffer. A big resort's lifts run to a
+        // dozen towers each, which would otherwise be hundreds of separate line
         // objects, each with its own material, against a budget of sixty frames
         // a second on integrated graphics (SPEC §10).
         const marks: THREE.Vector3[] = [];
@@ -154,41 +143,27 @@ export function LiftOverlay({ resort, state }: { resort: Resort; state: Mountain
           }
         }
 
-        return { lift, line, marks, top: line[line.length - 1] };
+        return { lift, line, marks };
       }),
     [lifts, resort],
   );
 
-  /**
-   * Each place, with the height its label is flown at.
-   *
-   * A place that shares a base area with ones already placed is lifted a tier
-   * higher than the last of them, so a crowded corner reads as a stack of
-   * leaders rather than as a pile of overlapping plates. Decided from the baked
-   * coordinates, so nothing here measures the screen or runs per frame.
-   */
-  const marked = useMemo(() => {
-    const out: { place: Place; foot: THREE.Vector3; head: THREE.Vector3 }[] = [];
-    for (const place of places) {
-      const [x, y, z] = lonLatToMesh(place.lon, place.lat, place.surface_m, resort);
-      const tier = out.filter((o) => Math.hypot(o.foot.x - x, o.foot.z - z) < CLUSTER_M).length;
-      const foot = new THREE.Vector3(x, y, z);
-      const head = new THREE.Vector3(x, y + LEADER_HEIGHT_M * (1 + tier * TIER_RISE), z);
-      out.push({ place, foot, head });
-    }
-    return out;
-  }, [places, resort]);
-
-  const leaders = useMemo(() => marked.flatMap(({ foot, head }) => [foot, head]), [marked]);
+  const marked = useMemo(
+    () =>
+      places.map((place) => {
+        const [x, y, z] = lonLatToMesh(place.lon, place.lat, place.surface_m, resort);
+        return { place, at: new THREE.Vector3(x, y, z) };
+      }),
+    [places, resort],
+  );
 
   return (
     <group>
-      {drawn.map(({ lift, line, marks, top }) => {
+      {drawn.map(({ lift, line, marks }) => {
         if (line.length < 2) return null;
         const lit = lift.id === hoveredLiftId;
         const width = lit ? CABLE_HOVER_WIDTH : CABLE_WIDTH;
         const order = lit ? LAYER.hovered : LAYER.lift;
-        const cells = liftCells(lift);
         const ink = lit ? cableLit : cable;
 
         return (
@@ -231,90 +206,20 @@ export function LiftOverlay({ resort, state }: { resort: Resort; state: Mountain
                 segments
               />
             )}
-            {/* Named on demand, not always. The bars across the line already
-                say this is a lift — that is what the hatch is for — so a name
-                on every one of thirteen is thirteen plates over the mountain
-                answering a question nobody asked. Pointing at one asks it. */}
-            {lit && lift.name !== null && (
-              <Html center pointerEvents="none" position={top.toArray()} zIndexRange={[8, 2]}>
-                <span className={`${PLATE} -translate-y-4 text-snow`}>
-                  <LiftGlyph lit />
-                  <span className="u-data text-[0.625rem] text-snow">{cells.name}</span>
-                  <span className="u-data text-[0.625rem]">
-                    {cells.vertical} · {cells.ride}
-                  </span>
-                </span>
-              </Html>
-            )}
           </group>
         );
       })}
 
-      {leaders.length > 0 && (
-        <Line
-          color={casing}
-          depthWrite={false}
-          lineWidth={1}
-          points={leaders}
-          raycast={() => null}
-          renderOrder={LAYER.lift}
-          segments
-        />
-      )}
-
-      {marked.map(({ place, head }) => {
-        const lit = place.id === hoveredPlaceId;
-        const cells = placeCells(place);
-        return (
-          // Not centred: the plate hangs off the top of its leader and runs to
-          // the right, so a crowded base area stacks into a tidy column of
-          // callouts sharing one left edge. Centred plates of different widths
-          // clash with the tier above and below however far apart they are
-          // lifted, and they overhang the canvas edge at the bottom of a hill.
-          <Html key={place.id} position={head.toArray()} zIndexRange={[5, 1]}>
-            <span
-              className={`${PLATE} pointer-events-auto -translate-y-1/2 cursor-default transition-colors ${
-                lit ? "border-sun/70 text-snow" : "text-snow/90"
-              }`}
-              onMouseEnter={() => onHoverPlace(place.id)}
-              onMouseLeave={() => onHoverPlace(null)}
-            >
-              {/* The same component the list renders, so the mark on the map and
-                  the mark beside the name can never drift apart. */}
-              <PlaceMark kind={place.kind} size={9} />
-              <span className="u-feature text-[0.6875rem] leading-none">{cells.name}</span>
-              {place.ele_m !== null && (
-                <span className="u-data text-[0.625rem] leading-none">{cells.elevation}</span>
-              )}
-            </span>
-          </Html>
-        );
-      })}
+      <MountainLabels
+        field={field}
+        hoveredLiftId={hoveredLiftId}
+        hoveredPlaceId={hoveredPlaceId}
+        lifts={drawn}
+        onHoverLift={onHoverLift}
+        onHoverPlace={onHoverPlace}
+        places={marked}
+        receded={receded}
+      />
     </group>
-  );
-}
-
-/**
- * The cableway hatch again, at label size.
- *
- * A legend that travels with the thing it explains: the label carries the same
- * mark the line does, so the bars across a line on the mountain are learned
- * once and read everywhere after.
- */
-function LiftGlyph({ lit }: { lit: boolean }) {
-  return (
-    <svg
-      aria-hidden="true"
-      className={lit ? "text-sun" : "text-rock-dim"}
-      fill="none"
-      height="8"
-      stroke="currentColor"
-      strokeWidth="1.2"
-      viewBox="0 0 12 8"
-      width="12"
-    >
-      <path d="M0.5 4h11" />
-      <path d="M3 1.8v4.4M6 1.8v4.4M9 1.8v4.4" />
-    </svg>
   );
 }

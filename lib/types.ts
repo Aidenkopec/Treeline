@@ -60,9 +60,10 @@ export interface Run {
 /**
  * How a lift carries its riders, from OSM `aerialway`.
  *
- * The split is not cosmetic: the first four hang from a cable and are drawn as
- * one, held above the ground on their pylons. The rest run along the snow and
- * are draped on it. A magic carpet drawn twelve metres up would be a lie.
+ * The split is not cosmetic: an aerial kind hangs from a cable and is drawn
+ * held above the ground on its pylons, a surface kind is draped on the snow. A
+ * magic carpet drawn twelve metres up would be a lie. Which is which is
+ * `LIFT_STYLES` in `lib/mountain.ts`, not the order of this union.
  */
 export type LiftKind =
   | "gondola"
@@ -109,7 +110,13 @@ export interface Lift {
   vertical_m: number;
   /** 3D length along the ground beneath the towers, metres. */
   length_m: number;
-  /** Advertised ride time, minutes, or null when OSM does not say. */
+  /**
+   * OSM's advertised ride time, minutes, or null when it does not say.
+   *
+   * Baked, never published (SPEC §4) — it is line speed, not the ride anyone
+   * gets. Kept because `tests/mountain.golden.test.ts` divides `length_m` by it
+   * to check the cable against the speed one of its kind really runs at.
+   */
   duration_min: number | null;
   /** Riders per carrier — the quad-or-six-pack question. Null when untagged. */
   occupancy: number | null;
@@ -217,7 +224,7 @@ export interface MountainFile {
   baked_at: string;
   /** Sorted by vertical, descending. The baked order is the read order — the app sorts nothing. */
   lifts: Lift[];
-  /** Empty at a resort OSM has named nothing on, which is three of the six. */
+  /** Empty at a resort OSM has named nothing on, which is an ordinary case. */
   places: Place[];
 }
 

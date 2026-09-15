@@ -6,9 +6,9 @@ import type { Lift } from "@/lib/types";
 /**
  * The lifts, as a table.
  *
- * Unsorted on purpose. `RunTable` sorts because a hundred and sixty-eight rows
- * are unreadable otherwise; ten are not, and the bake already emits them
- * biggest first. Headers here are plain `th` with no buttons and no `aria-sort`
+ * Unsorted on purpose. `RunTable` sorts because a resort's runs run into the
+ * hundreds and are unreadable otherwise; its lifts are a dozen or so and are
+ * not, and the bake already emits them biggest first. Headers here are plain `th` with no buttons and no `aria-sort`
  * — announcing "none" on a table that does not sort tells a screen reader
  * sorting exists and then withholds it.
  *
@@ -33,8 +33,7 @@ export function LiftTable({
       <table className="w-full min-w-[26rem] border-collapse text-sm">
         <caption className="sr-only">
           Lifts, with vertical rise and length measured from the elevation model along their mapped
-          towers, and ride time as the operator publishes it. The run filters above do not apply to
-          this table.
+          towers. The run filters above do not apply to this table.
         </caption>
         <thead>
           <tr className="border-b border-line">
@@ -47,11 +46,8 @@ export function LiftTable({
             <th className="u-data px-2 py-2.5 text-right" scope="col">
               Vertical
             </th>
-            <th className="u-data px-2 py-2.5 text-right" scope="col">
-              Length
-            </th>
             <th className="u-data py-2.5 pl-2 text-right" scope="col">
-              Ride
+              Length
             </th>
           </tr>
         </thead>
@@ -87,10 +83,7 @@ export function LiftTable({
                 <td className="px-2 py-2 text-right whitespace-nowrap text-snow">
                   {cells.vertical}
                 </td>
-                <td className="px-2 py-2 text-right whitespace-nowrap text-snow">{cells.length}</td>
-                {/* Without this "7.5 min" breaks across two lines and the row
-                    grows taller than its neighbours. */}
-                <td className="py-2 pl-2 text-right whitespace-nowrap text-snow">{cells.ride}</td>
+                <td className="py-2 pl-2 text-right whitespace-nowrap text-snow">{cells.length}</td>
               </tr>
             );
           })}

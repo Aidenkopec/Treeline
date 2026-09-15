@@ -1,6 +1,5 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { rideTime } from "@/lib/format";
 import { liftCells, liftStyle, placeCells, placeStyle, UNNAMED_LIFT } from "@/lib/mountain";
 import type { Lift, MountainFile, Place } from "@/lib/types";
 
@@ -41,21 +40,6 @@ function place(over: Partial<Place> = {}): Place {
     ...over,
   };
 }
-
-describe("rideTime", () => {
-  it("reads a missing ride time as a dash rather than as zero minutes", () => {
-    expect(rideTime(null)).toBe("—");
-  });
-
-  it("keeps the half minute, so a six-pack and a quad do not print the same number", () => {
-    expect(rideTime(3.6)).toBe("3.5 min");
-    expect(rideTime(4.4)).toBe("4.5 min");
-  });
-
-  it("prints a whole number without a trailing decimal", () => {
-    expect(rideTime(7)).toBe("7 min");
-  });
-});
 
 describe("liftCells", () => {
   it("names an untitled lift rather than printing an empty cell", () => {
@@ -136,7 +120,6 @@ describe("the committed Lake Louise artifact, as the page prints it", () => {
       type: "6-person gondola",
       vertical: "713m",
       length: "2.9km",
-      ride: "—",
     });
   });
 

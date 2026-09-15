@@ -961,7 +961,8 @@ coordinates — nothing measures the screen or runs per frame.
   function — raising one moves the two spans either side, so it is a relaxation with a
   termination condition. It would also make clearance vary along a lift, which reopens the
   measured-on-the-ground rule by the side door. One constant, and nothing on Lake Louise
-  needed more.
+  needed more. Twelve metres: real pylons run 5–25m, and twelve reads as a lift at every
+  zoom the camera reaches without standing a gondola on stilts.
 
 ### Open
 
@@ -974,6 +975,115 @@ coordinates — nothing measures the screen or runs per frame.
 
 **Verified:** 328 tests green, format/lint/typecheck/build clean, lifts and places present
 in the prerendered HTML so they survive without WebGL, hover cross-light working both ways.
+
+---
+
+## Phase 5.6 — The labels, inverted ✅ done
+
+Phase 5.5 named the lodges on the mountain and left the lifts to be discovered by pointing
+at them. That is backwards, and the printed trail map has said so since Berann: runs are
+named, lifts are named, and facilities are pictograms keyed to a legend in the margin. A
+reader looking at a ski map is asking "which lift is that" — the hatch across a cable
+answers "a lift" and can never answer "which".
+
+It is doubly backwards here, because `RunOverlay` labels nothing: 168 runs cannot carry
+type, so a run is identified by picking it. That leaves the lift names as the only words on
+the mountain, which is exactly the job the skeleton of a trail map does.
+
+### Done
+
+- **Lifts are named always.** Name only at rest in `.u-data` with the hatch glyph leading;
+  pointing at one adds `Vertical 104m · Length 475m` and lights the cable. The two are
+  named rather than merely paired: both are metres, so a bare "104m · 475m" makes a reader
+  work out which is the rise, and on a short lift the guess can go either way. Ride time
+  used to carry its own unit and hid the problem. Ten names at Lake
+  Louise — the three magic carpets are unnamed in OSM and stay unlabelled, because a plate
+  reading "Unnamed lift" is noise with a border around it.
+- **Summits are named always**, which is the oldest label in topography. A peak is a
+  landform rather than a business, and it is the one place kind carrying a surveyed height.
+- **Everything else is a mark that answers to being pointed at** — no plate, no leader.
+- **The base-area stack is one mark with a count**, and hovering it opens a single box with
+  five rows in it. Pointing at a row in the list below opens the same box, so the two views
+  answer each other even for a place inside a cluster.
+- **Ride time is no longer published** (see below).
+
+### Places cannot be ranked, so they are not
+
+The plan was to split the `lodge` kind into a real lodge and a food outlet, and label the
+first. OSM does not support it. At Lake Louise:
+
+```
+Temple Lodge                amenity=restaurant
+Whitehorn Lodge and Bistro  amenity=restaurant  building=yes
+Lodge of the Ten Peaks      amenity=restaurant
+Whiskey Jack Lodge          amenity=restaurant
+Kuma Yama                   amenity=restaurant  cuisine=sushi
+Slope side                  amenity=cafe
+Banded Peak Base Camp       amenity=bar
+```
+
+The mid-mountain lodge and the sushi counter in the base carry the same tag. Any ranking
+would be invented here rather than read, so crowding is settled geometrically instead —
+by what is close together _in front of the reader_. No bake change, no schema change.
+
+### Screen space, because the camera orbits
+
+The tiering this replaces (`CLUSTER_M`, `TIER_RISE`) decided the stack from baked lat/lon,
+once. Under a free orbit "close together on the mountain" and "close together on screen"
+are different questions, and only the second is the one a crowded label is asking — which
+is why it held for the opening framing and fell apart everywhere else.
+
+`lib/label-layout.ts` is the replacement and is pure, so the decisions are settled by
+`npm test` rather than by a screenshot at one camera angle. Each pass projects every
+candidate, drops what a ridge is standing in front of, clusters the places, then hands out
+what room is left in order of importance: summits, then lifts biggest first.
+
+- **Occlusion is a heightfield walk, not a raycast.** `isVisibleFrom` samples the ground
+  along the ray against the vertex buffer the geometry already holds. The mosaic is
+  hundreds of thousands of triangles with nothing indexing them and the question is asked
+  for every label on every camera move; walking the grid is the same answer for a
+  thousandth of the work, and it can be tested without a GPU.
+- **A name slides along its cable.** Two positions either side of the midpoint is not
+  enough — ten names on one face collide, and the first pass placed one of them. A
+  cartographer given a name that will not fit beside the middle of a line slides it up the
+  line, so `PlateCandidate` carries absolute spots rather than offsets from one anchor.
+- **A plate sits on one of eight compass sides**, not at a free angle, so it holds position
+  while the mountain turns and snaps once when the cable crosses a boundary. Creeping reads
+  as drift; stepping reads as a decision.
+- **Only decisions are state.** A pass that reaches the same answer writes nothing, and a
+  camera that has not moved skips the pass entirely, so a still mountain costs nothing and
+  drei goes on tracking the points without React.
+- **Plate width is estimated from the text**, not measured. Measuring means a DOM read per
+  label per pass, which forces a reflow inside the render loop, and the estimate only has
+  to be good enough to keep two plates apart.
+
+### Ride time, dropped from the published surface
+
+`aerialway:duration` is the cable's transit time at full line speed, not the ride anyone
+takes: a lift slows for loading, for wind and for a crowd, and none of that is in the tag.
+Lake Louise's Top of the World Express tags 3.9 min over 1156m — 4.9 m/s, which is exactly
+what a detachable quad runs at and nothing like the four minutes a rider experiences.
+Phase 5.5 already called it "the exception to this file's precision rule"; it is now the
+one number here that was asserted by a stranger rather than measured, sitting next to four
+that were not.
+
+It stays in the artifact, because `tests/mountain.golden.test.ts` divides `length_m` by it
+and checks the result against the speed such a cable really runs at — a physics check on
+the length that nothing else here can perform. SPEC §4 and §8 updated to say baked, not
+published.
+
+### Open
+
+- **The header gradient washes out the top of the massif.** `Whitehorn Mountain` and the
+  `Summit` lift sit under it in the opening framing and read faintly. Pre-existing — the
+  peak label was already permanent in 5.5 — but permanent lift names make it easier to
+  notice. It is a framing question, not a label one.
+- **Plates lag the camera by up to a pass while it is swinging.** Two placed clear of each
+  other can drift together mid-drag and separate again. Fixing it properly means placing
+  every frame, which is a React render every frame.
+
+**Verified:** 345 tests green, format/lint/typecheck clean, checked by eye at both canvas
+widths and through a full orbit.
 
 ---
 

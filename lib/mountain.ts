@@ -1,4 +1,4 @@
-import { kilometres, metres, rideTime } from "./format";
+import { kilometres, metres } from "./format";
 import type { Lift, LiftKind, Place, PlaceKind } from "./types";
 
 /**
@@ -70,7 +70,7 @@ export function placeStyle(kind: PlaceKind): PlaceStyle {
   return PLACE_STYLES[kind];
 }
 
-/** Shown where OSM never named a lift. Niseko has one; so does Lake Louise's beginner area. */
+/** Shown where OSM never named a lift, which is usual for the carpets on a beginner area. */
 export const UNNAMED_LIFT = "Unnamed lift";
 
 export interface LiftCells {
@@ -79,7 +79,6 @@ export interface LiftCells {
   type: string;
   vertical: string;
   length: string;
-  ride: string;
 }
 
 /**
@@ -95,7 +94,6 @@ export function liftCells(lift: Lift): LiftCells {
     type: lift.occupancy ? `${lift.occupancy}-person ${style.label.toLowerCase()}` : style.label,
     vertical: metres(lift.vertical_m),
     length: kilometres(lift.length_m),
-    ride: rideTime(lift.duration_min),
   };
 }
 

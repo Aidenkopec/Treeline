@@ -22,6 +22,8 @@ import {
   FOV,
   type Framing,
   focusFraming,
+  type Heightfield,
+  heightfield,
   openingFraming,
   runExtent,
   terrainGeometry,
@@ -42,6 +44,15 @@ import type { Resort } from "@/lib/types";
 interface Terrain {
   geometry: THREE.BufferGeometry;
   texture: THREE.Texture;
+  /**
+   * The same vertices the geometry holds, read as a grid.
+   *
+   * The labels ask it whether a ridge stands between the camera and the thing
+   * they name. A raycast would answer from the same triangles, but there are
+   * hundreds of thousands of them with nothing indexing them, and the question
+   * is asked for every label every time the camera moves.
+   */
+  field: Heightfield;
   groundWidth: number;
   groundDepth: number;
   relief: number;
@@ -90,7 +101,7 @@ async function buildTerrain(resort: Resort): Promise<Terrain> {
   geometry.setIndex(new THREE.BufferAttribute(indices, 1));
   geometry.computeVertexNormals();
 
-  return { geometry, texture, ...extent };
+  return { geometry, texture, field: heightfield(positions, resort), ...extent };
 }
 
 async function loadElevations(url: string, width: number, height: number): Promise<Float32Array> {
@@ -301,7 +312,7 @@ function Massif({
   sunAt: Date | null;
   terrain: Terrain;
 }) {
-  const { geometry, texture, ...extent } = terrain;
+  const { geometry, texture, field, ...extent } = terrain;
   // The mosaic's own diagonal, which is what the haze below is measured in.
   const reach = Math.hypot(extent.groundWidth, extent.groundDepth);
   // Narrowed because the flight fits a run to the frame, and the frame's shape
@@ -527,8 +538,14 @@ function Massif({
       </mesh>
 
       {/* Drawn before the runs so a run always reads over a cable: a lift is
-          context, a run is the subject. */}
-      <LiftOverlay resort={resort} state={mountain} />
+          context, a run is the subject. The lift names step back for the same
+          reason once a run is being read. */}
+      <LiftOverlay
+        field={field}
+        receded={overlay.selectedId !== null || overlay.hoveredId !== null}
+        resort={resort}
+        state={mountain}
+      />
 
       <RunOverlay resort={resort} state={overlay} />
 

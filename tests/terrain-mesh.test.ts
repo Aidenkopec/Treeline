@@ -9,10 +9,13 @@ import {
   type FocusExtent,
   type Framing,
   focusFraming,
+  heightfield,
+  isVisibleFrom,
   lonLatToMesh,
   openingFraming,
   runExtent,
   runMeshPoints,
+  surfaceHeightAt,
   terrainGeometry,
 } from "@/lib/terrain-mesh";
 import { encodeHeightmap } from "@/scripts/bake/emit";
@@ -565,5 +568,62 @@ describe("focusFraming on Marmot, the run that started this", () => {
       const reach = Math.hypot(...[0, 1, 2].map((i) => point[i] - framing.position[i]));
       expect(reach).toBeLessThan(framing.distance * 2);
     }
+  });
+});
+
+/**
+ * A flat plain at 1000m with a wall across the middle of it.
+ *
+ * Twenty-one columns ten metres apart, so mesh X runs -100 to +100 and the wall
+ * stands at X = 0. Three rows, so Z = 0 is the middle one and a ray along it
+ * never leaves the grid.
+ */
+function ridge(crestM: number): { field: ReturnType<typeof heightfield>; at: Resort } {
+  const at = resort({ width: 21, height: 3, metres_per_pixel: 10, elevation_min_m: 1000 });
+  const elevations = flat(21, 3, 1000);
+  for (let j = 0; j < 3; j++) elevations[j * 21 + 10] = crestM;
+  return { field: heightfield(terrainGeometry(elevations, at).positions, at), at };
+}
+
+describe("surfaceHeightAt", () => {
+  it("reads a vertex exactly", () => {
+    const { field } = ridge(1200);
+    expect(surfaceHeightAt(field, 0, 0)).toBeCloseTo(200);
+    expect(surfaceHeightAt(field, -100, 0)).toBeCloseTo(0);
+  });
+
+  it("interpolates between vertices", () => {
+    const { field } = ridge(1200);
+    expect(surfaceHeightAt(field, -5, 0)).toBeCloseTo(100);
+  });
+
+  it("clamps outside the mosaic rather than reading off the end of the array", () => {
+    const { field } = ridge(1200);
+    expect(surfaceHeightAt(field, -10_000, -10_000)).toBeCloseTo(0);
+    expect(Number.isFinite(surfaceHeightAt(field, 10_000, 10_000))).toBe(true);
+  });
+});
+
+describe("isVisibleFrom", () => {
+  it("sees a point on its own side of the ridge", () => {
+    const { field } = ridge(1200);
+    expect(isVisibleFrom(field, [100, 200, 0], [50, 8, 0])).toBe(true);
+  });
+
+  it("does not see a point the ridge stands in front of", () => {
+    const { field } = ridge(1200);
+    expect(isVisibleFrom(field, [-100, 200, 0], [100, 8, 0])).toBe(false);
+  });
+
+  it("sees straight over a ridge too low to block", () => {
+    const { field } = ridge(1005);
+    expect(isVisibleFrom(field, [-100, 200, 0], [100, 8, 0])).toBe(true);
+  });
+
+  it("sees a point on the ground under it, which is every label at the summit", () => {
+    // The drape clearance has to leave a point sitting on the surface visible,
+    // or nothing on an unobstructed slope would ever be labelled.
+    const { field } = ridge(1200);
+    expect(isVisibleFrom(field, [0, 4000, 0], [0, 208, 0])).toBe(true);
   });
 });
