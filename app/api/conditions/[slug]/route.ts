@@ -12,14 +12,8 @@ import { NextResponse } from "next/server";
  * Nothing here is ever framed as advice. It reports snow, temperature and wind;
  * it does not say whether to ski (SPEC §8).
  */
-export async function GET(
-  _request: Request,
-  { params }: RouteContext<"/api/conditions/[slug]">,
-) {
+export async function GET(_request: Request, { params }: RouteContext<"/api/conditions/[slug]">) {
   const { slug } = await params;
 
-  return NextResponse.json(
-    { error: "Not implemented — phase 4", slug },
-    { status: 501 },
-  );
+  return NextResponse.json({ error: "Not implemented — phase 4", slug }, { status: 501 });
 }

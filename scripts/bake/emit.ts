@@ -30,6 +30,8 @@ export async function updateManifest(_resort: Resort): Promise<Manifest> {
 }
 
 /** Report asset weight against the SPEC §10 budget. A resort over budget drops resolution. */
-export async function reportAssetWeight(_slug: string): Promise<{ bytes: number; withinBudget: boolean }> {
+export async function reportAssetWeight(
+  _slug: string,
+): Promise<{ bytes: number; withinBudget: boolean }> {
   throw new Error("Not implemented — phase 1");
 }

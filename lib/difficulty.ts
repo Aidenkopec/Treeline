@@ -25,10 +25,34 @@ export interface DifficultyStyle {
 
 export const DIFFICULTY_STYLES: Record<string, DifficultyStyle> = {
   easy: { label: "Easy", shape: "circle", count: 1, colorVar: "--color-diff-easy", filled: true },
-  intermediate: { label: "Intermediate", shape: "square", count: 1, colorVar: "--color-diff-intermediate", filled: true },
-  advanced: { label: "Advanced", shape: "diamond", count: 1, colorVar: "--color-diff-advanced", filled: true },
-  expert: { label: "Expert", shape: "diamond", count: 2, colorVar: "--color-diff-expert", filled: true },
-  untagged: { label: "Untagged", shape: "circle", count: 1, colorVar: "--color-diff-unknown", filled: false },
+  intermediate: {
+    label: "Intermediate",
+    shape: "square",
+    count: 1,
+    colorVar: "--color-diff-intermediate",
+    filled: true,
+  },
+  advanced: {
+    label: "Advanced",
+    shape: "diamond",
+    count: 1,
+    colorVar: "--color-diff-advanced",
+    filled: true,
+  },
+  expert: {
+    label: "Expert",
+    shape: "diamond",
+    count: 2,
+    colorVar: "--color-diff-expert",
+    filled: true,
+  },
+  untagged: {
+    label: "Untagged",
+    shape: "circle",
+    count: 1,
+    colorVar: "--color-diff-unknown",
+    filled: false,
+  },
 };
 
 /** Ordered as a mountain orders them, gentlest first. Drives legends and filters. */

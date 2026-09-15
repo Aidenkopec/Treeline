@@ -33,13 +33,13 @@ committed to the repo. It never runs on Vercel and never runs inside a request.
 
 ## How it is put together
 
-The project splits by *when* code runs rather than by language:
+The project splits by _when_ code runs rather than by language:
 
-| | |
-|---|---|
-| `scripts/` | The bake pipeline. Resolves resort bounds from OSM, downloads and stitches elevation and imagery tiles, samples runs against the DEM, computes slope and aspect by Horn's method. All the math, all unit tested. |
-| `app/` `components/` `lib/` | The web app. Next.js App Router, React Three Fiber for the terrain, inline SVG for the charts. Reads baked artifacts and renders them. |
-| `public/resorts/` | Baked output — heightmaps, satellite textures, run data. Generated, and committed. |
+|                             |                                                                                                                                                                                                                  |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/`                  | The bake pipeline. Resolves resort bounds from OSM, downloads and stitches elevation and imagery tiles, samples runs against the DEM, computes slope and aspect by Horn's method. All the math, all unit tested. |
+| `app/` `components/` `lib/` | The web app. Next.js App Router, React Three Fiber for the terrain, inline SVG for the charts. Reads baked artifacts and renders them.                                                                           |
+| `public/resorts/`           | Baked output — heightmaps, satellite textures, run data. Generated, and committed.                                                                                                                               |
 
 There is no database: a manifest plus static assets. The only runtime server code is two
 route handlers — one proxying live conditions from Open-Meteo, one rendering share images.
