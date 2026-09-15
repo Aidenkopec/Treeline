@@ -109,6 +109,38 @@ export function lonLatToMosaicPixel(
   };
 }
 
+/**
+ * The lon/lat rectangle a stitched mosaic actually covers.
+ *
+ * A tile range snaps outward to whole tiles, so this is always a little larger
+ * than the bounds it was built from. `Resort.bounds` must be this rectangle and
+ * not the OSM polygon: the app maps lon/lat onto the heightmap plane through
+ * it, and a mismatch puts every run in the wrong place while looking like a
+ * renderer bug.
+ */
+export function mosaicBounds(range: TileRange): Bounds {
+  const nw = tileToLonLat(range.minX, range.minY, range.z);
+  const se = tileToLonLat(range.maxX + 1, range.maxY + 1, range.z);
+  return { west: nw.lon, north: nw.lat, east: se.lon, south: se.lat };
+}
+
+/**
+ * The same rectangle as `range`, expressed in tiles `levels` zoom steps deeper.
+ *
+ * Tile (x,y,z) is exactly tiles x·2ᵏ … x·2ᵏ+2ᵏ−1 at z+k, so imagery baked this
+ * way aligns with the heightmap by arithmetic rather than by cropping.
+ */
+export function zoomedRange(range: TileRange, levels: number): TileRange {
+  const factor = 2 ** levels;
+  return {
+    z: range.z + levels,
+    minX: range.minX * factor,
+    minY: range.minY * factor,
+    maxX: (range.maxX + 1) * factor - 1,
+    maxY: (range.maxY + 1) * factor - 1,
+  };
+}
+
 /** Metres per pixel at a given latitude and zoom — sets the resolution claims we can make. */
 export function metresPerPixel(lat: number, z: number): number {
   const EQUATORIAL_CIRCUMFERENCE_M = 40075016.686;
