@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import sharp from "sharp";
 import { decodeHeightmap } from "@/lib/elevation";
-import { terrainGeometry } from "@/lib/terrain-mesh";
+import { ELEVATION_ANGLE, FOV, openingFraming, terrainGeometry } from "@/lib/terrain-mesh";
 import { encodeHeightmap } from "@/scripts/bake/emit";
 import type { Grid } from "@/scripts/bake/terrain";
 import type { Resort } from "@/lib/types";
@@ -125,5 +125,45 @@ describe("a baked heightmap read back as a mesh", () => {
       const rendered = g.positions[v * 3 + 1] + encoded.elevation_min_m;
       expect(Math.abs(rendered - data[v])).toBeLessThanOrEqual(1);
     }
+  });
+});
+
+const EXTENT = { groundWidth: 4000, groundDepth: 3000, relief: 1000 };
+
+describe("openingFraming", () => {
+  it("frames a known massif at a known distance", () => {
+    // Pinned because the alternative is a screenshot, and a screenshot of a
+    // mountain at the wrong distance still looks like a mountain.
+    expect(openingFraming(EXTENT, 2).distance).toBeCloseTo(3595.69, 1);
+  });
+
+  it("puts the camera on the elevation-angle ray, looking at the lower third", () => {
+    const { distance, position, target } = openingFraming(EXTENT, 2);
+    const [x, y, z] = position;
+
+    expect(x).toBe(0);
+    expect(Math.hypot(x, y, z)).toBeCloseTo(distance, 6);
+    expect(Math.asin(y / distance)).toBeCloseTo(ELEVATION_ANGLE, 6);
+    expect(z).toBeGreaterThan(0);
+    expect(target).toEqual([0, 350, 0]);
+  });
+
+  it("clears the massif in both axes, with margin", () => {
+    const aspect = 2;
+    const { distance } = openingFraming(EXTENT, aspect);
+    const half = Math.tan((FOV * Math.PI) / 360);
+
+    const onScreenHeight =
+      EXTENT.groundDepth * Math.sin(ELEVATION_ANGLE) + EXTENT.relief * Math.cos(ELEVATION_ANGLE);
+    expect(distance * half).toBeGreaterThan(onScreenHeight / 2);
+    expect(distance * half * aspect).toBeGreaterThan(EXTENT.groundWidth / 2);
+  });
+
+  it("backs off further as the viewport narrows", () => {
+    // A portrait phone has to fit the same east-west width into less of it.
+    const wide = openingFraming(EXTENT, 2).distance;
+    const narrow = openingFraming(EXTENT, 0.5).distance;
+
+    expect(narrow).toBeGreaterThan(wide);
   });
 });

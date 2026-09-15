@@ -78,3 +78,43 @@ export function terrainGeometry(elevations: Float32Array, resort: Resort): Terra
     relief: (resort.elevation_max_m - floor) * exaggeration,
   };
 }
+
+/** Vertical field of view of the scene camera, degrees. */
+export const FOV = 45;
+
+/** Looking down on the massif from this far above the horizon frames it initially. */
+export const ELEVATION_ANGLE = (28 * Math.PI) / 180;
+
+export type TerrainExtent = Pick<TerrainGeometry, "groundWidth" | "groundDepth" | "relief">;
+
+export interface OpeningFraming {
+  /** Camera distance from the target, metres. Also sets the orbit clamps. */
+  distance: number;
+  position: readonly [number, number, number];
+  target: readonly [number, number, number];
+}
+
+/**
+ * Where the camera starts, from the terrain's own size rather than tuned numbers.
+ *
+ * Seen from above the horizon the massif is not a sphere but a plate: its depth
+ * foreshortens and its relief stands up, so fitting a bounding sphere instead
+ * would back the camera off to roughly twice the distance it needs.
+ *
+ * `aspect` is width / height of the canvas. The caller is expected to freeze the
+ * result at first render — recomputing it on resize moves the orbit clamps out
+ * from under a viewer who has already zoomed.
+ */
+export function openingFraming(extent: TerrainExtent, aspect: number): OpeningFraming {
+  const { groundWidth, groundDepth, relief } = extent;
+  const half = Math.tan((FOV * Math.PI) / 360);
+  const onScreenHeight =
+    groundDepth * Math.sin(ELEVATION_ANGLE) + relief * Math.cos(ELEVATION_ANGLE);
+  const distance = 1.3 * Math.max(onScreenHeight / (2 * half), groundWidth / (2 * half * aspect));
+
+  return {
+    distance,
+    position: [0, distance * Math.sin(ELEVATION_ANGLE), distance * Math.cos(ELEVATION_ANGLE)],
+    target: [0, relief * 0.35, 0],
+  };
+}

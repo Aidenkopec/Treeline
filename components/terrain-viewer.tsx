@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useSyncExternalStore } from "react";
+import { Component, type ReactNode, useSyncExternalStore } from "react";
 import type { Resort } from "@/lib/types";
 
 /**
@@ -19,12 +19,57 @@ const FRAME = "h-[76svh] min-h-105 w-full";
 let supported: boolean | undefined;
 
 function hasWebGL(): boolean {
-  supported ??= document.createElement("canvas").getContext("webgl2") !== null;
+  if (supported === undefined) {
+    const gl = document.createElement("canvas").getContext("webgl2");
+    supported = gl !== null;
+    // A probe context is still a live context, and browsers cap how many of
+    // those exist at once — holding one costs the scene a slot it may need.
+    gl?.getExtension("WEBGL_lose_context")?.loseContext();
+  }
   return supported;
 }
 
 /** Nothing to subscribe to — WebGL support cannot change mid-session. */
 const noop = () => () => {};
+
+/**
+ * What the viewer reads instead of the mountain.
+ *
+ * Both reasons the scene can be missing end here, and both say the same second
+ * sentence: the numbers on this page come from the elevation model, not from
+ * the renderer, so nothing above them is affected by the canvas being absent.
+ */
+function SceneNotice({ children }: { children: ReactNode }) {
+  return (
+    <div className={`${FRAME} flex items-end justify-center px-6 pb-12`}>
+      <p className="max-w-[46ch] text-center text-sm text-rock">
+        {children} The numbers above come from the same elevation model and are unaffected.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Keeps a failed terrain load inside the canvas's own frame.
+ *
+ * Without this the rejection reaches Next's root error boundary and replaces
+ * the whole document — including the facts and the disclaimer, which are the
+ * page whenever the 3D view cannot be (SPEC §9).
+ */
+class SceneBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    if (this.state.failed) {
+      return <SceneNotice>The 3D terrain view could not be loaded.</SceneNotice>;
+    }
+    return this.props.children;
+  }
+}
 
 export function TerrainViewer({ resort }: { resort: Resort }) {
   // Read on the client only: the server has no canvas to ask, and answering
@@ -38,12 +83,7 @@ export function TerrainViewer({ resort }: { resort: Resort }) {
 
   if (!webgl) {
     return (
-      <div className={`${FRAME} flex items-end justify-center px-6 pb-12`}>
-        <p className="max-w-[46ch] text-center text-sm text-rock">
-          The 3D terrain view needs WebGL, which this browser does not have. The numbers above come
-          from the same elevation model and are unaffected.
-        </p>
-      </div>
+      <SceneNotice>The 3D terrain view needs WebGL, which this browser does not have.</SceneNotice>
     );
   }
 
@@ -51,7 +91,9 @@ export function TerrainViewer({ resort }: { resort: Resort }) {
   // honest than an aria-label that pretends it describes the mountain (SPEC §9).
   return (
     <div aria-hidden="true" className={FRAME}>
-      <TerrainScene resort={resort} />
+      <SceneBoundary>
+        <TerrainScene resort={resort} />
+      </SceneBoundary>
     </div>
   );
 }

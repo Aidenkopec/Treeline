@@ -34,7 +34,10 @@ export default async function ResortPage(props: PageProps<"/resorts/[slug]">) {
   const facts = [
     ["Country", resort.country],
     ["Elevation", `${metres(resort.elevation_min_m)}–${metres(resort.elevation_max_m)}`],
-    ["Marked runs", `${runs?.runs.length ?? 0}`],
+    // A dash, not a zero: readRuns returns null for a missing or malformed
+    // artifact as well as for a resort with no runs, and only the last of those
+    // is a fact about the mountain.
+    ["Marked runs", runs ? `${runs.runs.length}` : "—"],
     // The view is stretched vertically to read as a mountain; the numbers are
     // not. Saying which is which is the honest half of that trade.
     ["Vertical scale", `×${resort.vertical_exaggeration}`],

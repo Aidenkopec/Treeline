@@ -129,6 +129,19 @@ a skirt; at phone widths the terrain fits the frame but sits small, which is ins
 §3's "must not be broken on a phone, is not designed for one". `@react-three/fiber` logs
 one `THREE.Clock is deprecated` warning from its own internals.
 
+**Hardened after review:**
+
+- A failed artifact fetch degrades to the same notice as the no-GPU path instead of
+  reaching Next's root error boundary and taking the facts and the disclaimer down with
+  it; the load moved out of the R3F tree so a plain error boundary can catch it, and a
+  rejected load is no longer cached for the rest of the session
+- The heightmap decodes through a detached canvas rather than `OffscreenCanvas`, which
+  Safari shipped four versions after WebGL2 — the probe was waving through browsers that
+  then crashed. The probe also releases its WebGL context instead of holding a slot
+- The opening framing is frozen at first render, so a resize no longer recomputes the
+  orbit clamps and drags a zoomed-out camera back in (`openingFraming`, 4 tests)
+- A missing or malformed `runs.json` reads as `—`, not as the fact "0 marked runs"
+
 ## Phase 3 — Run overlay, stats panel, filters, elevation profile ⬜
 
 Runs drawn on the surface coloured by difficulty. Per-run stats panel. Filters by aspect,

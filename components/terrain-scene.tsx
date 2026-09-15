@@ -2,10 +2,10 @@
 
 import { OrbitControls } from "@react-three/drei";
 import { Canvas, useThree } from "@react-three/fiber";
-import { Suspense, use, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, use, useLayoutEffect, useMemo, useState } from "react";
 import * as THREE from "three";
 import { decodeHeightmap } from "@/lib/elevation";
-import { terrainGeometry } from "@/lib/terrain-mesh";
+import { FOV, openingFraming, terrainGeometry } from "@/lib/terrain-mesh";
 import type { Resort } from "@/lib/types";
 
 /**
@@ -26,12 +26,21 @@ interface Terrain {
   relief: number;
 }
 
+interface Palette {
+  sun: THREE.Color;
+  shade: THREE.Color;
+  ground: THREE.Color;
+}
+
 const loading = new Map<string, Promise<Terrain>>();
 
 function loadTerrain(resort: Resort): Promise<Terrain> {
   let pending = loading.get(resort.slug);
   if (!pending) {
     pending = buildTerrain(resort);
+    // A rejected load must not stay in the cache, or every later visit in this
+    // session re-throws the first failure instead of trying the fetch again.
+    pending.catch(() => loading.delete(resort.slug));
     loading.set(resort.slug, pending);
   }
   return pending;
@@ -61,6 +70,12 @@ async function buildTerrain(resort: Resort): Promise<Terrain> {
 
 async function loadElevations(url: string, width: number, height: number): Promise<Float32Array> {
   const response = await fetch(url);
+  // Without this an error page decodes as an image-shaped nothing and surfaces
+  // much later as impossible elevations.
+  if (!response.ok) {
+    throw new Error(`Could not read the heightmap: ${url} returned ${response.status}.`);
+  }
+
   // colorSpaceConversion "none" is load-bearing: by default the browser may
   // apply a colour profile to the PNG, which would quietly rewrite every
   // elevation in it. These pixels are measurements, not a picture.
@@ -69,9 +84,14 @@ async function loadElevations(url: string, width: number, height: number): Promi
     premultiplyAlpha: "none",
   });
 
-  const context = new OffscreenCanvas(width, height).getContext("2d", {
-    willReadFrequently: true,
-  });
+  // A detached canvas rather than an OffscreenCanvas: this runs on the main
+  // thread either way, and OffscreenCanvas landed in Safari four versions after
+  // WebGL2 did, so reaching for it would crash browsers that pass the gate in
+  // terrain-viewer.tsx.
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
   if (!context) throw new Error("Could not read the heightmap: no 2d canvas context.");
 
   context.drawImage(bitmap, 0, 0);
@@ -80,11 +100,6 @@ async function loadElevations(url: string, width: number, height: number): Promi
   const { data } = context.getImageData(0, 0, width, height);
   return decodeHeightmap(data, width, height, 4);
 }
-
-const FOV = 45;
-
-/** Looking down on the massif from this far above the horizon frames it initially. */
-const ELEVATION_ANGLE = (28 * Math.PI) / 180;
 
 /** The palette lives in app/globals.css and is read from there, never re-typed. */
 function paletteColor(name: string): THREE.Color {
@@ -104,6 +119,18 @@ function lightColor(name: string, tint: number): THREE.Color {
 }
 
 export default function TerrainScene({ resort }: { resort: Resort }) {
+  // Suspending out here rather than inside <Canvas> is deliberate: R3F renders
+  // canvas children through its own reconciler, so a failed load thrown in
+  // there would not reach the error boundary in terrain-viewer.tsx.
+  return (
+    <Suspense fallback={<div className="h-full w-full bg-shadow-deep" />}>
+      <LoadedScene resort={resort} />
+    </Suspense>
+  );
+}
+
+function LoadedScene({ resort }: { resort: Resort }) {
+  const terrain = use(loadTerrain(resort));
   const palette = useMemo(
     () => ({
       sun: lightColor("--color-sun", 0.3),
@@ -122,21 +149,13 @@ export default function TerrainScene({ resort }: { resort: Resort }) {
       gl={{ toneMapping: THREE.NoToneMapping }}
     >
       <color args={[palette.ground]} attach="background" />
-      <Suspense fallback={null}>
-        <Massif palette={palette} resort={resort} />
-      </Suspense>
+      <Massif palette={palette} terrain={terrain} />
     </Canvas>
   );
 }
 
-function Massif({
-  palette,
-  resort,
-}: {
-  palette: { sun: THREE.Color; shade: THREE.Color; ground: THREE.Color };
-  resort: Resort;
-}) {
-  const { geometry, texture, groundWidth, groundDepth, relief } = use(loadTerrain(resort));
+function Massif({ palette, terrain }: { palette: Palette; terrain: Terrain }) {
+  const { geometry, texture, ...extent } = terrain;
   const camera = useThree((state) => state.camera);
   const size = useThree((state) => state.size);
   const [idle, setIdle] = useState(true);
@@ -146,39 +165,15 @@ function Massif({
     [],
   );
 
-  // Framed from the terrain's own size rather than by tuned numbers, so a
-  // bigger resort arrives already in shot. Seen from above the horizon the
-  // massif is not a sphere but a plate: its depth foreshortens and its relief
-  // stands up, and fitting a bounding sphere instead would back the camera off
-  // to roughly twice the distance it needs.
-  const framing = useMemo(() => {
-    const half = Math.tan((FOV * Math.PI) / 360);
-    const onScreenHeight =
-      groundDepth * Math.sin(ELEVATION_ANGLE) + relief * Math.cos(ELEVATION_ANGLE);
-    const distance =
-      1.3 *
-      Math.max(onScreenHeight / (2 * half), groundWidth / (2 * half * (size.width / size.height)));
+  // Frozen at first render. R3F withholds canvas children until it has measured,
+  // so this aspect is the real one — and keeping it still is what stops a resize
+  // recomputing the orbit clamps and dragging the camera back off wherever the
+  // viewer had got to.
+  const [opening] = useState(() => openingFraming(extent, size.width / size.height));
 
-    return {
-      distance,
-      position: [
-        0,
-        distance * Math.sin(ELEVATION_ANGLE),
-        distance * Math.cos(ELEVATION_ANGLE),
-      ] as const,
-      target: [0, relief * 0.35, 0] as const,
-    };
-  }, [groundWidth, groundDepth, relief, size]);
-
-  // Once only: the distance clamps should follow a resize, but moving the
-  // camera back to its opening shot every time the window changes would
-  // throw away wherever the viewer had got to.
-  const framed = useRef(false);
   useLayoutEffect(() => {
-    if (framed.current) return;
-    framed.current = true;
-    camera.position.set(...framing.position);
-  }, [camera, framing]);
+    camera.position.set(...opening.position);
+  }, [camera, opening]);
 
   return (
     <>
@@ -186,7 +181,7 @@ function Massif({
       <directionalLight
         color={palette.sun}
         intensity={2.6}
-        position={[-framing.distance, framing.distance, -framing.distance * 0.6]}
+        position={[-opening.distance, opening.distance, -opening.distance * 0.6]}
       />
 
       <mesh geometry={geometry}>
@@ -199,11 +194,11 @@ function Massif({
         autoRotateSpeed={0.3}
         enableDamping
         makeDefault
-        maxDistance={framing.distance * 2}
+        maxDistance={opening.distance * 2}
         maxPolarAngle={1.45}
-        minDistance={framing.distance * 0.12}
+        minDistance={opening.distance * 0.12}
         onStart={() => setIdle(false)}
-        target={framing.target}
+        target={opening.target}
       />
     </>
   );
