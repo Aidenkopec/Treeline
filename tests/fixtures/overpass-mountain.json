@@ -1,0 +1,163 @@
+{
+  "$comment": "Deliberately mixed, for the same reason overpass-mixed-pistes.json is: every filter here exists to reject something, and a fixture of only valid input would pass with no filter at all. Ids 1xxx are lifts that must be kept, 2xxx lifts that must be rejected, 3xxx places that must be kept, 4xxx places that must be rejected.",
+  "elements": [
+    {
+      "type": "way",
+      "id": 1001,
+      "tags": {
+        "aerialway": "gondola",
+        "name": "Grizzly Express Gondola",
+        "aerialway:occupancy": "6",
+        "aerialway:duration": "8.5"
+      },
+      "geometry": [
+        { "lat": 51.442, "lon": -116.161 },
+        { "lat": 51.445, "lon": -116.155 },
+        { "lat": 51.448, "lon": -116.149 }
+      ]
+    },
+    {
+      "$comment": "A real chairlift carrying a stale proposed:aerialway for a future replacement on the same line. Juniper Express is tagged exactly like this and has been running for years.",
+      "type": "way",
+      "id": 1002,
+      "tags": {
+        "aerialway": "chair_lift",
+        "proposed:aerialway": "chair_lift",
+        "name": "Juniper Express",
+        "aerialway:occupancy": "4"
+      },
+      "geometry": [
+        { "lat": 51.447, "lon": -116.157 },
+        { "lat": 51.449, "lon": -116.153 }
+      ]
+    },
+    {
+      "$comment": "Comma decimal. parseFloat reads this as 5, a ten percent error that looks entirely plausible.",
+      "type": "way",
+      "id": 1003,
+      "tags": { "aerialway": "chair_lift", "name": "Larch Express", "aerialway:duration": "5,5" },
+      "geometry": [
+        { "lat": 51.442, "lon": -116.111 },
+        { "lat": 51.446, "lon": -116.116 }
+      ]
+    },
+    {
+      "$comment": "Unnamed, and a chairlift rather than a carpet: dropping unnamed lifts would lose a real one.",
+      "type": "way",
+      "id": 1004,
+      "tags": { "aerialway": "chair_lift" },
+      "geometry": [
+        { "lat": 51.443, "lon": -116.14 },
+        { "lat": 51.445, "lon": -116.136 }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1005,
+      "tags": { "aerialway": "magic_carpet" },
+      "geometry": [
+        { "lat": 51.442, "lon": -116.16 },
+        { "lat": 51.4422, "lon": -116.1598 }
+      ]
+    },
+    {
+      "$comment": "proposed=yes says the lift itself is not built. The Prunepicker platter.",
+      "type": "way",
+      "id": 2001,
+      "tags": { "aerialway": "platter", "name": "Prunepicker", "proposed": "yes" },
+      "geometry": [
+        { "lat": 51.451, "lon": -116.112 },
+        { "lat": 51.453, "lon": -116.115 }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 2002,
+      "tags": { "aerialway": "zip_line", "name": "Treetop Zip" },
+      "geometry": [
+        { "lat": 51.444, "lon": -116.15 },
+        { "lat": 51.446, "lon": -116.147 }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 2003,
+      "tags": { "aerialway": "yes" },
+      "geometry": [
+        { "lat": 51.444, "lon": -116.152 },
+        { "lat": 51.446, "lon": -116.148 }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 2004,
+      "tags": { "aerialway": "station", "name": "Glacier Express", "building": "yes" },
+      "geometry": [
+        { "lat": 51.4536, "lon": -116.1416 },
+        { "lat": 51.4537, "lon": -116.1415 }
+      ]
+    },
+    {
+      "type": "node",
+      "id": 2005,
+      "lat": 51.4545,
+      "lon": -116.142,
+      "tags": { "aerialway": "pylon" }
+    },
+    {
+      "type": "node",
+      "id": 3001,
+      "lat": 51.4506,
+      "lon": -116.1399,
+      "tags": { "amenity": "restaurant", "name": "Temple Lodge" }
+    },
+    {
+      "$comment": "Mapped as a building outline, so it arrives with a centre and no geometry.",
+      "type": "way",
+      "id": 3002,
+      "center": { "lat": 51.4505, "lon": -116.1398 },
+      "tags": { "amenity": "restaurant", "building": "yes", "name": "Whitehorn Lodge and Bistro" }
+    },
+    {
+      "$comment": "Both a summit and a cafe. The summit is the more useful thing to call it, and the elevation is why it is on the map at all.",
+      "type": "node",
+      "id": 3003,
+      "lat": 51.4675,
+      "lon": -116.1414,
+      "tags": {
+        "natural": "peak",
+        "amenity": "cafe",
+        "name": "Whitehorn Mountain",
+        "ele": "2637"
+      }
+    },
+    {
+      "type": "node",
+      "id": 3004,
+      "lat": 51.4585,
+      "lon": -116.1482,
+      "tags": { "tourism": "viewpoint", "name": "Kicking Horse Viewpoint" }
+    },
+    {
+      "$comment": "Unnamed. A marker nobody can read is noise on the map.",
+      "type": "node",
+      "id": 4001,
+      "lat": 51.4525,
+      "lon": -116.1414,
+      "tags": { "tourism": "viewpoint" }
+    },
+    {
+      "$comment": "Neither its own point nor a centre.",
+      "type": "way",
+      "id": 4002,
+      "tags": { "amenity": "restaurant", "name": "Nowhere In Particular" }
+    },
+    {
+      "type": "node",
+      "id": 4003,
+      "lat": 51.4419,
+      "lon": -116.1623,
+      "tags": { "amenity": "pharmacy", "name": "Village Pharmacy" }
+    }
+  ]
+}

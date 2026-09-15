@@ -39,9 +39,13 @@ none of them is in this version.
 - **Avalanche ratings, or any safety information.** See §8. This is a hard
   exclusion on liability grounds, not a scheduling decision, and it does not
   come back in a later version without legal advice first.
-- **Lift status, open/closed runs, grooming reports.** There is no standard API.
-  It is per-resort scraping that breaks every season. This is the single most
-  tempting feature and it would consume the entire budget.
+- **Lift _status_, open/closed runs, grooming reports.** There is no standard
+  API. It is per-resort scraping that breaks every season. This is the single
+  most tempting feature and it would consume the entire budget. Note the word:
+  what is excluded is the _operational state_ of a lift on a given morning.
+  Where a lift physically runs is a permanent fact about the mountain, in the
+  same class as a run polyline, and it is in scope — see §4. A later reader of
+  this line should not mistake one for the other.
 - **User accounts, saved days, tracked runs, social features.**
 - **All 72 resorts in the OSM index.** Asset weight makes this impractical on a
   static host.
@@ -58,6 +62,11 @@ none of them is in this version.
   hardcoded to Canada.
 - 3D terrain with satellite imagery draped over it
 - Ski runs drawn on the terrain, colored by difficulty
+- Lifts drawn on the terrain from their mapped geometry — the cable carried over
+  its real pylons, with name, vertical rise, length and ride time. Geometry
+  only; lift _status_ stays excluded under §3
+- Named mountain places — lodges, peaks and viewpoints — as markers on the
+  terrain and a list beside it
 - Per-run stats panel: average pitch, steepest pitch, aspect, vertical drop,
   length, name, difficulty
 - Filter runs by aspect, difficulty and minimum vertical
@@ -127,7 +136,15 @@ Overpass query — which is precisely why it cannot be a runtime call.
    scoping preference — see §8.
 5. Sample elevation along each run's polyline from the DEM
 6. Compute per-run derived stats (§6)
-7. Emit `heightmap.png`, `satellite.jpg`, `runs.json`, manifest entry
+7. Query Overpass a third time for the resort's lifts and named places, clipped
+   to the `landuse=winter_sports` polygon rather than to the mosaic rectangle —
+   the mosaic is cut to whole tiles and reaches into the valley, where the
+   village restaurants are. A separate query from step 4 on purpose: the
+   downhill filter is a safety rule, and a query that cannot return pistes
+   cannot widen it.
+8. Sample elevation under each lift's pylons and at each place
+9. Emit `heightmap.png`, `satellite.jpg`, `runs.json`, `mountain.json`, manifest
+   entry
 
 `npm run bake -- --check <slug>` reports data coverage without writing anything,
 so a resort with poor OSM coverage is caught before it is baked.
@@ -247,6 +264,13 @@ step once a heightmap exists, which is why it is written down as forbidden.
 "This named run averages 22°" is a fact about a patrolled run. "Here is every
 steep slope on the mountain" is an avalanche terrain product.
 
+**Slope data never attaches to a lift line.** A lift is drawn (§4) and carries
+its name, vertical rise, length and ride time — infrastructure facts. It carries
+no pitch and no aspect, ever. The ground under a cable is not a marked run, and
+reporting its steepness would publish the slope angle of unpatrolled terrain
+through the back door of an infrastructure feature. This is the same rule as the
+paragraph above, written out for the case that now exists in the data model.
+
 **Inbounds runs only, enforced at the query.** The Overpass filter takes
 `piste:type=downhill` and nothing else. `backcountry` and `skitour` are
 unpatrolled terrain and must never be baked. See §5.1 step 4.
@@ -310,6 +334,7 @@ Code session with its own verification gate.
 | 3     | Run overlay + stats panel + filters + elevation profile           | stats in UI match `runs.json`; filter unit tests; profile chart renders from fixture data                                                                             |
 | 4     | Conditions route handler                                          | tests against recorded Open-Meteo fixtures, including an API-down case                                                                                                |
 | 5     | Sun/shade + first-person run camera                               | known sunrise/sunset asserted for a fixed date and latitude; camera path stays on the polyline within tolerance                                                       |
+| 5.5   | Lifts and named places on the terrain                             | baked artifact carries no pitch or aspect on any lift; one tower per OSM node; cable clearance uniform within a lift                                                  |
 | **—** | **Valid stopping point.** Three resorts, core experience complete | —                                                                                                                                                                     |
 | 6     | Historical snow charts                                            | baked archive JSON matches a recorded API response; chart renders from fixture                                                                                        |
 | 7     | Aspect rose + comparison view                                     | rose bucket counts match `runs.json`; comparison renders both resorts at one scale                                                                                    |

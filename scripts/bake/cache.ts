@@ -51,19 +51,40 @@ async function download(url: string, init?: RequestInit): Promise<Buffer> {
   }
 }
 
-/** Fetch a URL, reading from and writing to the on-disk cache. */
-export async function cachedFetch(url: string, init?: RequestInit): Promise<Buffer> {
+/**
+ * Fetch a URL, reading from and writing to the on-disk cache.
+ *
+ * `accept` guards what is allowed to *be* a cache entry. Overpass answers a
+ * busy server with 200 and an error body — sometimes HTML, sometimes JSON
+ * carrying a `remark` and no elements — so status alone cannot tell a bad
+ * answer from a good one, and this cache has no TTL and no eviction. Without
+ * the guard one busy minute poisons a key until `.bake-cache` is deleted by
+ * hand, and the JSON variant is worse than the HTML one: it bakes a resort with
+ * nothing in it rather than throwing.
+ *
+ * It runs on the read as well as the write, so a cache already holding a bad
+ * answer heals itself on the next bake instead of needing to be cleared.
+ */
+export async function cachedFetch(
+  url: string,
+  init?: RequestInit,
+  accept?: (body: Buffer) => boolean,
+): Promise<Buffer> {
   const file = cachePath(url, typeof init?.body === "string" ? init.body : "");
 
   if (enabled) {
     try {
-      return await readFile(file);
+      const cached = await readFile(file);
+      if (!accept || accept(cached)) return cached;
     } catch {
       // Not cached. Fall through to the network.
     }
   }
 
   const body = await download(url, init);
+  if (accept && !accept(body)) {
+    throw new Error(`Unusable answer from ${new URL(url).host} for ${url}`);
+  }
 
   await mkdir(path.dirname(file), { recursive: true });
   await writeFile(file, body);

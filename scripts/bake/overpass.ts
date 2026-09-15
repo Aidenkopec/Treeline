@@ -1,4 +1,4 @@
-import type { Bounds, Difficulty } from "@/lib/types";
+import type { Bounds, Difficulty, LiftKind, PlaceKind } from "@/lib/types";
 import { cachedFetch } from "./cache";
 
 /**
@@ -46,6 +46,42 @@ export function downhillRunsQuery(bounds: Bounds): string {
 out geom;`;
 }
 
+/**
+ * Query for the resort's lifts and named places.
+ *
+ * Clipped to the `landuse=winter_sports` polygon through `map_to_area`, not to
+ * the mosaic rectangle: the mosaic is cut to whole tiles and reaches down into
+ * the valley, where a village's restaurants and hotels are. At Lake Louise the
+ * area clip is the difference between six lodges on the hill and those six plus
+ * the Post Hotel, the railway station and the pizza place.
+ *
+ * Two `out` statements over named sets, which is load-bearing. A single
+ * `out tags center` answers with a centre point and *no* `geometry`, so the
+ * pylon polyline — the whole reason the lifts are worth drawing — never
+ * arrives. Lifts need `geom`; places only need a point, and `center` is what
+ * gives one to a lodge mapped as a building outline.
+ *
+ * Separate from `downhillRunsQuery` on purpose. The downhill filter is a safety
+ * rule (§8), and a query with no `piste:type` clause in it cannot widen one.
+ */
+export function mountainQuery(lat: number, lon: number, radiusM = 8000): string {
+  return `[out:json][timeout:180];
+(
+  way(around:${radiusM},${lat},${lon})["landuse"="winter_sports"];
+  relation(around:${radiusM},${lat},${lon})["landuse"="winter_sports"];
+)->.resort;
+.resort map_to_area -> .a;
+way(area.a)["aerialway"] -> .lifts;
+(
+  node(area.a)["amenity"~"^(restaurant|cafe|bar)$"];
+  way(area.a)["amenity"~"^(restaurant|cafe|bar)$"];
+  node(area.a)["tourism"~"^(alpine_hut|wilderness_hut|chalet|viewpoint)$"];
+  node(area.a)["natural"="peak"];
+) -> .places;
+.lifts out geom;
+.places out center;`;
+}
+
 /** A point as Overpass returns it in `out geom` output. */
 export interface OverpassPoint {
   lat: number;
@@ -83,6 +119,107 @@ export function isInboundsDownhill(way: OverpassWay): boolean {
     if (key.startsWith("piste:type:") && key !== "piste:type:downhill") return false;
   }
   return true;
+}
+
+/** The lift kinds this project draws. Anything else is not a lift as far as the bake is concerned. */
+const LIFT_KINDS = new Set<LiftKind>([
+  "gondola",
+  "chair_lift",
+  "cable_car",
+  "mixed_lift",
+  "magic_carpet",
+  "platter",
+  "t-bar",
+  "rope_tow",
+  "drag_lift",
+]);
+
+/**
+ * Read a lift kind from OSM tags, or null when this is not a lift to draw.
+ *
+ * Reads the plain `aerialway` tag and nothing else. A mapper who writes
+ * `aerialway=chair_lift` is saying a chairlift is there now; `proposed:aerialway`
+ * and `construction:aerialway` beside it describe a *future* lift on the same
+ * line and are not this one — Juniper Express carries a stale `proposed:aerialway`
+ * and has been running for years. `proposed=yes` is different: it says the thing
+ * itself is not built, and it is the reason the Prunepicker platter is not drawn.
+ *
+ * Also rejects what the `["aerialway"]` filter sweeps up but nobody rides: the
+ * stations and pylons that carry the tag, and a zip line, which is not a ski lift.
+ */
+export function readLiftKind(el: { tags?: Record<string, string> }): LiftKind | null {
+  const kind = el.tags?.aerialway;
+  if (kind === undefined || el.tags?.proposed === "yes") return null;
+  return LIFT_KINDS.has(kind as LiftKind) ? (kind as LiftKind) : null;
+}
+
+/**
+ * Ride time in minutes, or null when OSM does not say it readably.
+ *
+ * `aerialway:duration` is decimal minutes, but it is typed by hand and arrives
+ * that way: this data carries `"5,5"` for five and a half. `parseFloat` reads
+ * that as `5` without complaint, which is a ten percent error that looks
+ * entirely plausible on screen. Null beats a believable wrong number.
+ */
+export function readDurationMin(el: { tags?: Record<string, string> }): number | null {
+  const raw = el.tags?.["aerialway:duration"]?.replace(",", ".");
+  if (raw === undefined) return null;
+  const minutes = Number(raw);
+  return Number.isFinite(minutes) && minutes > 0 ? minutes : null;
+}
+
+/** Riders per carrier, or null when untagged. */
+export function readOccupancy(el: { tags?: Record<string, string> }): number | null {
+  const seats = Number(el.tags?.["aerialway:occupancy"]);
+  return Number.isInteger(seats) && seats > 0 ? seats : null;
+}
+
+/** A place as Overpass returns it: a node carries its own point, a way carries a centre. */
+export interface OverpassPlace {
+  type: "node" | "way";
+  id: number;
+  tags?: Record<string, string>;
+  lat?: number;
+  lon?: number;
+  center?: OverpassPoint;
+}
+
+/**
+ * Where a place is, whether OSM mapped it as a point or as a building.
+ *
+ * This is the only seam that knows the difference: past it, a lodge drawn as a
+ * footprint and a lodge dropped as a node are the same thing.
+ */
+export function placePoint(el: OverpassPlace): OverpassPoint | null {
+  if (el.lat !== undefined && el.lon !== undefined) return { lat: el.lat, lon: el.lon };
+  return el.center ?? null;
+}
+
+/**
+ * What kind of place this is, or null when it is none of them.
+ *
+ * Ordered, because the tags co-occur: a café on a summit is tagged both, and a
+ * summit is the more useful thing to call it — the elevation is why it is on
+ * the map. Read top to bottom, first match wins.
+ */
+export function readPlaceKind(el: OverpassPlace): PlaceKind | null {
+  const tags = el.tags ?? {};
+  if (tags.natural === "peak") return "peak";
+  if (tags.tourism === "viewpoint") return "viewpoint";
+  if (["restaurant", "cafe", "bar"].includes(tags.amenity ?? "")) return "lodge";
+  if (["alpine_hut", "wilderness_hut", "chalet"].includes(tags.tourism ?? "")) return "lodge";
+  return null;
+}
+
+/**
+ * A place's id, namespaced by element type.
+ *
+ * Runs get away with a bare way id because they are all ways. Places are nodes
+ * and ways at once, and the two id spaces overlap, so an unprefixed id would
+ * let one place quietly stand in for another.
+ */
+export function placeId(el: OverpassPlace): string {
+  return `${el.type[0]}${el.id}`;
 }
 
 /** Read a grade from OSM tags. Untagged is a real answer, not a default. */
@@ -159,13 +296,35 @@ export function boundsFromElements(
   );
 }
 
+/**
+ * Whether an Overpass body is an answer at all.
+ *
+ * A busy Overpass replies 200 with an error rather than a status code, in two
+ * shapes: an HTML page, and — worse — valid JSON carrying a `remark` and an
+ * empty `elements`. The second one does not throw anywhere; it bakes a resort
+ * with no runs and no lifts and looks fine doing it. An empty `elements` with
+ * no remark is left alone, because an empty answer is a real answer.
+ */
+export function isUsableAnswer(body: Buffer): boolean {
+  try {
+    const parsed = JSON.parse(body.toString()) as { elements?: unknown; remark?: string };
+    return Array.isArray(parsed.elements) && !/error/i.test(parsed.remark ?? "");
+  } catch {
+    return false;
+  }
+}
+
 /** POST a query to Overpass. Build time only — never call this from a request. */
 export async function runQuery<T>(query: string): Promise<{ elements: T[] }> {
   const body = new URLSearchParams({ data: query }).toString();
-  const raw = await cachedFetch(OVERPASS_ENDPOINT, {
-    method: "POST",
-    body,
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-  });
+  const raw = await cachedFetch(
+    OVERPASS_ENDPOINT,
+    {
+      method: "POST",
+      body,
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    },
+    isUsableAnswer,
+  );
   return JSON.parse(raw.toString()) as { elements: T[] };
 }

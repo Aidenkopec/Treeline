@@ -27,6 +27,10 @@ session.** If a task seems to require breaking one, stop and raise it.
 - **Slope data attaches to marked runs only, never to open terrain.** Do not shade the
   mountain by steepness. "This named run averages 22°" is a fact about a patrolled run;
   "here is every steep slope on the mountain" is an avalanche terrain product.
+- **A lift carries no pitch and no aspect.** Lifts are drawn and carry name, vertical,
+  length and ride time. The ground under a cable is not a marked run, so its steepness is
+  not ours to publish. Enforced by a test over the baked artifact in
+  `tests/mountain.golden.test.ts`, which fails on any key matching `/pitch|aspect/i`.
 - **Inbounds runs only, enforced at the query.** The Overpass filter takes
   `piste:type=downhill` and nothing else. `backcountry` and `skitour` are unpatrolled
   terrain and must never be baked. Enforced twice — in the query and in

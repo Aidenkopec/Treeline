@@ -21,6 +21,7 @@ import {
   reportAssetWeight,
   updateManifest,
   writeHeightmap,
+  writeMountain,
   writeRuns,
   writeSatellite,
 } from "./bake/emit";
@@ -30,13 +31,16 @@ import {
   boundsFromElements,
   downhillRunsQuery,
   isInboundsDownhill,
+  mountainQuery,
   type OverpassArea,
+  type OverpassPlace,
   type OverpassWay,
   resortBoundsQuery,
   runQuery,
   unionBounds,
 } from "./bake/overpass";
 import { deriveRun, summariseCoverage } from "./bake/runs";
+import { deriveLift, derivePlace, summariseMountain } from "./bake/mountain";
 import { decodeHeightmap } from "@/lib/elevation";
 import { terrariumTileUrl } from "./bake/terrarium";
 import {
@@ -66,10 +70,18 @@ async function resolveTerrain(resort: ResortInput) {
   const found = await runQuery<OverpassWay>(downhillRunsQuery(polygon));
   const ways = found.elements.filter(isInboundsDownhill);
 
+  // The lifts and named places, clipped to the resort polygon rather than to
+  // the mosaic — see `mountainQuery`. Deliberately not unioned into `bounds`
+  // below: they are already inside the polygon the box is built from, and
+  // widening the box here would move the mosaic and stale every heightmap.
+  const mountain = await runQuery<OverpassWay & OverpassPlace>(
+    mountainQuery(resort.lat, resort.lon),
+  );
+
   // Take the runs into the box before choosing tiles: a way mapped just past
   // the resort polygon would otherwise be clipped at the mosaic edge.
   const bounds = ways.reduce((b, w) => unionBounds(b, w.geometry ?? []), polygon);
-  return { elements: found.elements, ways, bounds };
+  return { elements: found.elements, ways, mountain: mountain.elements, bounds };
 }
 
 const mb = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(2)} MB`;
@@ -87,7 +99,7 @@ const mb = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 async function bakeResort(resort: ResortInput): Promise<void> {
   console.log(`\n${resort.name} (${resort.slug})`);
 
-  const { ways, bounds } = await resolveTerrain(resort);
+  const { ways, mountain, bounds } = await resolveTerrain(resort);
   const range = tileRangeForBounds(bounds, resort.zoom);
   const { width, height } = mosaicSize(range);
   console.log(`  ${ways.length} downhill runs, heightmap ${width}x${height} at z${resort.zoom}`);
@@ -113,6 +125,20 @@ async function bakeResort(resort: ResortInput): Promise<void> {
 
   const runsFile: RunsFile = { slug: resort.slug, baked_at, runs };
   await writeRuns(runsFile);
+
+  const lifts = mountain
+    .map((el) => deriveLift(el, grid, range))
+    .filter((lift): lift is NonNullable<typeof lift> => lift !== null)
+    // Biggest first, and baked that way: the lift list does not sort, because
+    // ten rows do not need the machinery a hundred and sixty-eight do.
+    .sort((a, b) => b.vertical_m - a.vertical_m || a.id.localeCompare(b.id));
+  const places = mountain
+    .map((el) => derivePlace(el, grid, range))
+    .filter((place): place is NonNullable<typeof place> => place !== null)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  await writeMountain({ slug: resort.slug, baked_at, lifts, places });
+  console.log(`  ${lifts.length} lifts, ${places.length} named places`);
 
   const entry: Resort = {
     slug: resort.slug,
@@ -147,8 +173,9 @@ async function bakeResort(resort: ResortInput): Promise<void> {
  * rather than after it looks wrong on screen (SPEC §13).
  */
 async function checkResort(resort: ResortInput): Promise<void> {
-  const { elements, bounds } = await resolveTerrain(resort);
+  const { elements, mountain, bounds } = await resolveTerrain(resort);
   const c = summariseCoverage(elements);
+  const m = summariseMountain(mountain);
   const range = tileRangeForBounds(bounds, resort.zoom);
   const dem = mosaicSize(range);
   const imagery = mosaicSize(zoomedRange(range, IMAGERY_ZOOM_OFFSET));
@@ -180,8 +207,20 @@ async function checkResort(resort: ResortInput): Promise<void> {
     `  satellite           ${imagery.width}x${imagery.height} at z${range.z + IMAGERY_ZOOM_OFFSET}`,
   );
 
+  const placeKinds = Object.entries(m.byPlaceKind)
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, n]) => `${k} ${n}`)
+    .join(", ");
+
+  console.log(`  lifts               ${m.lifts} (${m.aerial} aerial, ${m.surface} surface)`);
+  console.log(`  named lifts         ${m.namedLifts}, up to ${m.mostWaysPerName} ways share one`);
+  console.log(`  named places        ${m.places}${placeKinds ? ` — ${placeKinds}` : ""}`);
+
   const problems: string[] = [];
   if (c.kept < 30) problems.push(`only ${c.kept} downhill runs`);
+  // Zero lifts means the area clip found nothing, not that the hill has none.
+  // Zero *places* is an ordinary fact — three of the six resorts have no peak.
+  if (m.lifts === 0) problems.push("no lifts — check that the resort polygon maps to an area");
   if (c.kept > 0 && c.named / c.kept < 0.7) problems.push(`only ${pct(c.named)} named`);
   if (c.kept > 0 && c.graded / c.kept < 0.7) problems.push(`only ${pct(c.graded)} graded`);
 

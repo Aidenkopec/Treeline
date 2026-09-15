@@ -57,6 +57,99 @@ export interface Run {
   profile: ProfileSample[];
 }
 
+/**
+ * How a lift carries its riders, from OSM `aerialway`.
+ *
+ * The split is not cosmetic: the first four hang from a cable and are drawn as
+ * one, held above the ground on their pylons. The rest run along the snow and
+ * are draped on it. A magic carpet drawn twelve metres up would be a lie.
+ */
+export type LiftKind =
+  | "gondola"
+  | "chair_lift"
+  | "cable_car"
+  | "mixed_lift"
+  | "magic_carpet"
+  | "platter"
+  | "t-bar"
+  | "rope_tow"
+  | "drag_lift";
+
+/** One mapped pylon, with the ground under it and the cable over it. */
+export interface LiftTower {
+  lon: number;
+  lat: number;
+  /** DEM elevation at the tower's foot, metres. Every published lift number is measured on this. */
+  ground_m: number;
+  /**
+   * Elevation the cable passes through here, metres. A height chosen to draw
+   * with, not a measurement — which is why nothing published is derived from it.
+   */
+  cable_m: number;
+}
+
+/**
+ * A lift, as infrastructure.
+ *
+ * **No pitch, no aspect, ever (SPEC §8.)** Slope data attaches to marked runs;
+ * the ground under a cable is not one, and reporting its steepness would
+ * publish the angle of unpatrolled terrain through an infrastructure feature.
+ * `tests/mountain.golden.test.ts` fails on any key here matching /pitch|aspect/i.
+ */
+export interface Lift {
+  /** Stable id, derived from the OSM way id. */
+  id: string;
+  name: string | null;
+  kind: LiftKind;
+  /**
+   * Top terminal minus bottom terminal, metres — the rise, measured on the
+   * ground. Deliberately not max−min the way a run's is: a lift that dips
+   * across a gully on its way up would report the dip as extra vertical.
+   */
+  vertical_m: number;
+  /** 3D length along the ground beneath the towers, metres. */
+  length_m: number;
+  /** Advertised ride time, minutes, or null when OSM does not say. */
+  duration_min: number | null;
+  /** Riders per carrier — the quad-or-six-pack question. Null when untagged. */
+  occupancy: number | null;
+  /**
+   * Bottom to top, one entry per OSM node and never resampled: those nodes are
+   * the surveyed pylon positions, and interpolating between them would invent
+   * towers that do not exist while discarding the ones that do.
+   */
+  towers: LiftTower[];
+}
+
+/** What kind of thing a named place on the mountain is. */
+export type PlaceKind = "lodge" | "peak" | "viewpoint";
+
+/** A named point on the mountain: somewhere to eat, a summit, a view. */
+export interface Place {
+  /**
+   * Prefixed with the OSM element type — `n123` / `w123`. Nodes and ways are
+   * separate id spaces, so a bare id would let a lodge mapped as a building
+   * silently displace one mapped as a point.
+   */
+  id: string;
+  /** Unnamed places are not baked: a marker nobody can read is noise on the map. */
+  name: string;
+  kind: PlaceKind;
+  lon: number;
+  lat: number;
+  /** DEM elevation here, metres — where the marker sits on the rendered surface. */
+  surface_m: number;
+  /**
+   * OSM's surveyed height, peaks only, null when untagged.
+   *
+   * The one number in this project that is read rather than derived. A 30m DEM
+   * resamples a sharp summit low — measurably so, see the phase 1 notes in
+   * PHASES.md — so the mountain's own published height is the better fact, and
+   * `surface_m` stays beside it rather than being overwritten by it.
+   */
+  ele_m: number | null;
+}
+
 /** Geographic bounds, WGS84 degrees. */
 export interface Bounds {
   west: number;
@@ -116,6 +209,16 @@ export interface RunsFile {
   slug: string;
   baked_at: string;
   runs: Run[];
+}
+
+/** `public/resorts/<slug>/mountain.json` — what is built on the mountain and what is named on it. */
+export interface MountainFile {
+  slug: string;
+  baked_at: string;
+  /** Sorted by vertical, descending. The baked order is the read order — the app sorts nothing. */
+  lifts: Lift[];
+  /** Empty at a resort OSM has named nothing on, which is three of the six. */
+  places: Place[];
 }
 
 /**

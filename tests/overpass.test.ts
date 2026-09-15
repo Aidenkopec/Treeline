@@ -3,6 +3,8 @@ import {
   boundsFromElements,
   downhillRunsQuery,
   isInboundsDownhill,
+  isUsableAnswer,
+  mountainQuery,
   readDifficulty,
   resortBoundsQuery,
   type OverpassWay,
@@ -159,5 +161,64 @@ describe("resort bounds from OSM areas", () => {
       { lat: 51.47, lon: -116.2 },
     ]);
     expect(grown).toEqual({ west: -116.2, east: -116.1, south: 51.44, north: 51.47 });
+  });
+});
+
+/**
+ * A busy Overpass answers 200 and puts the failure in the body, so status code
+ * alone cannot tell an answer from an outage. The download cache has no TTL and
+ * no eviction, so whatever gets past this gate is what every later bake reads.
+ */
+describe("overpass answer gate", () => {
+  it("rejects an HTML error page served with 200 rather than caching it forever", () => {
+    const html = Buffer.from(
+      "<html><body><p>Error: runtime error: open64: 0 Success /osm3s_osm_base " +
+        "Dispatcher_Client::request_read_and_idx::timeout.</p></body></html>",
+    );
+    expect(isUsableAnswer(html)).toBe(false);
+  });
+
+  it("rejects a runtime-error remark rather than baking a resort with nothing on it", () => {
+    // The dangerous shape: valid JSON, no exception anywhere, and a mountain
+    // with no runs and no lifts that looks entirely healthy on the page.
+    const remark = Buffer.from(
+      JSON.stringify({ version: 0.6, elements: [], remark: "runtime error: Query timed out" }),
+    );
+    expect(isUsableAnswer(remark)).toBe(false);
+  });
+
+  it("accepts an answer with no elements, because an empty resort is a fact", () => {
+    expect(isUsableAnswer(Buffer.from(JSON.stringify({ version: 0.6, elements: [] })))).toBe(true);
+  });
+
+  it("accepts an ordinary answer", () => {
+    const body = Buffer.from(JSON.stringify({ elements: [{ type: "way", id: 1 }] }));
+    expect(isUsableAnswer(body)).toBe(true);
+  });
+});
+
+/**
+ * The lifts and places query is separate from the runs query on purpose: the
+ * downhill filter is a safety rule (§8), and a query with no piste clause in it
+ * cannot widen one. That is a property worth asserting rather than trusting.
+ */
+describe("mountain query", () => {
+  const query = mountainQuery(51.4419, -116.1622);
+
+  it("asks for no piste of any kind, so it cannot widen the downhill filter", () => {
+    expect(query).not.toContain("piste");
+  });
+
+  it("clips to the resort polygon rather than the mosaic, which reaches into the village", () => {
+    expect(query).toContain("map_to_area");
+    expect(query).toContain('["landuse"="winter_sports"]');
+  });
+
+  it("asks for lift geometry, not just a centre point, or there are no pylons to draw", () => {
+    expect(query).toContain(".lifts out geom;");
+  });
+
+  it("asks for a centre on places, which is how a lodge mapped as a building gets a point", () => {
+    expect(query).toContain(".places out center;");
   });
 });

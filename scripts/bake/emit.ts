@@ -1,7 +1,7 @@
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
-import type { Manifest, Resort, RunsFile } from "@/lib/types";
+import type { Manifest, MountainFile, Resort, RunsFile } from "@/lib/types";
 import type { Grid } from "./terrain";
 
 /**
@@ -86,6 +86,10 @@ export async function writeRuns(runs: RunsFile): Promise<void> {
   await writeArtifact(runs.slug, "runs.json", JSON.stringify(runs));
 }
 
+export async function writeMountain(mountain: MountainFile): Promise<void> {
+  await writeArtifact(mountain.slug, "mountain.json", JSON.stringify(mountain));
+}
+
 /** Replace this resort's entry and leave the rest alone, ordered for a readable diff. */
 export function mergeResort(manifest: Manifest, resort: Resort): Manifest {
   const resorts = manifest.resorts.filter((r) => r.slug !== resort.slug);
@@ -113,7 +117,7 @@ export async function updateManifest(resort: Resort): Promise<Manifest> {
 export async function reportAssetWeight(
   slug: string,
 ): Promise<{ bytes: number; withinBudget: boolean }> {
-  const names = ["heightmap.png", "satellite.jpg", "runs.json"];
+  const names = ["heightmap.png", "satellite.jpg", "runs.json", "mountain.json"];
   let bytes = 0;
   for (const name of names) {
     try {
