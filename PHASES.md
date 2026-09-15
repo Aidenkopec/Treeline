@@ -3,12 +3,12 @@
 Progress tracker for [SPEC.md](./SPEC.md) §11. Each phase ends working, committed and
 deployable, and runs in its own session with its own verification gate.
 
-**Status: phase 1 in progress (~40%).** Foundation is done; the bake pipeline's pure math
-is implemented and tested, but nothing has been baked yet and no artifacts exist.
+**Status: phase 1 in progress (~55%).** Foundation is done; all of the bake pipeline's pure
+math is implemented and tested, but nothing has been baked yet and no artifacts exist.
 
-> **Next action:** implement the four derived-stat functions in `scripts/bake/runs.ts`.
-> They are pure functions over a heightmap, so they can be written and tested without any
-> network access — same as the three modules already finished.
+> **Next action:** tile download and stitch via `sharp` (`scripts/bake/mosaic.ts`), then
+> `runQuery` and `--check`. The derived-stat math is done and tested; everything remaining
+> in phase 1 touches the network or the filesystem.
 
 ---
 
@@ -57,13 +57,13 @@ no layout overflow from 320px up.
 
 ### Remaining, in order
 
-**1. Derived stats** — `scripts/bake/runs.ts` (5 stubs). Pure math, no network:
+**1. Derived stats** — `scripts/bake/runs.ts` ✅ done. Pure math, no network:
 
-- [ ] `sampleProfile` — resample a polyline to a fixed ground interval against the DEM
-- [ ] `averagePitch` — mean slope, weighted by segment length
-- [ ] `sustainedMaxPitch` — sliding window, so one noisy DEM cell can't report a cliff
-- [ ] `meanAspect` — averaged as unit vectors, not raw degrees (350° and 10° average to N, not S)
-- [ ] `deriveRun` — assemble one complete `Run`
+- [x] `sampleProfile` — resample a polyline to a fixed ground interval against the DEM
+- [x] `averagePitch` — mean slope, weighted by segment length
+- [x] `sustainedMaxPitch` — sliding window, so one noisy DEM cell can't report a cliff
+- [x] `meanAspect` — averaged as unit vectors, not raw degrees (350° and 10° average to N, not S)
+- [x] `deriveRun` — assemble one complete `Run`
 
 **2. Network and raster I/O:**
 

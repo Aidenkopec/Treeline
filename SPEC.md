@@ -127,7 +127,7 @@ Overpass query — which is precisely why it cannot be a runtime call.
    scoping preference — see §8.
 5. Sample elevation along each run's polyline from the DEM
 6. Compute per-run derived stats (§6)
-7. Emit `heightmap.png` (16-bit), `satellite.jpg`, `runs.json`, manifest entry
+7. Emit `heightmap.png`, `satellite.jpg`, `runs.json`, manifest entry
 
 `npm run bake -- --check <slug>` reports data coverage without writing anything,
 so a resort with poor OSM coverage is caught before it is baked.
@@ -292,7 +292,10 @@ site.
 | Frame rate                 | 60fps on integrated graphics |
 | Total repo assets          | < 40 MB for six resorts      |
 
-Heightmaps are 16-bit PNG, satellite textures JPEG at quality tuned per resort.
+Heightmaps are PNG carrying elevation in RGB exactly as the terrarium source encodes
+it, satellite textures JPEG at quality tuned per resort. The encoding is RGB rather
+than 16-bit greyscale because a browser decodes every PNG to 8 bits per channel: a
+greyscale heightmap would reach the renderer quantised to 256 elevation levels.
 If a resort exceeds budget, its resolution drops rather than the budget moving.
 
 ## 11. Phases

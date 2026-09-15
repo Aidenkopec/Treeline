@@ -18,6 +18,13 @@ export const OVERPASS_ENDPOINT = "https://overpass-api.de/api/interpreter";
 /** Grades OSM uses that this project renders. Anything else is treated as untagged. */
 const KNOWN_DIFFICULTIES = new Set(["easy", "intermediate", "advanced", "expert"]);
 
+/**
+ * OSM grades that are not their own mark on a North American or Japanese trail
+ * map. `novice` and `easy` are both a green circle at every resort this project
+ * bakes; reporting a tagged novice run as untagged would be wrong, not cautious.
+ */
+const GRADE_ALIASES: Record<string, string> = { novice: "easy" };
+
 /** Query for the resort's own boundary polygon, to derive its bounding box. */
 export function resortBoundsQuery(lat: number, lon: number, radiusM = 8000): string {
   return `[out:json][timeout:90];
@@ -65,7 +72,8 @@ export function isInboundsDownhill(way: OverpassWay): boolean {
 
 /** Read a grade from OSM tags. Untagged is a real answer, not a default. */
 export function readDifficulty(way: OverpassWay): Difficulty {
-  const raw = way.tags?.["piste:difficulty"];
+  const tagged = way.tags?.["piste:difficulty"];
+  const raw = tagged ? (GRADE_ALIASES[tagged] ?? tagged) : undefined;
   return raw && KNOWN_DIFFICULTIES.has(raw) ? (raw as Difficulty) : null;
 }
 

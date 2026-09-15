@@ -88,3 +88,23 @@ describe("query construction", () => {
     expect(resortBoundsQuery(51.4419, -116.1622)).toContain('["landuse"="winter_sports"]');
   });
 });
+
+describe("grade aliases", () => {
+  it("reads novice as easy, the same green circle on a North American map", () => {
+    const way = {
+      type: "way" as const,
+      id: 9001,
+      tags: { "piste:type": "downhill", "piste:difficulty": "novice" },
+    };
+    expect(readDifficulty(way)).toBe("easy");
+  });
+
+  it("still refuses a grade this project does not render", () => {
+    const way = {
+      type: "way" as const,
+      id: 9002,
+      tags: { "piste:type": "downhill", "piste:difficulty": "extreme" },
+    };
+    expect(readDifficulty(way)).toBeNull();
+  });
+});
