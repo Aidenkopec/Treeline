@@ -3,12 +3,13 @@
 Progress tracker for [SPEC.md](./SPEC.md) §11. Each phase ends working, committed and
 deployable, and runs in its own session with its own verification gate.
 
-**Status: phase 4 done. Phase 5 next.** Lake Louise's 168 runs are drawn on the terrain
+**Status: phase 4 and the winter drape done. Phase 5 next.** Lake Louise's 168 runs are drawn on the terrain
 coloured by difficulty, with search, filters, a per-run stats panel, an inline SVG elevation
 profile and the sortable HTML table, laid out as a map beside a list. Picking a run flies the
 camera to it, and Reset view always brings the whole mountain back. Today's snow, temperature
 and wind read live from Open-Meteo under the resort facts, on the mountain's own clock.
-215 tests green.
+The mountain itself is now a winter surface, remapped from Esri's summer imagery at bake
+time rather than photographed. 224 tests green.
 
 > **Next action:** phase 5 — sun/shade from `suncalc` and the first-person run camera.
 > `suncalc` and `@types/suncalc` are already installed and unused; `Resort.lat`/`lon` and
@@ -577,6 +578,166 @@ comments were longer than the code under them.
 **Known, accepted:** every snow number at all six resorts is currently zero, because it is
 September. That is SPEC §13's risk and decision D3 closes it with baked historical snow in
 phase 6, not here.
+
+## Winter drape ✅ done
+
+The mountain is snow-covered. Esri's imagery is a summer scene, there is no seasonal
+variant of it to swap in, and the bake now remaps it to a winter surface from the source
+pixels' own colour.
+
+Not in SPEC §11. The drape was baked in phase 1 and draped in phase 2 and no phase has
+owned its appearance since, so a green mountain sat there reading as a bike map — SPEC §15
+needs a visitor who has never skied the place to recognise what they are looking at.
+Agreed in session before starting. Taken before phase 5 because phase 5 aims the light
+this change had to retune, and tuning that twice would have been tuning against a target
+about to be deleted.
+
+### Done
+
+- [x] `scripts/bake/winter.ts` — `winterize`, a pure remap over the raw mosaic. Luminance
+      carries the conifer/snow split, saturation only holds rock back from going white
+- [x] `scripts/bake/imagery.ts` — the one seam, between `fetchMosaic` and the JPEG encode.
+      Signature unchanged, and deliberately still takes no `Grid`
+- [x] `tests/winter.test.ts` — the landcover classes, and SPEC §8 tested as a safety rule
+- [x] `components/terrain-scene.tsx` — lighting retuned for a bright drape; three comments
+      whose premise this change deleted
+- [x] `components/run-overlay.tsx` — receded runs mix toward `--color-rock`, not the ground
+- [x] `components/site-footer.tsx`, `README.md` — attribution discloses the derivation
+
+### Decisions worth recording
+
+- **Synthesized, not photographed.** Real winter imagery was the obvious answer and is the
+  wrong one. Sentinel-2 is the only free date-filtered source and it is 10 m/px against
+  this drape's 2.98; it carries its own low winter sun, which phase 5 would then be sliding
+  a second synthetic sun across; and it depicts one day's real cover, which invites being
+  read as current cover on a site whose whole stance is the permanent shape of a mountain.
+- **Keyed on colour, never on slope.** A snow line keyed on steepness is the avalanche
+  terrain product SPEC §8 forbids, and `grid` is in scope at the call site. `winterize`
+  takes a buffer and nothing else, and `tests/winter.test.ts` asserts both that a colour
+  maps the same wherever it sits and that the module never names a terrain derivative.
+- **The shadow risk measured away.** The worry was that dark pixels are terrain shadow
+  rather than forest, which would bake a fixed shadow into a surface phase 5 relights.
+  Pearson r between a DEM hillshade and image luminance is −0.254, and strongly shaded
+  terrain is _brighter_ than strongly lit terrain — landcover dominates illumination here,
+  because Esri curates against shadow the same way it curates against snow.
+- **Lambert divides by pi.** The retune was first argued from the claim that 4.2 units of
+  light would clip a white drape to flat white and erase the relief. `BRDF_Lambert` is
+  `RECIPROCAL_PI * diffuseColor`, so those units land near 1.3 and nothing clips. The
+  retune was still needed, for the other reason: on a near-neutral snow the warm sun and
+  cool shade are the _only_ colour in the scene, where over a photograph they were a lean
+  on one that supplied its own.
+- **Recolouring a photograph is not enough, and was the first version's mistake.** Tinted
+  and lifted, the drape came back as a _greyscale summer photograph_ — because a summer
+  photograph's detail is what says summer. Every tree crown and scree stipple survived the
+  remap intact.
+- **Snow blankets; that is the whole trick.** Snow fills gullies, rounds edges and erases
+  small detail, so an open slope under it is a smooth bright field whose only variation is
+  the shape of the ground. That shape is the renderer's job — the mesh normals and the
+  light already carry it, and the drape was burying them under summer texture. So the two
+  halves are now treated as opposites: snow is keyed and toned from a _blurred_ luminance
+  and comes out smooth, forest keeps the _sharp_ luminance because trees really are the
+  texture at this scale.
+- **Forest is lifted far off photographic darkness, then pulled back.** A winter canopy is
+  loaded and reads as grey, not forest green, so toning it from the summer photograph's own
+  darkness turned the treed half of the massif into a hole. But lifted too far a canopy gap
+  gets as bright as a run corridor, which is the same complaint in the other direction —
+  and that one is measured now, by a test that cuts a corridor through a synthetic canopy
+  and asserts it comes out at least a third brighter than the trees around it.
+- **Snow stops short of white and stays neutral.** Short of white leaves the renderer
+  somewhere to put a lit slope. A blue-cast snow fights the gold sun and wins, so the drape
+  is near-neutral and the lights carry the hue.
+- **The lights are exposed for the mid-tones, not the highlights.** Most of the frame is
+  forest, so metering for the brightest snow left the whole massif dim. Sunlit snow is now
+  free to blow out, which is what a snowfield does.
+- **Receding toward the ground colour promotes a run over snow.** `RECEDED_MIX` mixed
+  toward `--color-shadow-deep`, which on a dark photograph was a step back and on snow
+  roughly doubles a line's contrast. Retargeted to `--color-rock`, which sits between the
+  two backgrounds the drape now has. The casing stays `--color-shadow-deep`.
+- **No toggle, no second artifact, no manifest field.** The winter surface replaces
+  `satellite.jpg`. SPEC §16 already defers a base-map toggle as a v1 non-goal.
+
+**Verified:** 226 tests green; format, lint, typecheck clean. Lake Louise re-baked at
+2.09 MB of the 5 MB budget (SPEC §10) — the remap costs about 40% more JPEG than the
+summer drape, which the budget has room for. By eye at the dev server: the massif reads as
+winter at the opening framing, run corridors read as white ribbons through dark trees
+without the overlay drawn at all, alpine rock bands still carry, and flown in to one run
+the gold halo separates over snow while receded runs step back rather than forward.
+
+**Known, accepted:** the key light moved to the camera side of the massif so the face the
+opening framing looks at is lit. It was a backlight, which cost nothing on a dark
+photograph and left the whole front side flat on a bright one. Phase 5 replaces this
+position with a real sun and will have to answer the same question honestly.
+
+### Follow-up — the transfer was not monotonic
+
+The drape above shipped with a defect that reads as a contour map once you look for it: a
+grey rim around every snow patch on the mountain.
+
+**The cause was structural, not a mistuning.** The rock term was a band-pass on source
+brightness — `smoothstep(138,170,·) * (1-smoothstep(198,224,·))` — multiplied into a pull
+toward a _constant_ dark colour. A band-pass on the very quantity being remapped folds the
+transfer back on itself. Measured on a grey ramp: source 138 came out 227 while source 169
+came out 136, so **brighter ground came out 91 levels darker**, across 29 of 255 levels.
+Crossing a patch edge sweeps brightness through that notch, which is what drew the rim.
+
+**Decisions worth recording:**
+
+- **There is no rock class any more, and the drape is better for it.** A cliff the sun was
+  not on is already dark in the photograph, so it falls the forest side of the split and
+  takes the same cool dark tone — which is what a cliff band under snow looks like anyway.
+  Rock was ~1% of the frame, was the sole source of the rim, and measured over Lake Louise
+  its interiors barely separated from snow interiors (texture energy 5.79 against 5.36).
+  Deleting it is simpler, provably monotonic, and keeps the cliff bands.
+- **The saturation gate was inverted.** It was meant to hold rock back from going white.
+  Measured, it evaluated to 0.16 where real rock lives and 0.97–1.00 on lying snow — closed
+  where it was needed and open where it did harm. It went with the rock term.
+- **Classification moved off the raw plane onto a one-texel blur.** Esri's tiles are JPEG,
+  so the finest scale in the mosaic is compression rather than ground, and keying canopy on
+  it turned flat forest into salt-and-pepper dither. This also fixed a second thing: a
+  narrow corridor classified from the radius-3 plane averaged the trees back in and so came
+  out dimmer than a wide one.
+- **The snow stretch tops out above the brightest ground in the mosaic.** It ended at 196
+  where the rock gate did not release until 224, so there was no brightness at which clean
+  snow existed. Sharp detail is deliberately _not_ reinjected to give snowfields texture —
+  that is the first version's mistake, and measured, the tonal spread within snow was
+  already 39 levels without it.
+- **Monotonicity is now a test, not a hope.** `tests/winter.test.ts` probes a grey _ramp
+  image_ rather than isolated colours — the old suite could not see this defect because it
+  probed single pixels, and its rock case sat inside the notch and asserted the bug's own
+  output as correct.
+
+**Verified:** 228 tests green; format, lint, typecheck clean. Measured over the real Lake
+Louise mosaic, before → after: descending grey levels 29 → **0**; local contrast inversions
+in the mid band 56.3% → **15.3%**; forest-band local variation 20.6 → **8.4**; clipped
+highlights 2.08% → **1.59%**. Re-baked at 1.73 MB, down from 2.09 MB — there is less
+high-frequency content to encode.
+
+**Measured and dropped:** keying rock on image roughness instead of brightness. It is the
+obvious replacement and it does fix the fold, but roughness is high at every patch _edge_
+as well as on scree, so it drew a softer rim of its own — the mid-band inversion rate only
+fell to 39.1% against 15.3% for having no rock term at all.
+
+### Follow-up — aerial perspective
+
+The massif sat against flat page colour, so the far side of the range carried the same
+contrast as the near side and the whole thing read as a cut-out rather than as a place.
+
+- **The sky is CSS, not a shader.** A gradient on the wrapper in `terrain-viewer.tsx`, with
+  the canvas turned transparent. A custom `ShaderMaterial` would have had to do its own
+  output colour-space conversion — three only applies that to its own materials — and a
+  screen-space gradient is what a map does anyway.
+- **Fog is measured against the mosaic, not against the camera.** Scaled to
+  `opening.distance` it wiped the massif out entirely at first; the framing distance is
+  fitted to the _runs_ box and is much smaller than the ground the mesh covers. The
+  mosaic's diagonal is the honest reference, and it means the far side of a massif sits
+  back by the same amount however close the viewer has flown.
+- **Phase 5 will re-aim this.** The haze colour is `--color-shade-dim` to match the horizon
+  end of the gradient; a real sun position will want both revisited together.
+
+**Known, not fixed:** the terrain mesh is a rectangular slab and its cut edge is visible at
+the near corners. Haze does not cover it — that edge is close to the camera, which is
+exactly where linear fog is weakest. It wants a skirt or an edge fade, and it is not this
+change's to make.
 
 ## Phase 5 — Sun/shade + first-person run camera ⬜
 

@@ -40,7 +40,7 @@ export function SiteFooter() {
           >
             AWS Terrain Tiles
           </a>
-          . Imagery from Esri World Imagery. Runs and resort boundaries from{" "}
+          . Winter surface rendered from Esri World Imagery. Runs and resort boundaries from{" "}
           <a
             className="hover:text-rock"
             href="https://www.openstreetmap.org/copyright"
