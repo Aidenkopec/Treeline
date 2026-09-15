@@ -3,12 +3,13 @@
 Progress tracker for [SPEC.md](./SPEC.md) §11. Each phase ends working, committed and
 deployable, and runs in its own session with its own verification gate.
 
-**Status: phase 1 in progress (~55%).** Foundation is done; all of the bake pipeline's pure
-math is implemented and tested, but nothing has been baked yet and no artifacts exist.
+**Status: phase 1 nearly done (~90%).** Lake Louise is baked and committed — heightmap,
+satellite, 168 runs and a manifest entry. Only the golden hand-check remains.
 
-> **Next action:** tile download and stitch via `sharp` (`scripts/bake/mosaic.ts`), then
-> `runQuery` and `--check`. The derived-stat math is done and tested; everything remaining
-> in phase 1 touches the network or the filesystem.
+> **Next action:** hand-check two Lake Louise runs against the published trail map and a
+> topo, commit those as golden values, and un-skip `tests/runs.golden.test.ts`. This is the
+> one step that needs a human: a golden taken from the pipeline's own output would only
+> prove the pipeline agrees with itself.
 
 ---
 
@@ -44,8 +45,8 @@ no layout overflow from 320px up.
 **Gate (SPEC §11):**
 
 - [x] Downhill-only filter asserted against a fixture containing backcountry ways
-- [~] Fixture tile decodes to known elevations — _decode is tested against synthetic
-  buffers; still needs a real terrarium `.png` fixture_
+- [x] Fixture tile decodes to known elevations — real tile `13/1452/2726`; the base area
+      reads within 20m of the published 1646m
 - [ ] Golden pitch/aspect for two hand-checked Lake Louise runs, within tolerance
 
 ### Done
@@ -65,22 +66,22 @@ no layout overflow from 320px up.
 - [x] `meanAspect` — averaged as unit vectors, not raw degrees (350° and 10° average to N, not S)
 - [x] `deriveRun` — assemble one complete `Run`
 
-**2. Network and raster I/O:**
+**2. Network and raster I/O** ✅ done:
 
-- [ ] `overpass.ts` `runQuery` — POST, with the rate limit respected
-- [ ] Tile download + stitch via `sharp` (elevation and imagery share `tiles.ts`)
-- [ ] `imagery.ts` `bakeSatelliteTexture`
+- [x] `overpass.ts` `runQuery` — POST, with retry and backoff on 429/502/503/504
+- [x] Tile download + stitch via `sharp` (elevation and imagery share `tiles.ts`)
+- [x] `imagery.ts` `bakeSatelliteTexture` — two zoom levels deeper than the DEM
 
-**3. Emit** — `scripts/bake/emit.ts` (5 stubs):
+**3. Emit** — `scripts/bake/emit.ts` ✅ done:
 
-- [ ] 16-bit `heightmap.png`, `satellite.jpg`, `runs.json`, manifest update
-- [ ] `reportAssetWeight` against the SPEC §10 budget
+- [x] RGB-encoded `heightmap.png`, `satellite.jpg`, `runs.json`, manifest update
+- [x] `reportAssetWeight` against the SPEC §10 budget
 
-**4. Orchestrate** — `scripts/bake.ts` (2 stubs): `bakeResort`, `checkResort`
+**4. Orchestrate** — `scripts/bake.ts` ✅ done: `bakeResort`, `checkResort`, `--no-cache`
 
 **5. Close the gate:**
 
-- [ ] Bake Lake Louise for real; commit the artifacts
+- [x] Bake Lake Louise for real; commit the artifacts — 1.97 MB of the 5 MB budget
 - [ ] Hand-check two runs against the published trail map and a topo
 - [ ] Commit those as golden values and un-skip `tests/runs.golden.test.ts`
 

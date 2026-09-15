@@ -2,7 +2,7 @@ import { aspectLabel } from "@/lib/aspect";
 import type { ProfileSample, Run } from "@/lib/types";
 import { aspectDeg, elevationAt, type Grid } from "./terrain";
 import { lonLatToMosaicPixel, metresPerPixel, type TileRange } from "./tiles";
-import { type OverpassWay, readDifficulty } from "./overpass";
+import { isInboundsDownhill, type OverpassWay, readDifficulty } from "./overpass";
 
 /**
  * Turning an OSM way into the derived data of SPEC §6.
@@ -187,6 +187,63 @@ export function meanAspect(profile: ProfileSample[], grid: Grid, range: TileRang
   const east = (last.lon - first.lon) * Math.cos(((first.lat + last.lat) / 2) * RAD);
   const north = last.lat - first.lat;
   return (((Math.atan2(east, north) * DEG) % 360) + 360) % 360;
+}
+
+/**
+ * What `--check` reports: enough to judge whether a resort is worth baking
+ * before spending the download on it (SPEC §13).
+ *
+ * Lengths here are map distance, not the 3D length a baked run carries — this
+ * runs before any elevation data has been fetched.
+ */
+export interface Coverage {
+  ways: number;
+  kept: number;
+  rejected: number;
+  named: number;
+  graded: number;
+  distinctNames: number;
+  mostWaysPerName: number;
+  totalLengthM: number;
+  medianLengthM: number;
+  byDifficulty: Record<string, number>;
+}
+
+/** Map length of a way, summed over its segments. */
+function wayLengthM(way: OverpassWay): number {
+  const points = way.geometry ?? [];
+  let total = 0;
+  for (let i = 1; i < points.length; i++) {
+    total += haversineM(points[i - 1].lon, points[i - 1].lat, points[i].lon, points[i].lat);
+  }
+  return total;
+}
+
+export function summariseCoverage(elements: OverpassWay[]): Coverage {
+  const kept = elements.filter(isInboundsDownhill);
+  const lengths = kept.map(wayLengthM).sort((a, b) => a - b);
+  const names = new Map<string, number>();
+  const byDifficulty: Record<string, number> = {};
+
+  for (const way of kept) {
+    const name = way.tags?.name;
+    if (name) names.set(name, (names.get(name) ?? 0) + 1);
+    const grade = readDifficulty(way) ?? "untagged";
+    byDifficulty[grade] = (byDifficulty[grade] ?? 0) + 1;
+  }
+
+  return {
+    ways: elements.length,
+    kept: kept.length,
+    rejected: elements.length - kept.length,
+    named: kept.filter((w) => w.tags?.name).length,
+    graded: kept.filter((w) => readDifficulty(w) !== null).length,
+    distinctNames: names.size,
+    mostWaysPerName: names.size === 0 ? 0 : Math.max(...names.values()),
+    totalLengthM: Math.round(lengths.reduce((a, b) => a + b, 0)),
+    medianLengthM: lengths.length === 0 ? 0 : Math.round(lengths[Math.floor(lengths.length / 2)]),
+    byDifficulty,
+  };
 }
 
 /** Derive one complete Run from a way and the heightmap. */

@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  boundsFromElements,
   downhillRunsQuery,
   isInboundsDownhill,
-  type OverpassWay,
   readDifficulty,
   resortBoundsQuery,
+  type OverpassWay,
+  unionBounds,
 } from "@/scripts/bake/overpass";
+import type { OverpassArea } from "@/scripts/bake/overpass";
 import fixture from "./fixtures/overpass-mixed-pistes.json" with { type: "json" };
 
 const ways = fixture.elements as unknown as OverpassWay[];
@@ -106,5 +109,55 @@ describe("grade aliases", () => {
       tags: { "piste:type": "downhill", "piste:difficulty": "extreme" },
     };
     expect(readDifficulty(way)).toBeNull();
+  });
+});
+
+describe("resort bounds from OSM areas", () => {
+  const anchor = { lat: 51.4419, lon: -116.1622 };
+
+  const resort: OverpassArea = {
+    type: "way",
+    id: 1,
+    geometry: [
+      { lat: 51.4335, lon: -116.1654 },
+      { lat: 51.475, lon: -116.0994 },
+    ],
+  };
+  const neighbour: OverpassArea = {
+    type: "way",
+    id: 2,
+    geometry: [
+      { lat: 51.0, lon: -115.9 },
+      { lat: 51.2, lon: -115.6 },
+    ],
+  };
+
+  it("prefers the area containing the search anchor over a neighbouring one", () => {
+    const bounds = boundsFromElements([neighbour, resort], anchor.lat, anchor.lon);
+    expect(bounds).toEqual({ west: -116.1654, east: -116.0994, south: 51.4335, north: 51.475 });
+  });
+
+  it("reads a relation's geometry from its members", () => {
+    const relation: OverpassArea = {
+      type: "relation",
+      id: 3,
+      members: [
+        { geometry: [{ lat: 51.44, lon: -116.17 }] },
+        { geometry: [{ lat: 51.46, lon: -116.15 }] },
+      ],
+    };
+    const bounds = boundsFromElements([relation], anchor.lat, anchor.lon);
+    expect(bounds).toEqual({ west: -116.17, east: -116.15, south: 51.44, north: 51.46 });
+  });
+
+  it("is null when nothing came back", () => {
+    expect(boundsFromElements([], anchor.lat, anchor.lon)).toBeNull();
+  });
+
+  it("grows bounds to take in points that fall outside them", () => {
+    const grown = unionBounds({ west: -116.16, east: -116.1, south: 51.44, north: 51.46 }, [
+      { lat: 51.47, lon: -116.2 },
+    ]);
+    expect(grown).toEqual({ west: -116.2, east: -116.1, south: 51.44, north: 51.47 });
   });
 });

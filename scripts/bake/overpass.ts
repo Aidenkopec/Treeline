@@ -1,4 +1,5 @@
 import type { Bounds, Difficulty } from "@/lib/types";
+import { cachedFetch } from "./cache";
 
 /**
  * Overpass queries for resort bounds and marked runs.
@@ -45,12 +46,26 @@ export function downhillRunsQuery(bounds: Bounds): string {
 out geom;`;
 }
 
+/** A point as Overpass returns it in `out geom` output. */
+export interface OverpassPoint {
+  lat: number;
+  lon: number;
+}
+
 /** A way as Overpass returns it, narrowed to what the bake reads. */
 export interface OverpassWay {
   type: "way";
   id: number;
   tags?: Record<string, string>;
-  geometry?: { lat: number; lon: number }[];
+  geometry?: OverpassPoint[];
+}
+
+/** A way or relation from the bounds query. Relations carry geometry per member. */
+export interface OverpassArea {
+  type: "way" | "relation";
+  id: number;
+  geometry?: OverpassPoint[];
+  members?: { geometry?: OverpassPoint[] }[];
 }
 
 /**
@@ -77,7 +92,80 @@ export function readDifficulty(way: OverpassWay): Difficulty {
   return raw && KNOWN_DIFFICULTIES.has(raw) ? (raw as Difficulty) : null;
 }
 
+/** Every point an area element contributes, whether it is a way or a relation. */
+function areaPoints(area: OverpassArea): OverpassPoint[] {
+  return area.geometry ?? (area.members ?? []).flatMap((m) => m.geometry ?? []);
+}
+
+function boundsOf(points: OverpassPoint[]): Bounds | null {
+  if (points.length === 0) return null;
+  const lons = points.map((p) => p.lon);
+  const lats = points.map((p) => p.lat);
+  return {
+    west: Math.min(...lons),
+    east: Math.max(...lons),
+    south: Math.min(...lats),
+    north: Math.max(...lats),
+  };
+}
+
+function contains(bounds: Bounds, lat: number, lon: number): boolean {
+  return lon >= bounds.west && lon <= bounds.east && lat >= bounds.south && lat <= bounds.north;
+}
+
+function area(bounds: Bounds): number {
+  return (bounds.east - bounds.west) * (bounds.north - bounds.south);
+}
+
+/** Grow bounds to take in every point, so nothing gets clipped at the edge. */
+export function unionBounds(bounds: Bounds, points: OverpassPoint[]): Bounds {
+  const extra = boundsOf(points);
+  if (!extra) return bounds;
+  return {
+    west: Math.min(bounds.west, extra.west),
+    east: Math.max(bounds.east, extra.east),
+    south: Math.min(bounds.south, extra.south),
+    north: Math.max(bounds.north, extra.north),
+  };
+}
+
+/**
+ * The resort's bounding box, from the `landuse=winter_sports` areas around it.
+ *
+ * An 8km search can pick up a neighbouring ski area, so prefer polygons that
+ * actually contain the search anchor and take the largest of those. Falling
+ * back to the union of everything is better than returning nothing, but it is
+ * a sign the anchor in resorts.json is off.
+ */
+export function boundsFromElements(
+  elements: OverpassArea[],
+  lat: number,
+  lon: number,
+): Bounds | null {
+  const candidates = elements
+    .map((e) => boundsOf(areaPoints(e)))
+    .filter((b): b is Bounds => b !== null);
+  if (candidates.length === 0) return null;
+
+  const containing = candidates.filter((b) => contains(b, lat, lon));
+  if (containing.length > 0) {
+    return containing.reduce((best, b) => (area(b) > area(best) ? b : best));
+  }
+  return candidates.reduce((all, b) =>
+    unionBounds(all, [
+      { lat: b.north, lon: b.west },
+      { lat: b.south, lon: b.east },
+    ]),
+  );
+}
+
 /** POST a query to Overpass. Build time only — never call this from a request. */
-export async function runQuery(_query: string): Promise<{ elements: OverpassWay[] }> {
-  throw new Error("Not implemented — phase 1");
+export async function runQuery<T>(query: string): Promise<{ elements: T[] }> {
+  const body = new URLSearchParams({ data: query }).toString();
+  const raw = await cachedFetch(OVERPASS_ENDPOINT, {
+    method: "POST",
+    body,
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  });
+  return JSON.parse(raw.toString()) as { elements: T[] };
 }
