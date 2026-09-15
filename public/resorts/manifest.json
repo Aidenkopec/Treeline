@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-15T19:16:29.731Z",
+  "generated_at": "2026-09-15T19:29:46.328Z",
   "resorts": [
     {
       "slug": "lake-louise",
@@ -17,7 +17,8 @@
       "elevation_max_m": 2827,
       "width": 768,
       "height": 512,
-      "vertical_exaggeration": 1.4,
+      "metres_per_pixel": 11.91095107773933,
+      "vertical_exaggeration": 1.8,
       "baked_at": "2026-09-15"
     }
   ]

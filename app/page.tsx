@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { DifficultyMark } from "@/components/difficulty-mark";
 import { PROFILE_STATS, Ridgeline } from "@/components/ridgeline";
 import { aspectLabel } from "@/lib/aspect";
@@ -66,7 +67,16 @@ export default async function Home() {
                 key={resort.slug}
                 className="flex flex-wrap items-baseline gap-x-6 gap-y-1 border-b border-line py-4"
               >
-                <span className="u-feature min-w-52 text-lg text-snow">{resort.name}</span>
+                {entry ? (
+                  <Link
+                    className="u-feature min-w-52 text-lg text-snow underline decoration-line underline-offset-4 transition-colors hover:decoration-sun"
+                    href={`/resorts/${resort.slug}`}
+                  >
+                    {resort.name}
+                  </Link>
+                ) : (
+                  <span className="u-feature min-w-52 text-lg text-snow">{resort.name}</span>
+                )}
                 <span className="u-data min-w-24">{resort.country}</span>
                 <span className="u-data min-w-28 tabular-nums">
                   {Math.abs(resort.lat).toFixed(2)}°{resort.lat >= 0 ? "N" : "S"}

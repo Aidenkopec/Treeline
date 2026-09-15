@@ -1,8 +1,11 @@
+import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import sharp from "sharp";
 import { encodeHeightmap, mergeResort, RESORT_BUDGET_BYTES } from "@/scripts/bake/emit";
-import { decodeElevation } from "@/scripts/bake/terrarium";
+import { decodeElevation } from "@/lib/elevation";
 import type { Grid } from "@/scripts/bake/terrain";
+import { metresPerPixel } from "@/scripts/bake/tiles";
+import type { ResortInput } from "@/lib/manifest";
 import type { Manifest, Resort } from "@/lib/types";
 
 function ramp(width: number, height: number, from: number, to: number): Grid {
@@ -63,6 +66,7 @@ describe("mergeResort", () => {
     elevation_max_m: 1,
     width: 1,
     height: 1,
+    metres_per_pixel: 11.91,
     vertical_exaggeration: 1.4,
     baked_at: "2026-09-15",
   });
@@ -82,5 +86,29 @@ describe("mergeResort", () => {
     const manifest: Manifest = { generated_at: "2026-01-01", resorts: [resort("panorama")] };
     const next = mergeResort(manifest, resort("fernie"));
     expect(next.resorts.map((r) => r.slug)).toEqual(["fernie", "panorama"]);
+  });
+});
+
+/**
+ * The mesh scale the whole 3D scene hangs on.
+ *
+ * `metres_per_pixel` is the only manifest field the app cannot sanity-check for
+ * itself — a wrong value renders a plausible-looking mountain at the wrong size
+ * with the wrong apparent steepness. So the committed artifact is checked
+ * against the tile math it was supposed to come from.
+ */
+describe("the committed manifest", () => {
+  it("carries a metres_per_pixel matching the tile math for each resort", async () => {
+    const manifest = JSON.parse(await readFile("public/resorts/manifest.json", "utf8")) as Manifest;
+    const inputs = (
+      JSON.parse(await readFile("resorts.json", "utf8")) as { resorts: ResortInput[] }
+    ).resorts;
+
+    expect(manifest.resorts.length).toBeGreaterThan(0);
+    for (const resort of manifest.resorts) {
+      const input = inputs.find((r) => r.slug === resort.slug);
+      expect(input, `${resort.slug} is baked but missing from resorts.json`).toBeDefined();
+      expect(resort.metres_per_pixel).toBeCloseTo(metresPerPixel(input!.lat, input!.zoom), 6);
+    }
   });
 });

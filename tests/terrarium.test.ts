@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { readFile } from "node:fs/promises";
 import sharp from "sharp";
-import { decodeElevation, decodeHeightmap, terrariumTileUrl } from "@/scripts/bake/terrarium";
+import { decodeElevation, decodeHeightmap } from "@/lib/elevation";
+import { terrariumTileUrl } from "@/scripts/bake/terrarium";
 
 /** SPEC §11 phase 1: a fixture tile decodes to known elevations. */
 describe("terrarium elevation decoding", () => {

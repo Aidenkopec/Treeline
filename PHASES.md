@@ -3,12 +3,14 @@
 Progress tracker for [SPEC.md](./SPEC.md) §11. Each phase ends working, committed and
 deployable, and runs in its own session with its own verification gate.
 
-**Status: phase 1 done. Phase 2 next.** Lake Louise is baked and committed — heightmap,
-satellite, 168 runs and a manifest entry, 1.97 MB of the 5 MB budget. 102 tests green.
+**Status: phase 2 done. Phase 3 next.** Lake Louise renders in 3D at
+`/resorts/lake-louise` — heightmap displaced to real metres, satellite draped, orbit
+camera. 110 tests green.
 
-> **Next action:** phase 2 — render the baked heightmap as terrain with the satellite
-> texture draped over it. The artifacts are on disk and the manifest is populated, so the
-> scene has real data to read from the first commit.
+> **Next action:** phase 3 — draw the 168 runs on the surface, coloured by difficulty,
+> with the stats panel, filters, elevation profile and the sortable HTML table. The mesh
+> puts lon/lat on the terrain through `lib/terrain-mesh.ts`, which is where the projection
+> from a run polyline to a surface point attaches.
 
 ---
 
@@ -99,13 +101,46 @@ the FIS Men's Downhill _course_ is 3123m/827m over several trails, while the OSM
 
 ---
 
-## Phase 2 — Next.js app renders that terrain ⬜
+## Phase 2 — Next.js app renders that terrain ✅ done
 
-Plane geometry displaced by the heightmap, satellite texture draped, React Three Fiber.
-Vertical exaggeration tuned by eye per resort (SPEC §13 flags flat-looking terrain as a
-real risk; the knob is already in `resorts.json`).
+**Deliverable:** `/resorts/[slug]`, statically generated from the manifest, drawing the
+baked heightmap as terrain with the satellite imagery draped over it.
 
-**Gate:** screenshot, human review.
+- [x] `lib/elevation.ts` — the RGB elevation decode, moved out of `scripts/bake/` so the
+      bake and the app share one implementation of the encoding rather than two
+- [x] `metres_per_pixel` in the manifest — the bake already computed it, it just never
+      reached the artifact, and without it the mesh has no real-world scale
+- [x] `lib/terrain-mesh.ts` — heightmap to vertices in metres, 7 tests including an
+      encode→PNG→decode→mesh round trip across the build/runtime boundary
+- [x] `components/terrain-scene.tsx` — R3F canvas, satellite material, Imhof sun/shade
+      lighting, orbit controls that auto-rotate until grabbed
+- [x] `components/terrain-viewer.tsx` — WebGL probe and the fallback when there is none
+- [x] Vertical exaggeration tuned by eye: 1.4 → **1.8** for Lake Louise
+
+**Verified:** 60fps locked at 2850x1150 (p95 17.2ms, worst frame 17.7ms) on a 393k-vertex,
+784k-triangle mesh, so no decimation was needed. Terrain is recognisably Lake Louise —
+Whitehorn's summit ridge, the Front Side runs, the base area and the lake all land where
+they belong, with the imagery registered to the landform. Console clean. Without WebGL the
+page still carries name, country, elevation range, run count, vertical scale, baked date
+and the disclaimer, all in the server HTML — no JS required to read any of it.
+
+**Known, accepted:** the mesh is a rectangle with hard cut edges rather than a plinth with
+a skirt; at phone widths the terrain fits the frame but sits small, which is inside SPEC
+§3's "must not be broken on a phone, is not designed for one". `@react-three/fiber` logs
+one `THREE.Clock is deprecated` warning from its own internals.
+
+**Hardened after review:**
+
+- A failed artifact fetch degrades to the same notice as the no-GPU path instead of
+  reaching Next's root error boundary and taking the facts and the disclaimer down with
+  it; the load moved out of the R3F tree so a plain error boundary can catch it, and a
+  rejected load is no longer cached for the rest of the session
+- The heightmap decodes through a detached canvas rather than `OffscreenCanvas`, which
+  Safari shipped four versions after WebGL2 — the probe was waving through browsers that
+  then crashed. The probe also releases its WebGL context instead of holding a slot
+- The opening framing is frozen at first render, so a resize no longer recomputes the
+  orbit clamps and drags a zoomed-out camera back in (`openingFraming`, 4 tests)
+- A missing or malformed `runs.json` reads as `—`, not as the fact "0 marked runs"
 
 ## Phase 3 — Run overlay, stats panel, filters, elevation profile ⬜
 
