@@ -112,12 +112,24 @@ export interface RunsFile {
 
 /**
  * Live conditions from Open-Meteo, the only outbound call at runtime.
- * Every field is nullable: the API being down is a normal state the UI renders,
- * not an error case that blanks the page (SPEC §11, phase 4).
+ *
+ * The readings are nullable because Open-Meteo omits a variable its model does
+ * not carry at a location, and a missing reading must never be published as a
+ * zero: at a ski resort "no reading" and "no snow" are opposite facts. An
+ * upstream that is *down* is not represented here at all — the route answers
+ * 502 rather than dressing an outage up as a reading (SPEC §11, phase 4).
  */
 export interface Conditions {
   slug: string;
+  /** The instant the reading is for, UTC. */
   observed_at: string;
+  /**
+   * IANA zone of the resort, as Open-Meteo resolved it from the coordinates —
+   * the reading is printed on the mountain's clock, not the reader's and not
+   * UTC. Carried as the zone rather than as an offset so the abbreviation
+   * follows daylight saving: Lake Louise is MDT in October and MST in January.
+   */
+  timezone: string | null;
   temperature_c: number | null;
   snowfall_cm_24h: number | null;
   snow_depth_cm: number | null;

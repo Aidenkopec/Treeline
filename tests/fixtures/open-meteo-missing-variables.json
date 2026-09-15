@@ -1,0 +1,22 @@
+{
+  "$comment": "DERIVED, not recorded: the Lake Louise response with snow_depth, wind_direction_10m and the whole hourly block removed. Open-Meteo drops a variable its model does not carry at a location rather than returning a null for it, so the omission is the real shape — but it does not happen at Lake Louise, and a fixture has to be able to show it. Every removed field must read as null, never as 0.",
+  "latitude": 51.443474,
+  "longitude": -116.16318,
+  "generationtime_ms": 0.14913082122802734,
+  "utc_offset_seconds": -21600,
+  "timezone": "America/Edmonton",
+  "timezone_abbreviation": "GMT-6",
+  "elevation": 1659.0,
+  "current_units": {
+    "time": "iso8601",
+    "interval": "seconds",
+    "temperature_2m": "°C",
+    "wind_speed_10m": "km/h"
+  },
+  "current": {
+    "time": "2026-09-15T15:00",
+    "interval": 900,
+    "temperature_2m": 6.6,
+    "wind_speed_10m": 13.2
+  }
+}

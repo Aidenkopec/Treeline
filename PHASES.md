@@ -3,16 +3,18 @@
 Progress tracker for [SPEC.md](./SPEC.md) §11. Each phase ends working, committed and
 deployable, and runs in its own session with its own verification gate.
 
-**Status: phase 3 done, then revised four times. Phase 4 next.** Lake Louise's 168 runs are
-drawn on the terrain coloured by difficulty, with search, filters, a per-run stats panel, an
-inline SVG elevation profile and the sortable HTML table, laid out as a map beside a list.
-Picking a run flies the camera to it, and Reset view always brings the whole mountain back.
-171 tests green.
+**Status: phase 4 done. Phase 5 next.** Lake Louise's 168 runs are drawn on the terrain
+coloured by difficulty, with search, filters, a per-run stats panel, an inline SVG elevation
+profile and the sortable HTML table, laid out as a map beside a list. Picking a run flies the
+camera to it, and Reset view always brings the whole mountain back. Today's snow, temperature
+and wind read live from Open-Meteo under the resort facts, on the mountain's own clock.
+215 tests green.
 
-> **Next action:** phase 4 — `/api/conditions/[slug]` proxying Open-Meteo with cache
-> headers, every field nullable, tested against recorded fixtures including an API-down
-> case. `lib/types.ts` already carries the `Conditions` shape and
-> `app/api/conditions/[slug]/route.ts` is a skeleton from phase 0.
+> **Next action:** phase 5 — sun/shade from `suncalc` and the first-person run camera.
+> `suncalc` and `@types/suncalc` are already installed and unused; `Resort.lat`/`lon` and
+> each run's `profile` samples carry lon, lat and elevation, so both halves have their input
+> baked already. Gate: a known sunrise/sunset asserted for a fixed date and latitude, and a
+> camera path that stays on the polyline within tolerance.
 
 ---
 
@@ -438,11 +440,143 @@ search filter intact; dragging to a low angle and then clearing leaves the camer
 Reset view returns from it. At 700px the layout stacks, the list toggle drops away and Reset
 view is still in the map's corner.
 
-## Phase 4 — Conditions route handler ⬜
+## Phase 4 — Conditions route handler ✅ done
 
 `/api/conditions/[slug]` proxying Open-Meteo, with cache headers. Every field nullable.
 
-**Gate:** tests against recorded Open-Meteo fixtures, **including an API-down case**.
+Shipped with the conditions strip that reads it. SPEC §4 lists the strip and no phase owned
+it, SPEC §15 needs it to call the project done, and a route handler nothing calls is not a
+deliverable. Agreed in session before starting.
+
+**Gate (SPEC §11):**
+
+- [x] Tests against recorded Open-Meteo fixtures — `tests/conditions.test.ts`, four fixtures
+- [x] **An API-down case** — `tests/conditions-route.test.ts`: a refused connection, a
+      timeout, a 429/500/503, a 200 carrying HTML, and a 200 carrying an Open-Meteo error
+
+### Done
+
+- [x] `lib/conditions.ts` — `conditionsUrl` and `parseConditions`, pure and tested in node,
+      the same split as `lib/run-list.ts`: the mapping is where the mistakes are, the handler
+      is fetch and headers
+- [x] `app/api/conditions/[slug]/route.ts` — slug lookup, one fetch, cache headers
+- [x] `components/conditions-strip.tsx` — four readings below the resort facts
+- [x] `lib/format.ts` — `wind()` and `observedAt()`. `celsius()` and `centimetres()` were
+      written in phase 0 for this and had been unused ever since
+- [x] `tests/fixtures/open-meteo-*.json` — three recorded live, one derived and marked so
+
+### Decisions worth recording
+
+- **An upstream failure is 502, not a 200 of nulls.** This reverses the comment committed
+  with the `Conditions` type in phase 0, and `lib/types.ts` has been corrected rather than
+  left contradicting the code. The handler is a gateway; answering 200 with a well-formed
+  reading of nulls makes "Open-Meteo is down" indistinguishable from "no snow fell", which at
+  a ski resort are opposite facts. The page still never blanks — that is the strip's job, and
+  it renders a dash for a failed response exactly as it does for an absent variable. The
+  fields stay nullable for the reason they always should have: Open-Meteo omits a variable
+  its model does not carry at a location.
+- **`stale-while-revalidate` is what the 200-of-nulls was really for.** A cache holding a
+  recent reading keeps serving it while a refetch runs, so a blip degrades to the last _real_
+  reading rather than to a fabricated one. Full header:
+  `public, s-maxage=900, stale-while-revalidate=3600`. 900s is Open-Meteo's own
+  `current.interval`; asking more often returns the same numbers. This header was written
+  with `stale-if-error=86400` on the end and reviewed with it removed: **Vercel supports
+  neither `stale-if-error` nor `proxy-revalidate` for server-side caching, and caches no 502
+  at all** (its cacheable statuses are 200, 404, 410, 301, 302, 307, 308). So an outage past
+  the hour is a 502 and a strip of dashes, which is the honest outcome — but it is not the
+  one the directive promised, and a header should not describe behaviour the deploy target
+  does not give.
+- **Snow depth arrives in metres and is published in centimetres.** `current_units.snow_depth`
+  is `"m"` while `snowfall` is `"cm"` in the same response.
+- **A rolling 24 hours, not the calendar day.** `hourly=snowfall&past_hours=24` summed,
+  because `daily=snowfall_sum` answers "since midnight", and at 9am that is not what
+  `snowfall_cm_24h` promises.
+- **Every unit is asserted against the response's own `*_units` block.** A unit change
+  upstream would not crash anything — metres published as centimetres is a plausible-looking
+  number — so `tests/conditions.test.ts` pins `snow_depth: "m"`, `snowfall: "cm"`,
+  `temperature_2m: "°C"` and `wind_speed_10m: "km/h"` on both fixtures. If a re-recording
+  ever disagrees, the units fail before the arithmetic does.
+- **The reading is printed on the mountain's clock, not UTC and not the reader's.**
+  "21:00 UTC" is the correct instant and tells a skier nothing; "3:00 PM MDT" is the number
+  they can hold against their own watch. `timezone=auto` makes Open-Meteo resolve the zone
+  from the coordinates, which is also the only version of this that works for Niseko without
+  this project keeping a timezone table.
+- **The zone is carried as an IANA name, never as a fixed abbreviation.** Alberta is MDT for
+  most of a ski season and MST for the rest of it, so "Mountain Standard Time" would be wrong
+  from March to November. `Intl` derives the abbreviation from `America/Edmonton` and the
+  instant, and gets the changeover right on its own. Open-Meteo's own
+  `timezone_abbreviation` is no help — it answers "GMT-6".
+- **`observed_at` stays a UTC instant in the JSON, and the local time is derived for display.**
+  Open-Meteo returns a naive wall clock plus `utc_offset_seconds`; `toInstant` puts those back
+  together. A timestamp in a payload should be unambiguous, and the clock the reader wants is
+  a rendering question, not a storage one.
+- **"Weather from Open-Meteo", not a bare "Open-Meteo".** The strip carries provenance for
+  SPEC §8, and a brand name on its own does not tell a reader whether they are looking at a
+  source or a reading. It is the footer's existing wording, so the two agree.
+- **The Lake Louise fixture cannot prove the metres-to-centimetres scaling or the rolling
+  sum**, because it is September and every snow value in it is a real zero — a unit
+  conversion and a sum can both be wrong in every way and still produce 0. The second fixture
+  is Aoraki / Mount Cook, recorded the same day, in late winter: 2.69m of depth and 3.78cm
+  over 12 of the 24 hours.
+- **The strip is a client component, and that is not a style preference.** Awaiting a runtime
+  fetch in a server component turns the whole route dynamic and takes the 168 prerendered
+  rows out of the served HTML — the same trap phase 3 avoided by keeping the selection in the
+  hash rather than in `useSearchParams` (SPEC §9). Checked on the build: still `●`, still 169
+  `<tr>`.
+- **A failed request and an absent variable render identically**, because to a reader they
+  are the same thing: no number. There is no retry button, no spinner and no error text. What
+  the strip does drop is the timestamp: with no reading it says "Open-Meteo" and not a time.
+- **The slug is validated against `resorts.json`, and that is the security property.** The
+  lat/lon that reach Open-Meteo are only ever committed values, and an unknown slug is a 404
+  answered before any request is made. `plannedResorts()` is a static import compiled into
+  the function; `readResort()` reads `public/` off disk at `process.cwd()`, which is a
+  build-time pattern and not reliably there in a deployed function.
+- **One attempt, 4s timeout, no retry** — deliberately unlike `scripts/bake/cache.ts`'s
+  `[2000, 8000, 20000]` ladder. That is right for a background job and wrong inside a
+  visitor's request, where a retry only makes them wait twice. The cache directives absorb
+  the blip instead.
+- **This is the project's first network stub.** Everything else is tested against a recorded
+  fixture with the `fetch` left uncovered, which is the house pattern and is what
+  `tests/conditions.test.ts` still does. The gate names an API-down case, and there is no way
+  to reach one without intercepting the call — `vi.stubGlobal` is built into vitest, so it
+  cost no dependency and no `setupFiles`.
+
+**Verified:** 215 tests green (44 new), format/lint/typecheck/build clean. The build still
+lists `/resorts/[slug]` as `●` prerendered and `/api/conditions/[slug]` as `ƒ` dynamic, and
+the built `lake-louise.html` still carries 169 `<tr>` at 77,492 bytes gzipped. Live:
+`/api/conditions/lake-louise` answers 200 with the full header and a real reading,
+`/api/conditions/whistler` answers 404 `no-store` without calling anyone. In the browser the
+strip reads 7°C, 0cm, 0cm, 13km/h from SE under the facts, with
+`Weather from Open-Meteo · 3:00 PM MDT` beside it — and `/api/conditions/niseko` resolves
+`Asia/Tokyo` off the same code path; with `fetch` forced to 502 the four readings become dashes, the timestamp
+disappears, and all 168 rows, the disclaimer and the avalanche.ca link are untouched. Console
+clean apart from the `THREE.Clock` deprecation phase 2 already recorded. Checked at 1456,
+1280 and phone widths; the strip's min-content is 80px, so it wraps rather than overflowing.
+
+**Found and fixed during that pass:** the strip broke the header's own scrim. The gradient
+over the canvas fades from its midpoint, and the facts used to end at 64% of the header;
+four more readings pushed content to 74%, so "SNOW DEPTH" was being read against a lit
+mountain face at about a third opacity. The fix is the invariant rather than a nudge — the
+scrim is now solid to where content ends (`via-85%`) and fades through the padding below it,
+and the padding came down from `pb-24` to `pb-12` so the taller header does not simply push
+the whole scrim further down the mountain. Net effect on the west face, where this mountain
+keeps its runs: none.
+
+**Found and fixed in a comment review afterwards**, and all three were comments rather than
+code until one of them turned out not to be: `sumSnowfall` returned 0 when `hourly.snowfall`
+arrived present but with every hour null, publishing "no reading" as "0cm" — the exact
+inversion the file's own doc comment forbids, now reproduced by a test and fixed. Three
+comments justified themselves with floating-point behaviour that does not occur (`2.69 * 100`
+is exactly 269, and the Mount Cook hourly array sums to exactly 3.78 with a plain
+accumulator), and one of them cited a number, 3.43, that appears nowhere in the fixture; a
+comment that invents a constraint makes the next reader preserve an odd line believing it is
+load-bearing. And the header leaned on `stale-if-error`, which Vercel does not honour. The
+rest of the pass cut narration: one rationale had been restated seven times, and two doc
+comments were longer than the code under them.
+
+**Known, accepted:** every snow number at all six resorts is currently zero, because it is
+September. That is SPEC §13's risk and decision D3 closes it with baked historical snow in
+phase 6, not here.
 
 ## Phase 5 — Sun/shade + first-person run camera ⬜
 
