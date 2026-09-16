@@ -4,6 +4,7 @@ import { Line } from "@react-three/drei";
 import { useMemo } from "react";
 import * as THREE from "three";
 import { MountainLabels } from "@/components/mountain-labels";
+import type { Rect } from "@/lib/label-layout";
 import { liftStyle } from "@/lib/mountain";
 import { type Heightfield, lonLatToMesh } from "@/lib/terrain-mesh";
 import type { Lift, Place, Resort } from "@/lib/types";
@@ -29,6 +30,18 @@ export interface MountainOverlayState {
   hoveredPlaceId: string | null;
   onHoverLift: (id: string | null) => void;
   onHoverPlace: (id: string | null) => void;
+  /**
+   * Where the page's own controls are standing, in canvas pixels.
+   *
+   * Carried here rather than as a seventh prop down six components: it reaches
+   * the label pass by the same road everything else it needs does. The pass
+   * treats these as plates it cannot move — a lift name under the sun clock is
+   * a name nobody can read.
+   *
+   * Referentially stable between measurements, because it is what tells the
+   * pass to run again.
+   */
+  reserved: Rect[];
 }
 
 /**
@@ -93,7 +106,8 @@ export function LiftOverlay({
   /** True while a run is being read, which is when the lifts are not the subject. */
   receded: boolean;
 }) {
-  const { lifts, places, hoveredLiftId, hoveredPlaceId, onHoverLift, onHoverPlace } = state;
+  const { lifts, places, hoveredLiftId, hoveredPlaceId, onHoverLift, onHoverPlace, reserved } =
+    state;
 
   const cable = useMemo(() => paletteColor("--color-shadow-deep"), []);
   const casing = useMemo(() => paletteColor("--color-snow"), []);
@@ -219,6 +233,7 @@ export function LiftOverlay({
         onHoverPlace={onHoverPlace}
         places={marked}
         receded={receded}
+        reserved={reserved}
       />
     </group>
   );

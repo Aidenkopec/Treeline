@@ -17,6 +17,26 @@ export interface Rect {
   height: number;
 }
 
+/**
+ * Whether two sets of rectangles say the same thing.
+ *
+ * The layout pass reruns when its reserved space changes, and "changes" has to
+ * mean different numbers rather than a different array — measuring on every
+ * render otherwise hands it a new one each time and it never stops.
+ */
+export function sameRects(a: Rect[], b: Rect[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((rect, i) => {
+    const other = b[i];
+    return (
+      rect.x === other.x &&
+      rect.y === other.y &&
+      rect.width === other.width &&
+      rect.height === other.height
+    );
+  });
+}
+
 export interface ScreenPoint {
   id: string;
   x: number;

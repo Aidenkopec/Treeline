@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SiteFooter } from "@/components/site-footer";
 import { DifficultyMark } from "@/components/difficulty-mark";
 import { PROFILE_STATS, Ridgeline } from "@/components/ridgeline";
 import { aspectLabel } from "@/lib/aspect";
@@ -131,6 +132,8 @@ export default async function Home() {
           })}
         </ul>
       </section>
+
+      <SiteFooter />
     </main>
   );
 }

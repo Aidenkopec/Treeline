@@ -17,6 +17,7 @@ import * as THREE from "three";
 import { LiftOverlay, type MountainOverlayState } from "@/components/lift-overlay";
 import { RunOverlay, type RunOverlayState } from "@/components/run-overlay";
 import { decodeHeightmap } from "@/lib/elevation";
+import type { Inset } from "@/lib/inset";
 import { sunDirection, sunPosition } from "@/lib/sun";
 import {
   FOV,
@@ -215,11 +216,14 @@ function easeInOutCubic(t: number): number {
 
 export default function TerrainScene({
   mountain,
+  inset,
   overlay,
   resetSignal,
   resort,
   sunAt,
 }: {
+  /** What the drawer is standing on, in canvas pixels. */
+  inset: Inset;
   mountain: MountainOverlayState;
   overlay: RunOverlayState;
   resetSignal: number;
@@ -232,6 +236,7 @@ export default function TerrainScene({
   return (
     <Suspense fallback={<div className="h-full w-full bg-shadow-deep" />}>
       <LoadedScene
+        inset={inset}
         mountain={mountain}
         overlay={overlay}
         resetSignal={resetSignal}
@@ -243,12 +248,14 @@ export default function TerrainScene({
 }
 
 function LoadedScene({
+  inset,
   mountain,
   overlay,
   resetSignal,
   resort,
   sunAt,
 }: {
+  inset: Inset;
   mountain: MountainOverlayState;
   overlay: RunOverlayState;
   resetSignal: number;
@@ -285,6 +292,7 @@ function LoadedScene({
       shadows="percentage"
     >
       <Massif
+        inset={inset}
         mountain={mountain}
         overlay={overlay}
         palette={palette}
@@ -298,6 +306,7 @@ function LoadedScene({
 }
 
 function Massif({
+  inset,
   mountain,
   overlay,
   palette,
@@ -306,6 +315,7 @@ function Massif({
   sunAt,
   terrain,
 }: {
+  inset: Inset;
   mountain: MountainOverlayState;
   overlay: RunOverlayState;
   palette: Palette;
@@ -382,6 +392,43 @@ function Massif({
     camera.position.set(...opening.position);
     controls.current?.target.set(...opening.target);
   }, [camera, opening]);
+
+  /**
+   * The drawer stands on the canvas rather than beside it, so the mountain has
+   * to be composed into what it leaves. Only the projection moves: shifting the
+   * camera or its target instead would put the orbit's centre somewhere off the
+   * massif, and every drag after that would swing it out of frame.
+   *
+   * Grow the frame by what is covered and render the far side of it. A point at
+   * the centre of that larger frame lands half the inset away from the canvas
+   * centre, on the side still in view — which is the middle of the strip the
+   * reader can actually see.
+   *
+   * Re-applied on every resize because R3F rewrites `camera.aspect` from the
+   * canvas on its own, and half of this lives in that number.
+   */
+  useLayoutEffect(() => {
+    // Through the store rather than the hook's value, the way the shadow map
+    // above is: `aspect` is a plain field, and assigning to one the renderer
+    // handed back is what the compiler's immutability rule is watching for.
+    const lens = store.getState().camera as THREE.PerspectiveCamera;
+    const width = size.width + inset.right;
+    const height = size.height + inset.top + inset.bottom;
+    const covered = inset.top > 0 || inset.right > 0 || inset.bottom > 0;
+
+    if (size.width > 0 && size.height > 0 && covered) {
+      // The offset is measured from the far side of what is covered: a frame
+      // grown at the top is rendered from its very top, so the subject drops
+      // clear of the masthead; grown at the bottom it is rendered lower, so the
+      // subject rises clear of the sheet.
+      lens.aspect = width / height;
+      lens.setViewOffset(width, height, inset.right, inset.bottom, size.width, size.height);
+    } else {
+      lens.aspect = size.width / Math.max(1, size.height);
+      lens.clearViewOffset();
+    }
+    lens.updateProjectionMatrix();
+  }, [inset, size, store]);
 
   const flyTo = useCallback(
     (to: Framing) => {

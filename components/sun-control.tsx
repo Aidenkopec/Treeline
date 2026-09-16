@@ -15,6 +15,10 @@ import type { Resort } from "@/lib/types";
  * `value` is always a resolved hour, never "now": which hour "now" means is the
  * page's question, answered once by `openingWallClock`, and a control that
  * re-answered it on every render would slide out from under a reader.
+ *
+ * It sits on the mountain because the mountain is its readout. Dragging the
+ * hour on one side of the window while the shadows move on the other is a
+ * control you cannot watch yourself using.
  */
 
 /** Finer than the shadow it moves, and coarse enough to drag the whole day. */
@@ -43,7 +47,7 @@ export function SunControl({
   const day = value === null ? null : sunTimes(resort, instantAt(`${date}T12:00`, resort.timezone));
 
   return (
-    <div className="mt-3 border-t border-line pt-3">
+    <div>
       <fieldset className="flex flex-wrap items-center gap-2">
         {/* The legend is the grouping a screen reader answers on; the visible
             label beside it does the same job for the eye. */}
@@ -70,7 +74,7 @@ export function SunControl({
           Time of day
         </label>
         <input
-          className="min-w-24 flex-1 accent-sun"
+          className="min-w-32 flex-1 accent-sun"
           disabled={value === null}
           id="sun-time"
           max={MINUTES_IN_DAY - STEP_MINUTES}

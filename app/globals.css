@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/* A window too short to spend on a chart. Used by the run detail card, which
+   drops its profile rather than scrolling in a laptop-height viewport.
+
+   Measured against what is left rather than against the window: the masthead
+   takes the top quarter and the sun clock the bottom, so a 13-inch laptop has
+   nothing like its height to give the card. */
+@custom-variant short (@media (max-height: 52rem));
+
 /* ---------------------------------------------------------------------------
    Treeline design tokens
 
@@ -99,6 +107,24 @@
     border-radius: 1px;
   }
 
+  /* On the mountain, a gold ring can land on sunlit snow and disappear into it.
+     The dark halo is what holds it there; the panel's own shadow is kept so a
+     focused control does not also flatten onto the terrain. */
+  :where(.u-panel, .u-panel *):focus-visible {
+    box-shadow:
+      0 0 0 4px var(--color-shadow-deep),
+      var(--shadow-panel);
+  }
+
+  /* A finger is not a cursor. Grown here rather than in twenty class strings,
+     and only where the pointer really is coarse — a mouse keeps the dense rows
+     this product is for. */
+  @media (pointer: coarse) {
+    :where(button, [type="search"], [type="date"], [type="range"]) {
+      min-height: 2.75rem;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -140,6 +166,31 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--color-rock);
+  }
+
+  /* A surface that floats on the mountain.
+
+     Translucent, so the terrain reads through it and the panel stays chrome
+     rather than page. What dissolves against a lit snowfield is the edge and
+     not the text, so the hairline and the cast shadow are what carry it. */
+  .u-panel {
+    background-color: color-mix(in srgb, var(--color-surface) 85%, transparent);
+    border: 1px solid var(--color-line);
+    border-radius: 0.25rem;
+    box-shadow: var(--shadow-panel);
+    backdrop-filter: blur(6px);
+  }
+
+  /* Type that stands on the mountain itself.
+
+     A cartographer halos a name rather than boxing it. The halo is what holds
+     a letterform over snow and over rock alike, and it costs the terrain
+     nothing — where a panel would take the mountain out from behind the words,
+     this leaves it there. */
+  .u-halo {
+    text-shadow:
+      0 1px 2px var(--color-shadow-deep),
+      0 0 10px var(--color-shadow-deep);
   }
 
   /* A hairline rule, the weight a map draws a boundary at. */

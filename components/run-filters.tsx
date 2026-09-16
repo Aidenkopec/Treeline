@@ -1,81 +1,33 @@
 "use client";
 
 import { useState } from "react";
-import { DifficultyMark } from "@/components/difficulty-mark";
+import { Chip, ChipGroup } from "@/components/chip";
 import { ASPECT_LABELS } from "@/lib/aspect";
-import { DIFFICULTY_ORDER, difficultyStyle } from "@/lib/difficulty";
 import { metres } from "@/lib/format";
 import { NO_FILTER, type RunFilter, isFiltered } from "@/lib/run-list";
-import type { AspectLabel, Difficulty } from "@/lib/types";
+import type { AspectLabel } from "@/lib/types";
 
 /**
  * Narrowing the list, on both views at once (SPEC §9).
  *
  * An empty selection means "no constraint" rather than "nothing", so the panel
  * opens showing the whole mountain. The labels state what they select and
- * nothing more — no grade or direction is presented as a better one (SPEC §8).
+ * nothing more — no direction is presented as a better one (SPEC §8).
  *
- * Search is always out; grade, aspect and vertical fold away behind a count.
- * Expanded, the three of them are fifteen controls and a slider standing
- * permanently between the reader and the run list, for something most visits
- * never touch.
+ * Grade is not here. It moved to the mountain, where five chips add and remove
+ * lines in front of the reader and a shut drawer can still say why runs are
+ * missing. What is left is search, always out, and aspect and vertical folded
+ * behind a count: expanded they are nine controls and a slider standing between
+ * the reader and the run list, for something most visits never touch.
  */
 
 function toggle<T>(values: T[], value: T): T[] {
   return values.includes(value) ? values.filter((v) => v !== value) : [...values, value];
 }
 
-/** How many of the three foldaway filters are doing something. */
+/** How many of the two foldaway filters are doing something. */
 function activeCount(filter: RunFilter): number {
-  return (
-    (filter.difficulties.length > 0 ? 1 : 0) +
-    (filter.aspects.length > 0 ? 1 : 0) +
-    (filter.minVerticalM > 0 ? 1 : 0)
-  );
-}
-
-function Chip({
-  active,
-  children,
-  onClick,
-}: {
-  active: boolean;
-  children: React.ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      aria-pressed={active}
-      className={`u-data flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 transition-colors ${
-        active
-          ? "border-sun bg-sun-dim/40 text-snow"
-          : "border-line text-rock hover:border-rock-dim hover:text-snow"
-      }`}
-      onClick={onClick}
-      type="button"
-    >
-      {children}
-    </button>
-  );
-}
-
-/**
- * A labelled group of chips.
- *
- * The legend is the grouping a screen reader answers on, and it is `sr-only`
- * because a `<legend>` in a flex row is laid out inconsistently across
- * browsers. The visible label beside it does the same job for the eye.
- */
-function ChipGroup({ children, label }: { children: React.ReactNode; label: string }) {
-  return (
-    <fieldset className="flex flex-wrap items-center gap-1.5">
-      <legend className="sr-only">{label}</legend>
-      <span aria-hidden="true" className="u-data mr-1 w-16 shrink-0">
-        {label}
-      </span>
-      {children}
-    </fieldset>
-  );
+  return (filter.aspects.length > 0 ? 1 : 0) + (filter.minVerticalM > 0 ? 1 : 0);
 }
 
 export function RunFilters({
@@ -96,8 +48,6 @@ export function RunFilters({
 
   const setAspect = (aspect: AspectLabel) =>
     onChange({ ...value, aspects: toggle(value.aspects, aspect) });
-  const setDifficulty = (difficulty: Difficulty) =>
-    onChange({ ...value, difficulties: toggle(value.difficulties, difficulty) });
 
   return (
     <div>
@@ -149,19 +99,6 @@ export function RunFilters({
 
       {open && (
         <div className="mt-3 flex flex-col gap-2.5" id="run-filter-panel">
-          <ChipGroup label="Grade">
-            {DIFFICULTY_ORDER.map((difficulty) => (
-              <Chip
-                active={value.difficulties.includes(difficulty)}
-                key={difficultyStyle(difficulty).label}
-                onClick={() => setDifficulty(difficulty)}
-              >
-                <DifficultyMark difficulty={difficulty} size={9} />
-                {difficultyStyle(difficulty).label}
-              </Chip>
-            ))}
-          </ChipGroup>
-
           <ChipGroup label="Aspect">
             {ASPECT_LABELS.map((aspect) => (
               <Chip
@@ -197,7 +134,9 @@ export function RunFilters({
       )}
 
       <div className="mt-2.5 flex items-center justify-between gap-3">
-        <h2 aria-live="polite" className="u-data">
+        {/* Not announced: the grade bar on the mountain carries the live copy of
+            this number, and two live regions would say it twice. */}
+        <h2 className="u-data">
           {shown === total ? `${total} marked runs` : `${shown} of ${total} shown`}
         </h2>
         {isFiltered(value) && (

@@ -1087,6 +1087,130 @@ widths and through a full orbit.
 
 ---
 
+## Phase 5.7 — The map leads ✅ done
+
+Sat in front of the two panes, the page was a spreadsheet with a mountain beside it. The
+right 42% was dense white numerals, a gold sort rule and twenty rows; the left was a massif
+at mid-tones. The brighter, denser half wins that fight every time, and four things were
+paying for it:
+
+- **A ~340px header scrim over the top of the terrain**, carrying a back link, a 31px title,
+  six facts and the weather. 5.6 already recorded the consequence as open: `Whitehorn
+Mountain` and the `Summit` lift read faintly under it.
+- **The sun clock on the far side of the window from the shadows it moves.** A control you
+  cannot watch yourself using, and it is SPEC §4's signature feature.
+- **A run picked on the terrain answered 1500px away**, and with the list folded it degraded
+  to a truncated name inside a button.
+- **Filter state invisible from the map.** Folded away, "27 of 168" went with it: runs gone
+  from the mountain with nothing on screen saying why.
+
+### Done
+
+- [x] `components/run-explorer.tsx` — the `xl:grid` two-pane is gone. The canvas is
+      `absolute inset-0` of an `h-svh` frame and everything else is positioned over it
+- [x] `components/run-drawer.tsx` — the list, docked at the right edge above `xl` and a
+      sheet along the bottom below it. One `open` boolean, two idioms. Opaque, unlike the
+      chrome: it is 168 rows of numerals, and a backdrop filter over a live canvas across a
+      quarter of the window is the cheapest way to lose SPEC §10's frame rate
+- [x] `components/map-chrome.tsx` — four clusters in four corners, all anchored to the same
+      safe area, and the thing that measures what they cover
+- [x] `components/resort-identity.tsx` — the masthead, kept: the name, the six facts in one
+      row and the weather, all of it out where it was. What changed is the ground under it —
+      a veil to about half its height instead of a near-solid band, with the type carried by
+      its own halo (`.u-halo`), the way a map halos a name rather than boxing it
+- [x] `components/run-detail-card.tsx` — replaces `run-panel.tsx`, on the map under the
+      resort's own name
+- [x] `components/grade-filter.tsx`, `components/chip.tsx` — grade moved out of the
+      disclosure onto the terrain; `run-filters.tsx` keeps search, aspect and vertical
+- [x] `lib/inset.ts` + `components/terrain-scene.tsx` — the camera composes into what the
+      chrome leaves, on three edges: the masthead's measured height above, the drawer's
+      width or height beside or below
+- [x] `lib/label-layout.ts` `sameRects`, and chrome rects seeded into `placePlates`
+- [x] `components/map-attribution.tsx`, `app/not-found.tsx` — SPEC §8, without a page footer
+      to scroll to
+- [x] `lib/webgl.ts` — the probe, shared, because the answer decides the layout too
+
+### Decisions worth recording
+
+- **This reverses "nothing on the terrain but the header" and `run-panel.tsx`'s own note
+  that floating the panel "put a card across the mountain".** Both were right about the
+  cause. What is different is that the scene is now told what the chrome covers and composes
+  around it, so the card no longer costs the mountain the ground it stands on. Without that
+  step this is the phase-3 filter card again, and if it had not worked the answer was a
+  pushing drawer rather than a card over the runs.
+- **The camera moves its projection, not itself.** `PerspectiveCamera.setViewOffset` with
+  the frame grown by the inset and the far side rendered. Shifting `camera.position` or
+  `controls.target` instead would put the orbit's centre off the massif, and every drag
+  after that would swing it out of frame. `lib/terrain-mesh.ts` is untouched: `focusFraming`
+  already reads `camera.aspect`, which is now the composed one.
+- **The inset is measured off the drawer's own box, never its position.** Width and height
+  hold still; position slides for the length of the transition, and an inset read from that
+  would drag the mountain along a frame at a time.
+- **Which edge the inset lands on is pure**, in `lib/inset.ts`, so "masthead covers the top,
+  docked drawer covers width, raised sheet covers height, folded drawer covers nothing" is
+  settled by `npm test` rather than by dragging a window across the breakpoint.
+- **This closes 5.6's open item, and closes it as a framing question.** A header washing out
+  the summit is not fixed by dimming the header; it is fixed by not standing the mountain
+  behind it. Once the massif composes below the masthead, the scrim is free to be a veil
+  rather than a band, and the type is held by a halo instead of by a block — which is what
+  stops the whole top of the page reading as something sitting on the page.
+- **A summit name is still the one label nothing may push off.** Lift plates take the
+  masthead as occupied; peaks are placed first against a screen empty of everything, chrome
+  included. A peak plate carries its own ground, so one landing beside the weather still
+  reads, and dropping `Whitehorn Mountain` to protect a row of facts is the wrong trade.
+- **Chrome rects go into the label pass's `reserved`.** `placePlates` already took the
+  array for the place marks. Without this, "LARCH EXPRESS" lands under the sun clock and is
+  simply gone — and it did, before the rects went in.
+- **Measured every render, deduped by `sameRects`.** Four `getBoundingClientRect` calls are
+  cheap; handing the pass a new array each render is what makes it never stop.
+- **Grade moved rather than being mirrored.** Two controls for one value is a live region
+  that announces twice. The count is live on the mountain and plain in the drawer, for the
+  same reason.
+- **The disclaimer is on the map now, not below a fold that no longer exists.** `SiteFooter`
+  left the root layout, so every page renders it itself and `app/not-found.tsx` had to start
+  existing. Neither copy is ever the only one: with the sheet raised on a narrow window the
+  map line is behind it and the footer at the foot of the sheet carries it.
+- **The drawer has its own scroller again**, which "one scroll region" removed. The reason
+  it was removed was _two_ scrollbars down the middle of the page. The page does not scroll
+  at all now, so there is still exactly one.
+- **A skip link, because this redesign earned one.** A dozen map controls now stand between
+  the top of the document and the numbers. It opens the drawer as well as going there, since
+  the drawer it leads to may be shut.
+- **Desktop drawer is not modal and does not trap focus.** It is a docked panel. The sheet
+  at full height is another matter and is not claimed to be handled.
+
+### Open
+
+- **Below `xl` the mountain is composed close and crops.** The bottom inset is applied but
+  `openingFraming` is still frozen against the whole canvas, so fitting a run box into the
+  strip above the sheet magnifies it. Inside SPEC §3's "must not be broken on a phone, is
+  not designed for one", and better than the distant ridge behind the sheet that preceded
+  it, but it is not a framing anyone chose.
+- **The sheet toggles rather than drags.** Tapping its head raises and lowers it; there is
+  no drag-to-snap.
+- **The detail card is in the DOM twice below `xl`** — once on the map, once at the head of
+  the sheet, one of them `display: none`. Cheap, and the hidden copy is out of the
+  accessibility tree, but it is duplication.
+- **The card's height budget is tuned, not derived.** Three columns of figures, a shorter
+  profile and a `short:` variant at 52rem are what make it fit between the masthead and the
+  sun clock. A card that measured the gap it was given would need none of the three.
+
+**Verified:** 356 tests green (11 new, all pure: `lib/inset.ts` and `sameRects`),
+format/lint/typecheck/build clean, console clean apart from the `THREE.Clock` deprecation
+phase 2 already recorded. Build carries 183 `<tr>` and 80.8 KB gzipped against 5.6's 76.6 KB.
+Every route's HTML carries the avalanche.ca link and the ODbL credit, with the drawer open
+and with it collapsed. In the browser at 1710x1000: the massif composes clear of the drawer
+and recentres when it folds; `#run=883614829` restores Maverick at 25°, 30°, SW 238°, 337m,
+796m, profile 2251m→1914m, matching `runs.json`; the lift plates place clear of the sun clock
+and of the masthead's type, `Whitehorn Mountain` reads beside the conditions row, and the
+detail card fits between the two without scrolling. At 900x757 the
+sheet works and the bottom chrome steps aside rather than hiding behind it.
+
+**Not verified at runtime:** the no-WebGL branch, which now also forces the drawer open and
+moves the sun and grade controls into it.
+
+---
+
 ## ⛳ Valid stopping point
 
 **After phase 5, with three resorts baked, this is a finished, pinnable thing.**
