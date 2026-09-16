@@ -47,7 +47,7 @@ export default async function ResortPage(props: PageProps<"/resorts/[slug]">) {
     // The view is stretched vertically to read as a mountain; the numbers are
     // not. Saying which is which is the honest half of that trade.
     { label: "Vertical scale", value: `×${resort.vertical_exaggeration}` },
-    { label: "Baked", value: resort.baked_at },
+    { label: "Measured", value: resort.baked_at },
   ];
 
   return (
