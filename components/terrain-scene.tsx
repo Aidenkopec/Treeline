@@ -280,7 +280,9 @@ function LoadedScene({
       // The terrain is the only caster and it never moves, so the map is
       // re-rendered when the sun moves and at no other time — see the effect in
       // Massif. Steady-state cost is one pass, the same as before phase 5.
-      shadows
+      // `percentage` is PCFShadowMap; bare `shadows` asks for PCFSoftShadowMap,
+      // which three removed in r186 and silently downgrades to this anyway.
+      shadows="percentage"
     >
       <Massif
         mountain={mountain}
