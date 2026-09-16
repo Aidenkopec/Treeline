@@ -3,11 +3,10 @@ import type { ProfileSample } from "./types";
 /**
  * A run's sampled elevations as SVG path data.
  *
- * Straight segments between samples, not a smoothed curve: `components/
- * ridgeline.tsx` smooths because it is drawing an idea of a mountain, and this
- * is drawing 25m measurements — the corners are the data. Kept out of the
- * component so the shape can be asserted; a chart that renders a plausible
- * slope from the wrong axis still looks like a chart.
+ * Straight segments between samples, not a smoothed curve: this is drawing
+ * 25m measurements, and the corners are the data. Kept out of the component so
+ * the shape can be asserted; a chart that renders a plausible slope from the
+ * wrong axis still looks like a chart.
  */
 
 export interface ProfileGeometry {

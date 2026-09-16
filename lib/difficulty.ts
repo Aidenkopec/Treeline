@@ -47,7 +47,7 @@ export const DIFFICULTY_STYLES: Record<string, DifficultyStyle> = {
     filled: true,
   },
   untagged: {
-    label: "Untagged",
+    label: "Ungraded",
     shape: "circle",
     count: 1,
     colorVar: "--color-diff-unknown",
