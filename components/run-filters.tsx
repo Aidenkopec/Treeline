@@ -31,12 +31,15 @@ function activeCount(filter: RunFilter): number {
 }
 
 export function RunFilters({
+  announce,
   value,
   onChange,
   maxVerticalM,
   shown,
   total,
 }: {
+  /** Whether this copy of the count is the page's only one. */
+  announce: boolean;
   value: RunFilter;
   onChange: (next: RunFilter) => void;
   maxVerticalM: number;
@@ -134,9 +137,8 @@ export function RunFilters({
       )}
 
       <div className="mt-2.5 flex items-center justify-between gap-3">
-        {/* Not announced: the grade bar on the mountain carries the live copy of
-            this number, and two live regions would say it twice. */}
-        <h2 className="u-data">
+        {/* Live only when it is the page's only count: the grade bar carries it otherwise. */}
+        <h2 aria-live={announce ? "polite" : undefined} className="u-data">
           {shown === total ? `${total} marked runs` : `${shown} of ${total} shown`}
         </h2>
         {isFiltered(value) && (

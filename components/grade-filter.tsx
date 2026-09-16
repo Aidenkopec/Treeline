@@ -1,10 +1,9 @@
 "use client";
 
-import { Chip, ChipGroup } from "@/components/chip";
+import { Chip, ChipGroup, GlyphChip } from "@/components/chip";
 import { DifficultyMark } from "@/components/difficulty-mark";
 import { DIFFICULTY_ORDER, difficultyStyle } from "@/lib/difficulty";
-import type { RunFilter } from "@/lib/run-list";
-import type { Difficulty } from "@/lib/types";
+import { type RunFilter, shownDifficulties, toggleDifficulty } from "@/lib/run-list";
 
 /**
  * Grade, on the mountain rather than in the drawer.
@@ -15,40 +14,57 @@ import type { Difficulty } from "@/lib/types";
  * the disclosure — fifteen controls on the canvas is the floating filter card
  * phase 3 already took off it.
  *
- * The labels state what they select and nothing more. No grade is presented as
- * a better one (SPEC §8).
+ * `compact` drops the words and keeps the marks, which is what makes the row
+ * fit an edge strip. It is only right where the mountain is: five toggles that
+ * add and remove lines in front of a reader teach their own shapes. In the
+ * drawer nothing teaches them, and unlabelled marks beside the aspect chips'
+ * words would read as decoration — so that call site keeps the labels.
+ *
+ * Either way the name states what it selects and nothing more. No grade is
+ * presented as a better one (SPEC §8).
  *
  * The count that stands beside these on the map belongs to the explorer rather
  * than to this component: without a GPU the chips fall into the drawer, where
  * the filters already print one and a second would say it twice.
  */
 export function GradeFilter({
+  compact = false,
   onChange,
   value,
 }: {
+  /** Marks without words. For the mountain, which is what explains them. */
+  compact?: boolean;
   onChange: (next: RunFilter) => void;
   value: RunFilter;
 }) {
-  const toggle = (difficulty: Difficulty) =>
-    onChange({
-      ...value,
-      difficulties: value.difficulties.includes(difficulty)
-        ? value.difficulties.filter((held) => held !== difficulty)
-        : [...value.difficulties, difficulty],
-    });
+  const shown = shownDifficulties(value);
 
   return (
     <ChipGroup label="Grade">
-      {DIFFICULTY_ORDER.map((difficulty) => (
-        <Chip
-          active={value.difficulties.includes(difficulty)}
-          key={difficultyStyle(difficulty).label}
-          onClick={() => toggle(difficulty)}
-        >
-          <DifficultyMark difficulty={difficulty} size={9} />
-          {difficultyStyle(difficulty).label}
-        </Chip>
-      ))}
+      {DIFFICULTY_ORDER.map((difficulty) => {
+        const style = difficultyStyle(difficulty);
+        const active = shown.includes(difficulty);
+
+        return compact ? (
+          <GlyphChip
+            active={active}
+            key={style.label}
+            label={style.label}
+            onClick={() => onChange(toggleDifficulty(value, difficulty))}
+          >
+            <DifficultyMark difficulty={difficulty} size={11} />
+          </GlyphChip>
+        ) : (
+          <Chip
+            active={active}
+            key={style.label}
+            onClick={() => onChange(toggleDifficulty(value, difficulty))}
+          >
+            <DifficultyMark difficulty={difficulty} size={9} />
+            {style.label}
+          </Chip>
+        );
+      })}
     </ChipGroup>
   );
 }

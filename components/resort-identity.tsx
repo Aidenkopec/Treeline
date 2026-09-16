@@ -13,28 +13,42 @@ export interface Fact {
  *
  * Only the link is clickable, so a drag anywhere else still turns the mountain.
  *
- * The scrim is a veil rather than a panel. Held at full strength it reads as a
- * block sitting on the page and crowds the type it is meant to carry, so it is
- * mixed light and let go by just past half its height. What actually holds the
- * letterforms is the halo on them, the way a map halos a name instead of boxing
- * it — so a ridge can come up behind the words without taking them with it.
+ * The scrim is a veil rather than a panel (`.u-scrim`), and what actually holds
+ * the letterforms is the halo on them — the way a map halos a name instead of
+ * boxing it, so a ridge can come up behind the words without taking them with
+ * it.
  *
- * The facts are here in full rather than behind a disclosure. They are also the
- * whole of the page without WebGL, so they stay plain HTML served with the
- * document (SPEC §9).
+ * Every fact reads on one line with its label beside it rather than above it.
+ * Stacked, six facts and four readings stood three hundred pixels tall, and
+ * that height is `inset.top`: the camera composes the massif below it, so the
+ * masthead was costing the mountain a quarter of the window.
+ *
+ * The facts are here in full rather than behind a disclosure. SPEC §8 requires
+ * provenance and age visible, which is what `Vertical scale` and `Baked` are,
+ * and they are also the whole of the page without WebGL — so they stay plain
+ * HTML served with the document (SPEC §9).
  */
 export function ResortIdentity({ facts, resort }: { facts: Fact[]; resort: Resort }) {
   return (
-    <header className="bg-gradient-to-b from-shadow-deep/80 via-shadow-deep/35 via-55% to-transparent">
-      <div className="u-halo px-6 pt-8 pb-12">
+    <header className="u-scrim">
+      {/* The run-out matters as much as the padding: the scrim feathers over
+          its own last fifth, so a line of type inside that is a line with
+          nothing behind it. This is what keeps the conditions row out of it. */}
+      <div className="u-halo px-6 pt-6 pb-12">
         <Link className="u-data pointer-events-auto transition-colors hover:text-snow" href="/">
           ← Treeline
         </Link>
-        <h1 className="u-massif mt-3 text-2xl text-snow sm:text-3xl">{resort.name}</h1>
+        <h1 className="u-massif mt-2 text-2xl text-snow sm:text-3xl">{resort.name}</h1>
 
-        <dl className="mt-5 flex flex-wrap gap-x-10 gap-y-3">
+        <dl className="mt-3.5 flex flex-wrap items-baseline gap-x-4 gap-y-1">
           {facts.map((fact) => (
-            <div key={fact.label}>
+            // The interpunct is the separator a map legend uses. Drawn by the
+            // pseudo-element so it is a flex item in the same gap as the pairs
+            // and never lands alone at the end of a wrapped row.
+            <div
+              className="flex items-baseline gap-1.5 after:text-rock-dim after:content-['·'] last:after:content-none"
+              key={fact.label}
+            >
               <dt className="u-data">{fact.label}</dt>
               <dd className="u-feature text-sm text-snow tabular-nums">{fact.value}</dd>
             </div>

@@ -5,8 +5,11 @@ import type { ReactNode } from "react";
 /**
  * A filter toggle, and a labelled group of them.
  *
- * Shared because grade sits on the mountain and aspect sits in the drawer, and
- * two controls that select the same way have to look like they do.
+ * Shared because the same selection has to look like itself wherever it is
+ * made: grade and aspect stand side by side in the drawer, and grade also goes
+ * out on the mountain. `GlyphChip` below is this chip with its label moved into
+ * its accessible name — same ring, same pressed state — so the two still read
+ * as one control.
  */
 export function Chip({
   active,
@@ -29,6 +32,47 @@ export function Chip({
       type="button"
     >
       {children}
+    </button>
+  );
+}
+
+/**
+ * A chip whose mark is its label.
+ *
+ * Difficulty is carried by shape (SPEC §9), so on the mountain the words are
+ * redundant and the row is five glyphs wide rather than five phrases. Off is
+ * drawn by dimming rather than by hollowing the mark: hollow already means
+ * untagged, and two meanings on one treatment is one too many.
+ *
+ * The name a screen reader answers on is `label`. The mark inside is hidden
+ * from it because `DifficultyMark` carries its own `role="img"`, which would
+ * otherwise say the grade twice.
+ */
+export function GlyphChip({
+  active,
+  children,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  children: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-label={label}
+      aria-pressed={active}
+      className={`flex cursor-pointer items-center rounded-full border px-2 py-1.5 transition-[background-color,border-color,opacity] ${
+        active ? "border-sun bg-sun-dim/40" : "border-line opacity-35 hover:opacity-100"
+      }`}
+      onClick={onClick}
+      title={label}
+      type="button"
+    >
+      <span aria-hidden="true" className="flex items-center">
+        {children}
+      </span>
     </button>
   );
 }

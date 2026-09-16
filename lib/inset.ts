@@ -51,6 +51,32 @@ export function chromeInset({
   return { top: mastheadHeight, ...drawer };
 }
 
+/**
+ * A `setViewOffset` frame: the clear strip is the frame, the canvas is the
+ * larger crop around it. Growing the frame past the canvas instead renders a
+ * window onto a wider view, which magnifies rather than fits.
+ */
+export interface ViewFrame {
+  fullWidth: number;
+  fullHeight: number;
+  offsetX: number;
+  offsetY: number;
+  width: number;
+  height: number;
+}
+
+export function viewFrame(width: number, height: number, inset: Inset): ViewFrame {
+  return {
+    // A short window's chrome can exceed it, and a zero-height frame is a NaN aspect.
+    fullWidth: Math.max(1, width - inset.right),
+    fullHeight: Math.max(1, height - inset.top - inset.bottom),
+    offsetX: 0,
+    offsetY: -inset.top,
+    width,
+    height,
+  };
+}
+
 /** Whether two insets say the same thing, so a settled one keeps its identity. */
 export function sameInset(a: Inset, b: Inset): boolean {
   return a.top === b.top && a.right === b.right && a.bottom === b.bottom;

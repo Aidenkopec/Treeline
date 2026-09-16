@@ -22,11 +22,15 @@ export function ElevationProfile({ profile }: { profile: ProfileSample[] }) {
     <figure>
       <svg
         aria-hidden="true"
-        className="block h-16 w-full"
+        className="block h-16 w-full drop-shadow-[0_1px_2px_var(--color-shadow-deep)]"
         preserveAspectRatio="none"
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       >
-        <path d={area} fill="var(--color-shade-dim)" opacity="0.55" />
+        {/* The fill is the drawing's own ground. Nothing is boxed around this
+            any more, and a gold line crossing a sunlit snowfield needs
+            something dark under it — so the area carries the scrim a panel
+            used to, and the shadow above holds the stroke where it climbs out. */}
+        <path d={area} fill="var(--color-shadow-deep)" opacity="0.6" />
         <path
           d={line}
           fill="none"

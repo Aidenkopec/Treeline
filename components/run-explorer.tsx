@@ -12,7 +12,7 @@ import { RunDrawer } from "@/components/run-drawer";
 import { RunFilters } from "@/components/run-filters";
 import { RunTable } from "@/components/run-table";
 import { SiteFooter } from "@/components/site-footer";
-import { SunControl } from "@/components/sun-control";
+import { SunControl, SunTimes } from "@/components/sun-control";
 import { TerrainViewer } from "@/components/terrain-viewer";
 import { type Inset, NO_INSET, chromeInset, sameInset } from "@/lib/inset";
 import { type Rect, sameRects } from "@/lib/label-layout";
@@ -254,7 +254,10 @@ export function RunExplorer({
     />
   );
 
-  const gradeFilter = <GradeFilter onChange={setFilter} value={filter} />;
+  // Marks alone on the mountain, which is what teaches them; words in the
+  // drawer, which is where it goes when there is no mountain. The two are
+  // mutually exclusive, so `steerOnMap` decides it and one node covers both.
+  const gradeFilter = <GradeFilter compact={steerOnMap} onChange={setFilter} value={filter} />;
 
   // The live copy of this number. The drawer's filters print it too and do not
   // announce it, so a reader is not told twice.
@@ -266,7 +269,9 @@ export function RunExplorer({
     </p>
   );
 
-  const detailCard = selected && <RunDetailCard onClear={() => selectRun(null)} run={selected} />;
+  // Veiled on the terrain, bare in the drawer.
+  const detailCard = (veiled: boolean) =>
+    selected && <RunDetailCard onClear={() => selectRun(null)} run={selected} veiled={veiled} />;
 
   return (
     <div className="relative h-svh overflow-hidden bg-shadow">
@@ -314,35 +319,38 @@ export function RunExplorer({
       </div>
 
       <MapChrome
-        bottomLeft={
+        disclaimer={<MapAttribution />}
+        instruments={
           steerOnMap && (
-            <div className="u-panel flex max-w-2xl flex-col gap-3 px-4 py-3">
-              {sunControl}
-              <hr className="u-rule" />
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            // Three clusters that each take the pointer on their own. The row
+            // between and around them does not: a band across the foot of the
+            // window that swallowed a drag would be the bottom of the mountain
+            // gone. The sun holds the flexible middle, so it is what drops to
+            // its own line first when the window is too narrow for one row.
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+              <div className="pointer-events-auto min-w-72 flex-1">{sunControl}</div>
+
+              <div className="pointer-events-auto flex flex-wrap items-center gap-x-3 gap-y-2">
                 {gradeFilter}
                 {runCount}
               </div>
+
+              {/* The way back to the whole mountain, and conditional on
+                  nothing: the viewer this exists for has orbited into a corner
+                  of the mosaic and has not necessarily picked a run to clear.
+                  Outside the aria-hidden canvas, so it is still reachable by
+                  keyboard. */}
+              <button
+                className="u-data pointer-events-auto flex shrink-0 cursor-pointer items-center gap-2 rounded border border-rock-dim bg-surface px-2.5 py-1.5 text-snow transition-colors hover:border-rock hover:bg-surface-high"
+                onClick={() => setResetSignal((presses) => presses + 1)}
+                type="button"
+              >
+                <span aria-hidden="true">↺</span>
+                Reset view
+              </button>
             </div>
           )
         }
-        bottomRight={
-          steerOnMap && (
-            // The way back to the whole mountain, and conditional on nothing:
-            // the viewer this exists for has orbited into a corner of the
-            // mosaic and has not necessarily picked a run to clear. Outside the
-            // aria-hidden canvas, so it is still reachable by keyboard.
-            <button
-              className="u-panel u-data flex cursor-pointer items-center gap-2 px-3 py-2 text-rock transition-colors hover:text-snow"
-              onClick={() => setResetSignal((presses) => presses + 1)}
-              type="button"
-            >
-              <span aria-hidden="true">↺</span>
-              Reset view
-            </button>
-          )
-        }
-        footer={<MapAttribution />}
         listOpen={listOpen}
         masthead={
           <div ref={masthead}>
@@ -350,11 +358,11 @@ export function RunExplorer({
           </div>
         }
         onMeasure={onMeasure}
-        topLeft={
+        selection={
           // Under the masthead, continuing one column from the range to the
           // feature to the readout. Narrow windows read it at the head of the
           // drawer instead, beside the table it came from.
-          steerOnMap && <div className="hidden xl:block">{detailCard}</div>
+          steerOnMap && <div className="hidden xl:block">{detailCard(true)}</div>
         }
       />
 
@@ -363,6 +371,7 @@ export function RunExplorer({
         head={
           <>
             <RunFilters
+              announce={!steerOnMap}
               maxVerticalM={maxVerticalM}
               onChange={setFilter}
               shown={visible.length}
@@ -370,19 +379,23 @@ export function RunExplorer({
               value={filter}
             />
 
-            {!steerOnMap && (
-              <div className="mt-3 flex flex-col gap-3 border-t border-line pt-3">
-                {sunControl}
-                {gradeFilter}
-              </div>
-            )}
+            {/* Sunrise and sunset stand here whether or not there is a
+                mountain to draw them on. They came off the instrument strip
+                because they are facts about the place rather than about the
+                render, and without a GPU this list is the site — so the one
+                copy has to be the one that is always rendered (SPEC §9). */}
+            <div className="mt-3 flex flex-col gap-3 border-t border-line pt-3">
+              {!steerOnMap && sunControl}
+              <SunTimes resort={resort} value={sun} />
+              {!steerOnMap && gradeFilter}
+            </div>
 
             {selected === null ? (
               <p className="mt-2.5 text-sm text-rock-dim">
                 Select a run, here or on the mountain, to see its measurements.
               </p>
             ) : (
-              <div className={steerOnMap ? "mt-3 xl:hidden" : "mt-3"}>{detailCard}</div>
+              <div className={steerOnMap ? "mt-3 xl:hidden" : "mt-3"}>{detailCard(false)}</div>
             )}
           </>
         }

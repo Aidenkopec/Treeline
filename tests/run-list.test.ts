@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { aspectLabel } from "@/lib/aspect";
+import { DIFFICULTY_ORDER } from "@/lib/difficulty";
 import {
   NO_FILTER,
   UNNAMED_RUN,
@@ -8,10 +9,12 @@ import {
   isFiltered,
   matchesFilter,
   runCells,
+  shownDifficulties,
   sortRuns,
+  toggleDifficulty,
 } from "@/lib/run-list";
 import type { RunFilter } from "@/lib/run-list";
-import type { Run, RunsFile } from "@/lib/types";
+import type { Difficulty, Run, RunsFile } from "@/lib/types";
 
 function run(over: Partial<Run> = {}): Run {
   return {
@@ -133,6 +136,87 @@ describe("isFiltered", () => {
 
   it("reads a whitespace query as no constraint, the way matchesFilter does", () => {
     expect(isFiltered({ ...NO_FILTER, query: "   " })).toBe(false);
+  });
+});
+
+describe("shownDifficulties and toggleDifficulty", () => {
+  // What the chip row does: read the lit state, then click it.
+  const click = (filter: RunFilter, difficulty: Difficulty) => ({
+    wasLit: shownDifficulties(filter).includes(difficulty),
+    next: toggleDifficulty(filter, difficulty),
+  });
+
+  it("shows every grade at rest, which is what lights every chip", () => {
+    expect(shownDifficulties(NO_FILTER)).toEqual(DIFFICULTY_ORDER);
+  });
+
+  it("takes a grade away on the first click rather than selecting one", () => {
+    const { wasLit, next } = click(NO_FILTER, "advanced");
+
+    expect(wasLit).toBe(true);
+    expect(next.difficulties).toEqual(["easy", "intermediate", "expert", null]);
+    expect(shownDifficulties(next)).not.toContain("advanced");
+  });
+
+  it("always moves the chip it was clicked on", () => {
+    // Switching off the last lit grade leaves it lit: it lights every other one too.
+    let filter: RunFilter = NO_FILTER;
+
+    for (const difficulty of [...DIFFICULTY_ORDER, ...DIFFICULTY_ORDER, "easy" as Difficulty]) {
+      const lit = shownDifficulties(filter);
+      const next = toggleDifficulty(filter, difficulty);
+      const nextLit = shownDifficulties(next);
+
+      if (lit.includes(difficulty) && lit.length === 1) {
+        expect(nextLit).toEqual(DIFFICULTY_ORDER);
+      } else {
+        expect(nextLit.includes(difficulty)).toBe(!lit.includes(difficulty));
+      }
+      filter = next;
+    }
+  });
+
+  it("wraps back to the whole mountain when the last lit grade goes out", () => {
+    let filter: RunFilter = NO_FILTER;
+    for (const difficulty of DIFFICULTY_ORDER.slice(0, 4)) {
+      filter = toggleDifficulty(filter, difficulty);
+    }
+    expect(filter.difficulties).toEqual([null]);
+
+    const cleared = toggleDifficulty(filter, null);
+    expect(cleared.difficulties).toEqual([]);
+    expect(isFiltered(cleared)).toBe(false);
+  });
+
+  it("writes a full selection back as the empty list, so nothing reads as filtered", () => {
+    const one = toggleDifficulty(NO_FILTER, "easy");
+    expect(isFiltered(one)).toBe(true);
+
+    const all = toggleDifficulty(one, "easy");
+    expect(all.difficulties).toEqual([]);
+    expect(isFiltered(all)).toBe(false);
+  });
+
+  it("keeps the selection in grade order however it was reached", () => {
+    const withoutEasy = toggleDifficulty(NO_FILTER, "easy");
+    const withoutExpert = toggleDifficulty(withoutEasy, "expert");
+
+    expect(toggleDifficulty(withoutExpert, "easy").difficulties).toEqual([
+      "easy",
+      "intermediate",
+      "advanced",
+      null,
+    ]);
+  });
+
+  it("leaves the rest of the filter alone", () => {
+    const filter: RunFilter = { ...NO_FILTER, aspects: ["N"], minVerticalM: 200, query: "larch" };
+
+    expect(toggleDifficulty(filter, "easy")).toMatchObject({
+      aspects: ["N"],
+      minVerticalM: 200,
+      query: "larch",
+    });
   });
 });
 
