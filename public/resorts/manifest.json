@@ -1,6 +1,48 @@
 {
-  "generated_at": "2026-09-15T22:52:38.928Z",
+  "generated_at": "2026-09-16T12:20:56.636Z",
   "resorts": [
+    {
+      "slug": "fernie",
+      "name": "Fernie",
+      "country": "Canada",
+      "bounds": {
+        "west": -115.13671875,
+        "north": 49.496674527470425,
+        "east": -115.048828125,
+        "south": 49.410973199695846
+      },
+      "lat": 49.4627,
+      "lon": -115.0881,
+      "timezone": "America/Edmonton",
+      "elevation_min_m": 965,
+      "elevation_max_m": 2102,
+      "width": 512,
+      "height": 768,
+      "metres_per_pixel": 12.419926739398278,
+      "vertical_exaggeration": 1.4,
+      "baked_at": "2026-09-16"
+    },
+    {
+      "slug": "kimberley",
+      "name": "Kimberley",
+      "country": "Canada",
+      "bounds": {
+        "west": -116.0595703125,
+        "north": 49.72447918871299,
+        "east": -115.9716796875,
+        "south": 49.66762782262193
+      },
+      "lat": 49.6739,
+      "lon": -115.9939,
+      "timezone": "America/Edmonton",
+      "elevation_min_m": 1052,
+      "elevation_max_m": 1909,
+      "width": 512,
+      "height": 512,
+      "metres_per_pixel": 12.366309804593465,
+      "vertical_exaggeration": 1.6,
+      "baked_at": "2026-09-16"
+    },
     {
       "slug": "lake-louise",
       "name": "Lake Louise",
@@ -20,7 +62,70 @@
       "height": 512,
       "metres_per_pixel": 11.91095107773933,
       "vertical_exaggeration": 1.8,
-      "baked_at": "2026-09-15"
+      "baked_at": "2026-09-16"
+    },
+    {
+      "slug": "niseko",
+      "name": "Niseko",
+      "country": "Japan",
+      "bounds": {
+        "west": 140.625,
+        "north": 42.90816007196053,
+        "east": 140.712890625,
+        "south": 42.811521745097885
+      },
+      "lat": 42.8608,
+      "lon": 140.6997,
+      "timezone": "Asia/Tokyo",
+      "elevation_min_m": 92,
+      "elevation_max_m": 1296,
+      "width": 512,
+      "height": 768,
+      "metres_per_pixel": 14.007247011073371,
+      "vertical_exaggeration": 1.5,
+      "baked_at": "2026-09-16"
+    },
+    {
+      "slug": "panorama",
+      "name": "Panorama",
+      "country": "Canada",
+      "bounds": {
+        "west": -116.279296875,
+        "north": 50.48547354578499,
+        "east": -116.1474609375,
+        "south": 50.40151532278235
+      },
+      "lat": 50.4597,
+      "lon": -116.2386,
+      "timezone": "America/Edmonton",
+      "elevation_min_m": 1075,
+      "elevation_max_m": 2650,
+      "width": 768,
+      "height": 768,
+      "metres_per_pixel": 12.1653504992357,
+      "vertical_exaggeration": 1.4,
+      "baked_at": "2026-09-16"
+    },
+    {
+      "slug": "sunshine-village",
+      "name": "Sunshine Village",
+      "country": "Canada",
+      "bounds": {
+        "west": -115.7958984375,
+        "north": 51.124212757826875,
+        "east": -115.7080078125,
+        "south": 51.041393898126366
+      },
+      "lat": 51.0784,
+      "lon": -115.7767,
+      "timezone": "America/Edmonton",
+      "elevation_min_m": 1600,
+      "elevation_max_m": 2861,
+      "width": 512,
+      "height": 768,
+      "metres_per_pixel": 12.005513126522427,
+      "vertical_exaggeration": 1.4,
+      "baked_at": "2026-09-16"
     }
   ]
 }
