@@ -1170,6 +1170,23 @@ Mountain` and the `Summit` lift read faintly under it.
   left the root layout, so every page renders it itself and `app/not-found.tsx` had to start
   existing. Neither copy is ever the only one: with the sheet raised on a narrow window the
   map line is behind it and the footer at the foot of the sheet carries it.
+- **Two obligations in that line, and only one of them folds.** The safety words are out at
+  all times; the credits sit behind an ⓘ, which is what the OSMF attribution guidelines
+  allow a map short of room and what every slippy map does. It is also what pays for the
+  visible line being cut to "terrain approximate, not for navigation or safety decisions,
+  avalanche.ca": the §8 sentence in full is one press away, and `SiteFooter` still carries
+  it at the foot of the list. Set against the mountain, a band of type across the bottom of
+  the window was the second-brightest thing on the page, and most of it was licence names.
+- **A first-visit acknowledgment gate was considered and rejected.** It would have bought
+  the right to drop the line entirely. The sites that gate — CalTopo's slope layer, FATMAP —
+  are the avalanche-terrain products §8 spends five paragraphs keeping this one clear of, so
+  borrowing the ritual argues the opposite of "a dated snapshot of public data". A notice
+  beside the numbers at the moment they are read is also the stronger one: a wall is clicked
+  through in half a second, on some other page view, possibly weeks ago. And it buys nothing
+  — ODbL credit accompanies the map, not a modal someone accepted once, so the chrome stays
+  either way. The costs land on what this phase built: `#run=` links opening on a wall, a
+  gate that needs storage to not fire every navigation, and a focus trap the sheet does not
+  have yet.
 - **The drawer has its own scroller again**, which "one scroll region" removed. The reason
   it was removed was _two_ scrollbars down the middle of the page. The page does not scroll
   at all now, so there is still exactly one.
