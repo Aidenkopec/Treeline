@@ -3,7 +3,7 @@
 Progress tracker for [SPEC.md](./SPEC.md) §11. Each phase ends working, committed and
 deployable, and runs in its own session with its own verification gate.
 
-**Status: phases 0–5.9 done. All six resorts baked. 372 tests green.** The ⛳ stopping point
+**Status: phases 0–5.9 done. All six resorts baked. 400 tests green.** The ⛳ stopping point
 (three resorts) is passed. Everything past it is addition, not completion.
 
 > **Next action:** phase 6, or phase 9's deploy. Nothing is blocking either.
@@ -507,54 +507,91 @@ link and 183 `<tr>` at 80.8 KB gzipped. Checked at 1512x757 and 430x900.
 
 ---
 
-## Phase 5.9 — The home page tells the truth ✅ done
+## Phase 5.9 · The home page draws a run that exists ✅ done
 
 `app/page.tsx` was a phase 0 artifact. Its masthead drew an invented massif with invented
-numbers — 21° / NE / 604m, captioned "Sample section" — on a site whose whole claim is that
-its numbers are measured. Six resorts are baked, so the figure now draws one of their runs.
+numbers (21° / NE / 604m, captioned "Sample section") on a site whose whole claim is that its
+numbers are measured, and nothing on it named the 3D terrain, the sun, the conditions, the
+lifts, the filters or the shareable link that shipped in phases 2 through 5.8. Six resorts
+are baked, so the figure now draws one of their runs and the page says what a resort page
+actually does.
 
-- [x] `lib/masthead.ts` — the featured run, held by OSM way id
-- [x] `components/ridgeline.tsx` — real `profile` in; invented massif, lift, chairs, five
-      other trails and the treeline rule out. 491 lines to 158
-- [x] `app/page.tsx` — masthead on a `.u-scrim` over the figure, facts in the resort page's
-      interpunct `<dl>`, resort index as a table, Grades legend cut
-- [x] `app/globals.css` — the lift-ride motion went with the lift
-- [x] "Baked" is "Measured", here and on the resort page
+- [x] `lib/masthead.ts`: the featured run per resort, held by OSM way id, and the six
+      profiles sized against one shared scale
+- [x] `components/masthead-figure.tsx`: Panorama's Wild Thing through `profileGeometry`, with
+      axis readouts in HTML. Replaces `components/ridgeline.tsx`, 491 lines deleted
+- [x] `components/resort-index.tsx`: the six as a table, each row carrying its own profile
+- [x] `app/page.tsx`: the run's five facts in the resort page's interpunct `<dl>`, one call
+      to action into the run it draws, what every resort page shows, and where the numbers
+      come from. Grades legend and the `npm run bake` empty state cut
+- [x] `app/globals.css`: the lift-ride motion went with the lift
+- [x] "Baked" is "Measured", here and on the resort page; "Untagged" is "Ungraded"
+- [x] `tests/masthead.test.ts`: 32 cases over the committed artifacts
 
 **Constraints**
 
 - **Nothing in the figure is drawn that the bake did not measure.** The treeline rule and
-  label went for that reason: no treeline elevation is baked anywhere. The alpine/treed value
-  split stays as shading, which asserts no number. Same reason the lift went — an invented
-  cable over real Panorama terrain claims infrastructure that is not there.
-- **Wild Thing, not Falling Star.** The first pick was Fernie's biggest clean descent and it
-  draws as a steep quarter and a long flat runout. Silhouette is a property of the data; the
-  run was chosen by looking at all six resorts' profiles, not by its numbers.
-- **Light bands under the ridge, not by height.** A vertical gradient across the plot shades
-  by absolute y, so the runout got the valley's value and vanished. The lit band is a clipped
-  non-scaling stroke following the line, so the same slope is lit wherever it sits.
-- The header is `bg-shadow-deep`, not `bg-shadow`: the terrain body is `--color-shadow`, and
-  against a `bg-shadow` header it was invisible.
+  label went for that reason: no treeline elevation is baked anywhere. The lift went for the
+  same one, since an invented cable over real terrain claims infrastructure that is not there.
+- **The facts do not animate.** They are the page's subject, and content that fades in is
+  content that is briefly missing; with `fill-mode: both` and a delay it is also content that
+  stays missing if the animation never runs. Only the line moves.
+- **`profileGeometry` normalises both axes, so six per-cell profiles would say nothing.**
+  Each silhouette draws into a sub-box sized by its own baked `vertical_m` and `length_m`
+  against the largest of the six. Steepness down the column is then a fact rather than an
+  artifact of the cell.
+- **No run name reaches the index.** Niseko's is `ホリデーコース` and Archivo is loaded
+  latin-subset, so it would render as tofu. `Silhouette` carries no name field and a test
+  asserts the absence, rather than a comment warning about it.
+- **The selection is a rule's output, not a rule.** The six were picked as the deepest named
+  way whose profile descends throughout. Sunshine's deepest, Delirium Dive, climbs back out
+  and drew as a valley. The ids are literals and the test pins them; evaluating the rule at
+  build time would instead swap a figure for a different run and say nothing.
+- **No superlative on the page.** One OSM way is not one trail, and phase 1's open item has
+  the Men's Downhill case, so "the biggest run at Panorama" is a claim about our extract that
+  may be false about the mountain. The caption says "one named run" and the rule stays in code.
+- **Counting is not computing.** `runs.runs.length` and `mountain.lifts.length` are what
+  `app/resorts/[slug]/page.tsx` already does for `Marked runs` and `Lifts`. Summing 964
+  `length_m` into a total distance is not counting, so the page prints no such figure. That
+  number belongs to the bake and its test, or nowhere.
 - `preserveAspectRatio="none"` means no `<text>` in the svg. The axis readouts are HTML, the
-  way `elevation-profile.tsx` already puts its own outside the frame.
-- Counting is not computing. `runs.runs.length` on the index is what
-  `app/resorts/[slug]/page.tsx` already does for `Marked runs`; the alternative was a manifest
-  field and a re-bake of six resorts to change a landing page.
-- Country is the column a phone loses. The other five, `Measured` among them, stay — SPEC §8
-  wants age visible.
+  way `elevation-profile.tsx` already puts its own outside the frame, and the page says the
+  profile is stretched the way the resort page says `Vertical scale ×1.4`.
+- The figure is in flow under the text, not behind it. `.u-scrim` holds type through its
+  first 84% and feathers after, and the masthead block is taller than that, so laid over the
+  figure the facts and the call to action sat in the run-out and washed out.
+- Country is the column a phone loses, then Lifts; Elevation is the one a laptop loses.
+  `Measured` stays at every width, because SPEC §8 wants age visible and a phone is where a
+  snapshot is most likely to be read as a live feed.
 
 **Open**
 
 - No OG image and no favicon for `/`. Dynamic OG is phase 8; the favicon is nobody's phase.
-- `app/not-found.tsx` still hard-codes "six resorts".
+- The eyebrow's `964 marked runs` and `86 lifts` are counted from six artifacts at build
+  time. A seventh resort changes them with no test to notice.
+- At 320px the index still scrolls 33px inside its own container. It fits exactly from 375px
+  up, and the page itself never overflows.
+- **No way to switch resorts from a resort page** except returning home. A switcher is the
+  one real navigation gap in the site, and it is map chrome rather than a nav bar: it changes
+  the masthead height that `lib/inset.ts` feeds the camera, and the `reserved` rects
+  `mountain-labels.tsx` avoids. Its own pass, with its own framing and collision checks.
+- The source link went in the footer rather than a nav bar. Two pages is not a nav, and the
+  resort screen is a window the mountain fills.
 
-**Gate:** 372 tests. `tests/masthead.test.ts` pins way 777349974 in `panorama/runs.json` by id,
-name, sample count and relief, so a re-bake that drops it fails rather than blanking the
-masthead. Checked by hand at 1456px: the hero's five stats and its 2452m–1671m axis match the
-detail card reached through the hero link. Table measured at 342px and 312px containers.
+**Gate:** 400 tests, up from 368. `tests/masthead.test.ts` pins way 777349974 in
+`panorama/runs.json` by id, name, grade, aspect, vertical, length and sample count, pins the
+other five resorts' featured ids, and asserts every one of them descends throughout, so a
+re-bake that drops or reshapes one fails rather than blanking a figure. It also asserts no
+silhouette carries a name and that the three new files contain no recommending language and
+no build tooling. Checked by hand at 1456px: the masthead's five facts (18° / 35° / N 16° /
+782m / 2.6km) and its 2452m–1671m axis match the detail card reached through the call to
+action. Index measured in a real viewport at 320px (310px table in a 257px container), 375px
+and 414px (fits exactly), and 640px up.
 
-**Not verified at runtime:** `prefers-reduced-motion`, and the narrow viewport — the harness
-would not resize, so the table was measured by constraining its container instead.
+**Not verified at runtime:** `prefers-reduced-motion`, and the terrain canvas in a
+screenshot. It holds a live Metal context and logs no error, but a GPU canvas does not
+composite into the capture, so the resort page behind the call to action was confirmed by its
+DOM and its numbers rather than by its pixels.
 
 ---
 
