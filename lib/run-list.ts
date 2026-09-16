@@ -66,6 +66,26 @@ export function isFiltered(filter: RunFilter): boolean {
   );
 }
 
+/** Empty means every grade, so a chip row reads its lit state off this. */
+export function shownDifficulties(filter: RunFilter): Difficulty[] {
+  return filter.difficulties.length === 0 ? DIFFICULTY_ORDER : filter.difficulties;
+}
+
+/**
+ * Toggles against `shownDifficulties`, so the first click on an unfiltered list
+ * takes a grade away rather than selecting one. All or none normalises back to
+ * `[]`, keeping one spelling of "no constraint".
+ */
+export function toggleDifficulty(filter: RunFilter, difficulty: Difficulty): RunFilter {
+  const shown = new Set(shownDifficulties(filter));
+  const next = DIFFICULTY_ORDER.filter((held) => shown.has(held) !== (held === difficulty));
+
+  return {
+    ...filter,
+    difficulties: next.length === 0 || next.length === DIFFICULTY_ORDER.length ? [] : next,
+  };
+}
+
 export type SortKey =
   "name" | "difficulty" | "vertical_m" | "length_m" | "pitch_avg_deg" | "pitch_max_deg" | "aspect";
 

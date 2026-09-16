@@ -101,6 +101,7 @@ export function RunTable({
                 className={`border-b border-line/50 transition-colors ${
                   selected ? "bg-surface-high" : hovered ? "bg-surface" : ""
                 }`}
+                data-run={run.id}
                 key={run.id}
                 onMouseEnter={() => onHover(run.id)}
                 onMouseLeave={() => onHover(null)}

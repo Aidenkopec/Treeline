@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { archivo } from "./fonts";
-import { SiteFooter } from "@/components/site-footer";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -16,10 +15,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={archivo.variable}>
-      <body className="min-h-dvh antialiased">
-        {children}
-        <SiteFooter />
-      </body>
+      <body className="min-h-dvh antialiased">{children}</body>
     </html>
   );
 }

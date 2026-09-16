@@ -4,6 +4,7 @@ import {
   placePlates,
   type PlateCandidate,
   type Rect,
+  sameRects,
   type ScreenPoint,
 } from "@/lib/label-layout";
 
@@ -139,5 +140,26 @@ describe("placePlates", () => {
 
   it("takes a candidate with no spots nowhere", () => {
     expect(placePlates([plate("a", 100, 100, { spots: [] })], [])).toEqual([]);
+  });
+});
+
+describe("sameRects", () => {
+  const one = { x: 0, y: 0, width: 10, height: 10 };
+
+  it("holds for the same numbers in new objects", () => {
+    expect(sameRects([one], [{ ...one }])).toBe(true);
+  });
+
+  it("fails on a different count", () => {
+    expect(sameRects([one], [one, one])).toBe(false);
+  });
+
+  it("fails on any moved edge", () => {
+    expect(sameRects([one], [{ ...one, x: 1 }])).toBe(false);
+    expect(sameRects([one], [{ ...one, height: 11 }])).toBe(false);
+  });
+
+  it("holds for two empties", () => {
+    expect(sameRects([], [])).toBe(true);
   });
 });

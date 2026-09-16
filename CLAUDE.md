@@ -87,6 +87,23 @@ or two; a comment longer than the code it describes is a smell.
 The test: delete it. If a competent reader still follows the code and wouldn't reintroduce
 the bug it warned about, it stays deleted.
 
+**The surrounding prose is not a licence.** §3 says match the surrounding style; it means
+naming, structure and idiom, never comment volume. Some comments in this repo are longer
+and more discursive than this section allows. Do not take them as the standard, do not
+write more like them, and do not rewrite them — leave them alone and hold new comments to
+the rules above.
+
+Hard limits on anything you add:
+
+- Three lines for a doc comment, one for an inline comment. Over that, the code needs
+  a better name or a smaller function, not more prose.
+- State the constraint, don't tell its story. "Clamped: a masthead plus a raised sheet can
+  exceed a short window, and a zero-height frame is a NaN aspect" — not a paragraph
+  about how the layout came to be that way.
+- No second voice. Don't explain a decision to the reader, address them, or narrate what
+  the change replaced; git history holds that.
+- A test name is a comment. If the `it(...)` string says it, don't say it again inside.
+
 ## Automation
 
 Formatting and hygiene are enforced by tooling, not by remembering:

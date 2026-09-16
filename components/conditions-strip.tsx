@@ -35,27 +35,29 @@ export function ConditionsStrip({ slug }: { slug: string }) {
   ] as const;
 
   return (
-    <section className="mt-6 border-t border-line pt-4">
-      <div className="flex flex-wrap items-baseline gap-x-3">
-        <h2 className="u-data">Conditions</h2>
-        {/* "Weather from Open-Meteo" rather than a bare brand name, matching the
-            footer: a reader has to be able to tell a source from a reading. */}
-        <p className="u-data text-rock-dim">
-          Weather from Open-Meteo
-          {conditions === null
-            ? ""
-            : ` · ${observedAt(conditions.observed_at, conditions.timezone)}`}
-        </p>
-      </div>
+    // The heading leads the row: it is what tells these readings from the
+    // terrain facts above, now that no rule is drawn between them.
+    <section className="mt-2.5 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+      <h2 className="u-data">Conditions</h2>
 
-      <dl className="mt-3 flex flex-wrap gap-x-10 gap-y-3">
+      <dl className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
         {readings.map(([label, value]) => (
-          <div key={label}>
+          <div
+            className="flex items-baseline gap-1.5 after:text-rock-dim after:content-['·'] last:after:content-none"
+            key={label}
+          >
             <dt className="u-data">{label}</dt>
             <dd className="u-feature text-sm text-snow tabular-nums">{value}</dd>
           </div>
         ))}
       </dl>
+
+      {/* "Weather from Open-Meteo" rather than a bare brand name, matching the
+          footer: a reader has to be able to tell a source from a reading. */}
+      <p className="u-data">
+        Weather from Open-Meteo
+        {conditions === null ? "" : ` · ${observedAt(conditions.observed_at, conditions.timezone)}`}
+      </p>
     </section>
   );
 }

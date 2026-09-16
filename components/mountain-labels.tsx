@@ -170,6 +170,7 @@ export function MountainLabels({
   hoveredPlaceId,
   onHoverLift,
   onHoverPlace,
+  reserved,
 }: {
   lifts: DrawnLift[];
   places: MarkedPlace[];
@@ -180,6 +181,8 @@ export function MountainLabels({
   hoveredPlaceId: string | null;
   onHoverLift: (id: string | null) => void;
   onHoverPlace: (id: string | null) => void;
+  /** Screen space the page's controls have already taken (SPEC §9 chrome). */
+  reserved: Rect[];
 }) {
   const camera = useThree((state) => state.camera);
   const size = useThree((state) => state.size);
@@ -205,7 +208,7 @@ export function MountainLabels({
   // a resize, a different resort — asks for one more pass.
   useEffect(() => {
     from.current = null;
-  }, [size.width, size.height, ranked, places]);
+  }, [size.width, size.height, ranked, places, reserved]);
 
   useFrame(() => {
     const now = performance.now();
@@ -214,7 +217,7 @@ export function MountainLabels({
     passedAt.current = now;
     from.current = camera.matrixWorld.clone();
 
-    const next = decide(ranked, places, field, camera, size.width, size.height);
+    const next = decide(ranked, places, field, camera, size.width, size.height, reserved);
     const key = signature(next);
     // Only a change in the decision is worth a render: between passes every
     // plate is still tracking its own point, which drei does without React.
@@ -376,6 +379,7 @@ function decide(
   camera: THREE.Camera,
   width: number,
   height: number,
+  reserved: Rect[],
 ): Layout {
   const ndc = new THREE.Vector3();
   const eye: [number, number, number] = [camera.position.x, camera.position.y, camera.position.z];
@@ -409,8 +413,9 @@ function decide(
     CLUSTER_PX,
   );
 
-  // Summits first and against an empty screen: a mountain's own name is the one
-  // label nothing else on it may push off.
+  // Summits first and against an empty screen — the page's own chrome included.
+  // A mountain's name is the one label nothing may push off, and the masthead it
+  // may land under is a veil with a plate's own ground to read against.
   const peaks = placePlates(
     groups
       .filter((group) => group.ids.length === 1 && byId.get(group.anchorId)?.kind === "peak")
@@ -428,7 +433,7 @@ function decide(
   );
 
   const named = new Set(peaks.map((peak) => peak.id));
-  const taken: Rect[] = peaks.map((peak) => peak.rect);
+  const taken: Rect[] = [...reserved, ...peaks.map((peak) => peak.rect)];
   const marks: Layout["marks"] = [];
   for (const group of groups) {
     if (named.has(group.anchorId)) continue;
