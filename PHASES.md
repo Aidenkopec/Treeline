@@ -3,1379 +3,573 @@
 Progress tracker for [SPEC.md](./SPEC.md) §11. Each phase ends working, committed and
 deployable, and runs in its own session with its own verification gate.
 
-**Status: phase 5.5 done. The ⛳ stopping point is reached once three resorts are baked.**
-Lake Louise's 168 runs are drawn on the terrain coloured by difficulty, with search,
-filters, a per-run stats panel, an inline SVG elevation profile and the sortable HTML
-table, laid out as a map beside a list. Picking a run flies the camera to it, and Reset
-view always brings the whole mountain back. Today's snow, temperature and wind read live
-from Open-Meteo under the resort facts, on the mountain's own clock. The mountain itself is
-a winter surface, remapped from Esri's summer imagery at bake time rather than
-photographed, and it is lit by the sun that is actually over it at an hour the reader
-picks — with the shadows that sun throws. The mountain now also carries the things built on
-it: thirteen lifts drawn as cables over their real pylons, and the lodges, summit and
-viewpoint OpenStreetMap names inside the ski area. 328 tests green.
+**Status: phases 0–5.9 done. All six resorts baked. 372 tests green.** The ⛳ stopping point
+(three resorts) is passed. Everything past it is addition, not completion.
 
-> **Next action:** bake Sunshine Village and Panorama, which is what the ⛳ stopping point
-> below is waiting on. Everything after that is phase 6 onward and is addition rather than
-> completion.
+> **Next action:** phase 6, or phase 9's deploy. Nothing is blocking either.
+
+Each done phase lists what shipped, the constraints that still bind future work, and what is
+still open. Rationale that no longer constrains anything lives in git history.
 
 ---
 
 ## Phase 0 — Foundation ✅ done
 
-Not in SPEC §11. Added because §11 assumes a project already exists, and the work of
-creating one needed a label.
+Not in SPEC §11; §11 assumes a project already exists.
 
 - [x] Next.js 16 + React 19 + TypeScript + Tailwind v4, App Router, no `src/`
-- [x] Design token system (`app/globals.css`) — Imhof relief palette, Archivo width scale
-- [x] `lib/types.ts` — the build-time↔runtime data contract, every SPEC §6 field typed
-- [x] Difficulty marks by shape, not color alone (`components/difficulty-mark.tsx`)
+- [x] `app/globals.css` — Imhof relief palette, Archivo width scale
+- [x] `lib/types.ts` — the build-time↔runtime contract, every SPEC §6 field typed
+- [x] `components/difficulty-mark.tsx` — difficulty by shape, not colour alone
 - [x] SPEC §8 disclaimer, inbounds framing and attribution in the root layout
-- [x] Resort index page with an honest "not baked" empty state
-- [x] Masthead figure — one massif in section, treeline labelled, a lift up and a run
-      down it, drawn once on load in CSS alone (no client component)
+- [x] Resort index with an honest "not baked" empty state; CSS-only masthead figure
 - [x] `resorts.json` — all six resorts configured
-- [x] vitest + tsx wired; `npm test`, `npm run typecheck`, `npm run lint`, `npm run bake`
-- [x] Formatting and hygiene — Prettier, lint-staged pre-commit, agent hooks, CI gate
+- [x] vitest + tsx; Prettier, lint-staged, agent hooks, CI gate
 - [x] Route handler skeletons for conditions (phase 4) and OG images (phase 8)
-- [x] AGENTS.md records the §8 rules as non-negotiable in an implementation session
 
-**Verified:** build passes, lint and typecheck clean, 48 tests green, no console errors,
-no layout overflow from 320px up.
+**Gate:** 48 tests, build/lint/typecheck clean, no overflow from 320px up.
 
 ---
 
 ## Phase 1 — Bake pipeline, Lake Louise only ✅ done
 
-**Deliverable:** real artifacts for one resort — `heightmap.png`, `satellite.jpg`,
-`runs.json`, manifest entry.
+Real artifacts for one resort: `heightmap.png`, `satellite.jpg`, `runs.json`, manifest entry.
 
-**Gate (SPEC §11):**
+- [x] `tiles.ts` — Web Mercator tile math (SPEC §13's hard part)
+- [x] `terrarium.ts` — elevation decode
+- [x] `terrain.ts` — Horn's method slope/aspect, bilinear sampling
+- [x] `overpass.ts` — query builders, the `piste:type=downhill` filter, retry/backoff
+- [x] `scripts/bake/runs.ts` — `sampleProfile`, `averagePitch`, `sustainedMaxPitch`,
+      `meanAspect`, `deriveRun`
+- [x] `scripts/bake/imagery.ts`, `emit.ts`, `scripts/bake.ts` — mosaic, artifacts, manifest,
+      `reportAssetWeight` against the SPEC §10 budget
 
-- [x] Downhill-only filter asserted against a fixture containing backcountry ways
-- [x] Fixture tile decodes to known elevations — real tile `13/1452/2726`; the base area
-      reads within 20m of the published 1646m
-- [x] Golden pitch/aspect for two hand-checked Lake Louise runs, within tolerance —
-      Wiwaxy and Eagles Flight, checked against Copernicus DEM GLO-90
+**Constraints**
 
-### Done
+- `meanAspect` averages unit vectors, not degrees — 350° and 10° average to N, not S.
+- `sustainedMaxPitch` is a sliding window so one noisy DEM cell cannot report a cliff.
+- Verification is against independent sources, never the pipeline's own output.
 
-- [x] `tiles.ts` — Web Mercator tile math, 8/8 functions, 8 tests (SPEC §13's hard part)
-- [x] `terrarium.ts` — elevation decode, 3/3 functions, 7 tests
-- [x] `terrain.ts` — Horn's method slope/aspect + bilinear sampling, 5/5 functions, 12 tests
-- [x] `overpass.ts` — query builders and the `piste:type=downhill` safety filter, 11 tests
+**Open, accepted:** one run per OSM way, so a name can appear more than once, and a published
+figure may describe a different object than the way carrying its name — the FIS Men's Downhill
+_course_ is 3123m/827m, while the OSM way named "Men's Downhill" is the 743m/256m pitch.
+Merging ways into one run per trail is bake math and its own change.
 
-### Remaining, in order
-
-**1. Derived stats** — `scripts/bake/runs.ts` ✅ done. Pure math, no network:
-
-- [x] `sampleProfile` — resample a polyline to a fixed ground interval against the DEM
-- [x] `averagePitch` — mean slope, weighted by segment length
-- [x] `sustainedMaxPitch` — sliding window, so one noisy DEM cell can't report a cliff
-- [x] `meanAspect` — averaged as unit vectors, not raw degrees (350° and 10° average to N, not S)
-- [x] `deriveRun` — assemble one complete `Run`
-
-**2. Network and raster I/O** ✅ done:
-
-- [x] `overpass.ts` `runQuery` — POST, with retry and backoff on 429/502/503/504
-- [x] Tile download + stitch via `sharp` (elevation and imagery share `tiles.ts`)
-- [x] `imagery.ts` `bakeSatelliteTexture` — two zoom levels deeper than the DEM
-
-**3. Emit** — `scripts/bake/emit.ts` ✅ done:
-
-- [x] RGB-encoded `heightmap.png`, `satellite.jpg`, `runs.json`, manifest update
-- [x] `reportAssetWeight` against the SPEC §10 budget
-
-**4. Orchestrate** — `scripts/bake.ts` ✅ done: `bakeResort`, `checkResort`, `--no-cache`
-
-**5. Close the gate** ✅ done:
-
-- [x] Bake Lake Louise for real; commit the artifacts — 1.97 MB of the 5 MB budget
-- [x] Verify against independent sources, not the pipeline's own output
-- [x] Commit golden values and structural invariants in `tests/runs.golden.test.ts`
-
-**Verified:** 102 tests green, format/lint/typecheck/build clean, home page shows Lake
-Louise as baked. Elevation checked two ways — seven OSM surveyed peaks and lift stations
-(every sharp summit reads low, mean -43m; the valley floor reads +6m high; a broad rounded
-hill reads exact, which is resampling ~30m data rather than a bug), and two runs against
-Copernicus DEM GLO-90 (pitch within 0.3° on Eagles Flight, 3.5° on the much shallower
-Wiwaxy, where DEM noise dominates a gentle gradient).
-
-**Known, accepted:** one run per OSM way means a name can appear more than once, and a
-famous published figure may describe a different object than the way carrying its name —
-the FIS Men's Downhill _course_ is 3123m/827m over several trails, while the OSM way named
-"Men's Downhill" is the 743m/256m pitch itself. Revisit in phase 3 with the list on screen.
+**Gate:** 102 tests. Elevation checked against seven OSM surveyed peaks and lift stations
+(mean −43m on sharp summits, which is resampling ~30m data) and two runs against Copernicus
+DEM GLO-90 (within 0.3° on Eagles Flight). Lake Louise at 1.97 MB of the 5 MB budget.
 
 ---
 
 ## Phase 2 — Next.js app renders that terrain ✅ done
 
-**Deliverable:** `/resorts/[slug]`, statically generated from the manifest, drawing the
-baked heightmap as terrain with the satellite imagery draped over it.
+`/resorts/[slug]`, statically generated, drawing the baked heightmap with the imagery draped.
 
-- [x] `lib/elevation.ts` — the RGB elevation decode, moved out of `scripts/bake/` so the
-      bake and the app share one implementation of the encoding rather than two
-- [x] `metres_per_pixel` in the manifest — the bake already computed it, it just never
-      reached the artifact, and without it the mesh has no real-world scale
-- [x] `lib/terrain-mesh.ts` — heightmap to vertices in metres, 7 tests including an
-      encode→PNG→decode→mesh round trip across the build/runtime boundary
-- [x] `components/terrain-scene.tsx` — R3F canvas, satellite material, Imhof sun/shade
-      lighting, orbit controls that auto-rotate until grabbed
-- [x] `components/terrain-viewer.tsx` — WebGL probe and the fallback when there is none
-- [x] Vertical exaggeration tuned by eye: 1.4 → **1.8** for Lake Louise
+- [x] `lib/elevation.ts` — the RGB decode, shared by bake and app rather than written twice
+- [x] `metres_per_pixel` into the manifest — without it the mesh has no real-world scale
+- [x] `lib/terrain-mesh.ts` — heightmap to vertices in metres
+- [x] `components/terrain-scene.tsx` — R3F canvas, satellite material, Imhof lighting, orbit
+- [x] `components/terrain-viewer.tsx` — WebGL probe and the no-GPU fallback
+- [x] Vertical exaggeration 1.8 for Lake Louise, tuned by eye
 
-**Verified:** 60fps locked at 2850x1150 (p95 17.2ms, worst frame 17.7ms) on a 393k-vertex,
-784k-triangle mesh, so no decimation was needed. Terrain is recognisably Lake Louise —
-Whitehorn's summit ridge, the Front Side runs, the base area and the lake all land where
-they belong, with the imagery registered to the landform. Console clean. Without WebGL the
-page still carries name, country, elevation range, run count, vertical scale, baked date
-and the disclaimer, all in the server HTML — no JS required to read any of it.
+**Constraints**
 
-**Known, accepted:** the mesh is a rectangle with hard cut edges rather than a plinth with
-a skirt; at phone widths the terrain fits the frame but sits small, which is inside SPEC
-§3's "must not be broken on a phone, is not designed for one". `@react-three/fiber` logs
-one `THREE.Clock is deprecated` warning from its own internals.
+- The opening framing is frozen at first render. A resize must not recompute the orbit clamps
+  and drag a zoomed-out camera back in.
+- The heightmap decodes through a detached canvas, not `OffscreenCanvas` — Safari shipped the
+  latter four versions after WebGL2, so the probe was waving through browsers that then
+  crashed. The probe releases its WebGL context rather than holding a slot.
+- A failed artifact fetch degrades to the no-GPU notice; it must not reach the root error
+  boundary and take the facts and the disclaimer with it. A rejected load is not cached.
+- A missing or malformed `runs.json` reads as `—`, never as the fact "0 marked runs".
 
-**Hardened after review:**
+**Open, accepted:** the mesh is a rectangle with hard cut edges rather than a plinth with a
+skirt. At phone widths the terrain fits but sits small (SPEC §3). `@react-three/fiber` logs one
+`THREE.Clock is deprecated` warning from its own internals — expected in every gate below.
 
-- A failed artifact fetch degrades to the same notice as the no-GPU path instead of
-  reaching Next's root error boundary and taking the facts and the disclaimer down with
-  it; the load moved out of the R3F tree so a plain error boundary can catch it, and a
-  rejected load is no longer cached for the rest of the session
-- The heightmap decodes through a detached canvas rather than `OffscreenCanvas`, which
-  Safari shipped four versions after WebGL2 — the probe was waving through browsers that
-  then crashed. The probe also releases its WebGL context instead of holding a slot
-- The opening framing is frozen at first render, so a resize no longer recomputes the
-  orbit clamps and drags a zoomed-out camera back in (`openingFraming`, 4 tests)
-- A missing or malformed `runs.json` reads as `—`, not as the fact "0 marked runs"
+**Gate:** 60fps locked at 2850x1150 (p95 17.2ms) on a 393k-vertex mesh, so no decimation.
+Without WebGL the server HTML still carries name, country, elevation range, run count, vertical
+scale, baked date and the disclaimer.
+
+---
 
 ## Phase 3 — Run overlay, stats panel, filters, elevation profile ✅ done
 
-**Gate (SPEC §11):**
+Four passes: the numbers, then the layout, then finding a picked run, then getting back off it.
 
-- [x] Stats in UI match `runs.json` — `runCells` asserted against the committed artifact
-      rather than checked by eye (`tests/run-list.test.ts`)
-- [x] Filter unit tests — boundaries, `[]` meaning "all", `[null]` meaning untagged
-- [x] Profile renders from a fixture — a descent with corners known by construction,
-      plus the degenerate cases (`tests/profile-path.test.ts`)
+- [x] `lib/terrain-mesh.ts` — `lonLatToMesh` / `runMeshPoints`; `fitDistance` generalised out
+      of `openingFraming`, then `focusFraming`; `FocusExtent` / `runExtent`
+- [x] `lib/run-list.ts` — filter, sort, table cells, pure and tested in node
+- [x] `lib/profile-path.ts` — the profile as SVG path data, straight between samples
+- [x] `components/run-overlay.tsx` — one drei `<Line>` per run, casing + core, gold halo and a
+      ghost trace on the picked one
+- [x] `components/run-explorer.tsx` — one filter and one selection driving both views; two
+      panes at `xl:`, map sticky beside a list that scrolls in the document
+- [x] `components/run-filters.tsx` — search, chips and slider behind a disclosure with a count
+- [x] `components/terrain-scene.tsx` — a 900ms eased flight of camera and target, cancelled on
+      grab, instant under `prefers-reduced-motion`; **Reset view** through a `resetSignal`
+- [x] Selected run in `#run=<id>`, read through `useSyncExternalStore`
 
-### Done
+**No bake change:** every field phase 3 needed was already in `runs.json`.
 
-- [x] `lib/terrain-mesh.ts` — `lonLatToMesh` / `runMeshPoints`, the projection the phase-2
-      UV comment was written anticipating. Longitude is linear in Mercator and latitude is
-      not, so it goes through `mercatorY`; `bounds` sits on pixel _edges_ while vertices sit
-      at pixel _centres_, and that half-pixel cancels against the recentre
-- [x] `lib/run-list.ts` — filter, sort and the table's cells, pure and tested in node
-- [x] `lib/profile-path.ts` — the profile as SVG path data, straight segments between
-      samples because the corners are the data
-- [x] `components/run-overlay.tsx` — one drei `<Line>` per run inside the R3F scene
-- [x] `components/run-explorer.tsx` — one filter and one selection driving both views
-- [x] `components/run-filters.tsx`, `run-panel.tsx`, `elevation-profile.tsx`, `run-table.tsx`
-- [x] Selected run in `#run=<id>`, shareable, read through `useSyncExternalStore`
+**Constraints**
 
-**No bake change and no re-bake:** every field phase 3 needed was already in `runs.json`,
-including the full 25m resampled profile.
+- The selection is in the URL hash, never `searchParams` — `useSearchParams` de-opts the route
+  to client rendering and takes the prerendered rows out of the HTML (SPEC §9).
+- Filters stay in React state and are deliberately not shareable.
+- A run is drawn casing-then-core; the casing writes no depth, or the two z-fight. No line
+  writes depth — the terrain already does, so runs still hide behind a ridge.
+- A run recedes by **colour, not opacity**. `Line2` overlaps quads at the joins, so a blended
+  line composites twice and beads along its length.
+- What recedes is decided by what the reader pointed at and nothing else. Fading by pitch is a
+  steepness ramp with extra steps (SPEC §8).
+- Pitch prints whole degrees; a 30m DEM does not support the decimal. "Stats match
+  `runs.json`" means after that rounding.
+- Selection moves the camera; hover never does. 168 rows answering on the way past is a strobe.
+- Flight distance is clamped into OrbitControls' own range, or a 68m connector frames at ~100m
+  and flies the camera into the ground.
+- `maxDistance` is measured against the whole mountain, not the closer framing.
+- Reset is a counter, not a flag — pressing twice must fly twice — and it does not clear the
+  selection. Clearing a selection returns the camera only if the viewer has not orbited since.
+- The table keeps every filtered row in the prerendered HTML. Nothing is windowed.
 
-### Decisions worth recording
+**Open, accepted:** a run line is a small target at the opening camera distance; the table is
+the easier path and the accessible one. At 1300 the list pane is narrowest and 16 long names
+clip.
 
-- **Advanced and expert are near-white** (`--color-diff-advanced` / `-expert`), which is
-  right on a dark panel and invisible drawn over snow — and 105 of 168 runs are one of the
-  two. Each run is drawn twice, a dark casing under a coloured core, the way a map keeps a
-  road legible over any background. No palette change, no steepness ramp (SPEC §8).
-- **The selected run is in the URL hash, not in `searchParams`.** `useSearchParams` would
-  de-opt the route to client-side rendering up to the nearest Suspense boundary and take the
-  table out of the prerendered HTML, undoing phase 2's no-JS guarantee. Verified: the built
-  `lake-louise.html` carries all 168 rows, 75 KB gzipped, 1.78 MB of the 5 MB budget.
-- **Filters stay in React state**, so they are deliberately not shareable.
-- **The phase-1 question about same-named ways was reviewed with the list on screen and
-  left as it is.** 168 OSM ways, one row each: 7 unnamed render as "Unnamed run", and the
-  16 that share a name are told apart by their own numbers. Merging them into one run per
-  named trail is bake math — stitching ways and recomputing pitch across the joins — and
-  belongs in its own change, not in a UI phase.
-- **Pitch prints whole degrees.** `runs.json` stores 7.3 and `lib/format.ts` rounds it, on
-  the standing judgement that a 30m DEM does not support the decimal. So "stats match
-  `runs.json`" means after that rounding, which is what the test asserts.
+**Gate:** 171 tests. `#run=883614835` restores Headwall at 22°, 23°, SW 207°, 252m, 673m,
+profile 2583m→2331m, matching `runs.json`. Build carries 169 `<tr>`, 76.6 KB gzipped.
 
-**Verified:** 143 tests green, format/lint/typecheck/build clean, console clean apart from
-the `THREE.Clock` deprecation phase 2 already recorded. Checked in the browser: runs sit on
-the landform and follow the trails visible in the imagery; white advanced/expert runs read
-clearly against snow; filtering to Expert left 27 runs in both the table and the scene;
-clicking a line on the mountain selected Headwall, and every figure in the panel matched its
-row in `runs.json` (22°, 23°, SW 207°, 252m, 673m, profile 2583m→2331m); a cold reload of
-`#run=883614835` restored that selection; sorting by average pitch put the Gullies and
-E.R. 3 on top, which is the right answer for this mountain.
-
-**Found and fixed during that pass** — none of these were things a test would have caught:
-
-- The coloured cores beaded along their length: a wide casing and a narrow core on identical
-  geometry z-fight, and the casing won in patches. The casing now draws first and writes no
-  depth, so the core always lands on top while both still hide behind a ridge.
-- The profile's axis labels were reversed. The profile descends left to right, so the left
-  end is the top of the run; it was printing the bottom there. It also reprinted the length,
-  which rounds a metre differently from the baked `length_m` — that is gone, since the panel
-  prints length directly above the chart.
-- A selected run stayed in the panel after a filter hid it from both views. `selected` is now
-  read through the filter, so the panel empties while the run is hidden. The hash is left
-  alone deliberately: clearing it would break a shared link the moment a filter was touched,
-  and clearing the filter brings the selection straight back.
-- Click-to-select uses R3F's own `onClick`, which already refuses to fire when the pointer
-  moved more than two pixels, rather than a hand-rolled pointerdown/up comparison. The
-  handler sits on the casing because it is the wider of the two lines and a two-pixel core is
-  a hard thing to hit on a mountain.
-
-**Known, accepted:** a run line is a small target at the opening camera distance — it is
-easier to pick a run from the table, which is the accessible path anyway.
-
-### Revised after a look at the built page
-
-Phase 3's gate was about whether the numbers were right, and they were. Sat in front of it,
-four things about it were not:
-
-- **The filter card floated over the canvas** and covered the west face, which is where this
-  mountain keeps most of its runs.
-- **Selecting a run changed nothing you could see.** Selection was carried by line width
-  alone, 2px to 4px. 105 of 168 runs are the same near-white; two pixels among them is not a
-  signal. Zooming into a screenshot of a selected run, there was no way to tell which it was.
-- **The map and the table never coexisted.** The map was 707px, the page 7070px, so a run
-  picked six screens down was on a mountain that had long since scrolled away.
-- **The camera framed the DEM mosaic rather than the runs.** The mosaic is cut to whole tiles:
-  measured off the committed artifacts it is 9136m x 6086m, while the runs cover 4428m x
-  4523m — 36% of it, sitting 490m west of centre. Half the canvas was ground with nothing
-  drawn on it.
-
-**Done**
-
-- [x] `lib/terrain-mesh.ts` — `FocusExtent` / `runExtent`, and `openingFraming` takes an
-      optional box to fit. Framed on the runs the camera comes in to under 60% of the mosaic
-      distance, roughly doubling how big they read
-- [x] `components/run-overlay.tsx` — a run that is not being looked at drops its casing and
-      mixes towards the ground colour; the one that is draws after every other, at 5px
-- [x] `components/run-explorer.tsx` — two panes at `xl:`, the map beside the list, stacking
-      into the old single-column flow below it
-- [x] `lib/run-list.ts` — `query` on `RunFilter` and `isFiltered`, both pure and tested
-- [x] `components/run-filters.tsx` — search box, the chips and slider as a block beside the
-      map rather than a card on top of it, and a live "N of 168 shown" with a clear button
-- [x] `components/run-table.tsx` — every header carries a sort glyph, not just the sorted one
-- [x] `hoveredId` alongside `selectedId`: hovering a row lights its run, and the run its row
-
-**Decisions worth recording**
-
-- **A run recedes by colour, not by opacity.** `Line2` draws a polyline as one quad per
-  segment and consecutive quads overlap at the joins, so a blended line composites twice at
-  every join and beads along its length — the same artefact phase 3 fixed, arriving by
-  another route. Mixing towards `--color-shadow-deep` keeps every line opaque. Tried it the
-  other way first and the beading was plain in a screenshot.
-- **No line writes depth any more.** The terrain already has, so a run still hides behind a
-  ridge, and `depthTest` stays on — drawing the picked run through the mountain would put it
-  somewhere it is not. What this avoids is one run's depth rejecting another's where they
-  cross, which became a real risk once the picked run started drawing last.
-- **What recedes is decided by what the reader pointed at, and by nothing else.** Fading runs
-  by pitch would be a steepness ramp with extra steps (SPEC §8).
-- **Search is an addition beyond SPEC §4's filter list**, agreed in session. It is a fourth
-  field on `RunFilter`, so it is one tested predicate rather than a second concept beside the
-  filter, and it stays in React state like the others — not in the URL, which would also mean
-  the hash is no longer just `#run=`.
-- **The camera does not move when a run is selected.** SPEC §4 makes it cinematic until
-  grabbed, and phase 5's first-person run camera is the designed "take me there". Auto-rotate
-  now stops once a run is picked or the list is narrowed, which in a two-pane layout is the
-  difference between cinematic and a fidget.
-- **`maxDistance` is still measured against the whole mountain**, not the closer framing, or
-  the pull-back would stop short of the massif.
-- **The table keeps every filtered row in the prerendered HTML.** The list pane scrolls with
-  CSS, nothing is windowed, and nothing moved to `useSearchParams` (SPEC §9). Checked on the
-  build: 169 `<tr>`, 76.7 KB gzipped against phase 3's 75 KB.
-- **`min-w-3xl` on the table was an asserted minimum, not a real one.** Its true min-content
-  is 529px; left as it was the table scrolled sideways inside the list pane for no reason.
-
-**Verified:** 159 tests green, format/lint/typecheck/build clean, console clean apart from
-the `THREE.Clock` deprecation phase 2 already recorded. In the browser: a selected run reads
-instantly among the other 167 and survives being zoomed into a screenshot; hovering a row
-lights its line and hovering a line lights its row; `ptarmigan` narrows to 7 of 168, which is
-what the test asserts; filtering to Expert leaves 27 in both views, removed rather than
-receded; a cold reload of `#run=883614835` restored Headwall at 22°, 23°, SW 207°, 252m,
-673m, profile 2583m→2331m, matching `runs.json`. Checked at 1710, 1280 and phone widths.
-
-### Revised again, for the map
-
-Sat in front of the two panes, the map was still sharing the page rather than leading it:
-two scrollbars down the middle, a stats card parked across the terrain, and 270px of filter
-controls standing between the reader and the run list.
-
-**Done**
-
-- [x] **One scroll region.** The map pane is `sticky top-0 h-svh` and the list scrolls past
-      it in the document's own scroll. The inner scroller is gone, and with it the second
-      scrollbar and the width it was taking off the table.
-- [x] **Nothing on the terrain but the header.** `run-panel.tsx` moved to the head of the
-      list, laid out across rather than down, with the profile boxed beside the numbers
-      instead of stretched over the full pane.
-- [x] **Filters fold away.** Search stays out; grade, aspect and vertical sit behind a
-      disclosure that carries a count of how many are set. Chrome above the list drops from
-      about 270px to about 130px.
-- [x] **The list collapses.** A control in the map's corner folds the whole pane away and
-      gives the terrain the full window.
-- [x] Long run names clip rather than wrap, so 168 rows stay one height to scan.
-
-**Decisions worth recording**
-
-- **Collapsing hides the list, it never unmounts it.** Without WebGL the table is the site,
-  so the rows stay in the document and the pane opens by default — which is what the
-  prerendered HTML carries and what a visit without JavaScript gets (SPEC §9).
-- **Folded away, the reopen control carries the selected run's name.** A run picked on the
-  terrain has nowhere else to report itself once the panel is shut.
-- **Collapsing does not reframe the camera.** `openingFraming` is still frozen at first
-  render (the phase-2 hardening): a wider pane widens the frustum and shows more mountain,
-  rather than yanking a camera the viewer may have already moved.
-- **The column headers are no longer sticky.** The block above them changes height with the
-  selection, so pinning them under it would mean a magic offset that is wrong half the time.
-  The five figures are labelled in the panel directly above.
-- **`max-w-0` alone clipped the name column to 47px** — the auto table layout handed the
-  slack to the other six columns. It needs `w-full` beside it to take the slack back.
-
-**Verified:** 159 tests green, format/lint/typecheck/build clean. In the browser: one
-scrollbar and no inner scrollers at all; the map holds while 168 rows scroll past it;
-collapsing gives the canvas the full width within about 120ms and all 168 rows stay in the
-DOM while it is shut; reopening restores Headwall at 22°, 23°, SW 207°, 252m, 673m, matching
-`runs.json`. Build carries 169 `<tr>`, 76.6 KB gzipped.
-
-**Known, accepted:** at 1300 the list pane is at its narrowest and 16 of the longest run
-names clip. Widening it further would come out of the map, and the pane now folds away
-entirely when the map is what matters.
-
-### Revised again, for finding the run you picked
-
-Sat in front of it with the list on screen, picking Marmot out of the 168 still meant
-hunting for it. The cause was not contrast. Marmot faces **NW 325°**, the opening camera
-stands due south of the massif, and the overlay is depth tested against the terrain — so the
-run was foreshortened to almost nothing and then partly eaten by its own ridge. A line that
-is not drawn cannot be styled into visibility.
-
-**Done**
-
-- [x] `lib/terrain-mesh.ts` — `fitDistance` factored out of `openingFraming` and generalised
-      to an arbitrary azimuth and elevation, then `focusFraming`: where to stand to look at
-      one run, given where the viewer is already standing. `openingFraming`'s numbers are
-      unchanged, and its existing tests pin that
-- [x] `components/terrain-scene.tsx` — a 900ms eased flight of both `camera.position` and
-      `controls.target`, cancelled the moment the controls are grabbed, instant under
-      `prefers-reduced-motion`
-- [x] `components/run-overlay.tsx` — a gold halo under the casing on the picked run, and a
-      thin trace of it drawn through whatever is standing in front of it
-
-**Decisions worth recording**
-
-- **This reverses "the camera does not move when a run is selected."** That decision read
-  SPEC §4's "cinematic until grabbed" as "never moved by the app", and pointed at phase 5's
-  first-person camera as the designed "take me there". Both halves still hold — the flight is
-  abortable by a grab, and riding the polyline is still phase 5 — but neither answers _where
-  on this mountain is the run I just picked_, which is a question the list asks 168 times.
-- **It reverses "drawing the picked run through the mountain would put it somewhere it is
-  not"** — but only for a 1.5px trace under a 15px stack, and only for the one run the reader
-  asked about. The full-strength line is still depth tested and still stops at the ridge; what
-  the trace says is "it carries on", not "it is here". The alternative is a run that appears
-  to end in the middle of the mountain.
-- **The azimuth is kept unless the camera is behind the slope.** A viewer who has orbited
-  somewhere keeps their view and is only brought closer, which is the gentler move. The swing
-  fires on one dot product against the run's own baked `aspect_deg` — no raycasting, and the
-  bake already measured the number.
-- **Selection moves the camera; hover never does.** The list is 168 rows long and a camera
-  that answered every one on the way past would be a strobe.
-- **Clearing the selection leaves the camera where it is.** A pull-back nobody asked for
-  would also throw away a manual orbit.
-- **Distance is clamped into OrbitControls' own range**, or the 68m Marmot-to-Lookout
-  connector frames at about 100m and flies the camera into the ground.
-
-**Verified:** 171 tests green (12 new, including the swing, the clamps, the preserved
-elevation angle and Marmot's own committed geometry), format/lint/typecheck/build clean,
-console clean apart from the `THREE.Clock` deprecation phase 2 already recorded. In the
-browser: Marmot swings round to its NW face and reads instantly; West Bowl Gully — near-white
-on pale ground, the case the casing alone loses — reads with the halo; hovering rows lights
-lines without moving the camera; grabbing mid-flight stops it; on Pika the trace shows the
-buried section while the core resumes where the run is actually visible.
-
-**Not verified at runtime:** the `prefers-reduced-motion` branch is typechecked and in place
-but was not exercised against the emulated media query.
-
-### Revised again, for getting back off the run you picked
-
-The flight had no return leg. Pick Larch, clear it, and the camera stays on Larch's framing
-with `controls.target` still on its centre — so zooming out orbits Larch and swings the
-massif out of frame rather than backing away from it. Recovery needed a right-drag pan,
-which nothing on the page says exists. Worse, filtering the picked run away sets `selected`
-to null through `visibleIds`, `RunPanel` falls back to its empty state, and the clear
-control disappears with it: camera parked on a run, nothing on screen to undo it.
-
-**Done**
-
-- [x] `components/terrain-viewer.tsx` — a **Reset view** control in the map's bottom-left,
-      conditional on nothing, driving the scene through a `resetSignal` counter it owns.
-      Inside the WebGL branch so it does not float over the no-GPU notice, outside the
-      `aria-hidden` canvas wrapper so it is reachable by keyboard
-- [x] `components/terrain-scene.tsx` — the flight setup factored out of the selection effect
-      into `flyTo`, so selection and reset share one path including the reduced-motion
-      branch; a `movedByApp` ref; the `selectedId === null` early return turned into the
-      return-home branch
-- [x] `components/run-panel.tsx` — the bare `✕` became a bordered, labelled **Clear ✕**
-
-**Decisions worth recording**
-
-- **This narrows "clearing the selection leaves the camera where it is" rather than
-  reversing it.** Clearing now hands back the flight and only the flight: untouched since
-  the camera landed, it returns; orbited since, `onStart` has already dropped `movedByApp`
-  and the view stays. The old rule's reason — that a pull-back nobody asked for throws away
-  a manual orbit — is exactly what the condition protects.
-- **The same branch covers a filter hiding the picked run**, which is the clearing nobody
-  pressed a button for and the one that used to leave no button to press.
-- **Reset is a counter, not a flag.** Pressing it twice has to fly twice, and the scene
-  reports no arrival for a flag to be cleared on. It is compared against the last value
-  seen rather than against zero, so a re-run of the effect cannot yank the camera.
-- **Reset does not clear the selection.** Camera and selection are different questions;
-  wanting the whole mountain back with a run still lit is a reasonable thing to want.
-- **The control is always on screen.** "Appears once the camera has moved" would mean
-  comparing against the opening framing every frame and pushing that into React state, to
-  make the escape hatch conditional on the state the viewer is least able to assess.
-
-**Verified:** 171 tests green — no new ones, and none earned: `openingFraming` and
-`focusFraming` are untouched and already pinned, and what changed is wiring and chrome.
-format/lint/typecheck clean, console clean apart from the `THREE.Clock` deprecation. In the
-browser, all four legs: Larch flies in; clearing flies back to the whole massif with the
-search filter intact; dragging to a low angle and then clearing leaves the camera there;
-Reset view returns from it. At 700px the layout stacks, the list toggle drops away and Reset
-view is still in the map's corner.
+---
 
 ## Phase 4 — Conditions route handler ✅ done
 
-`/api/conditions/[slug]` proxying Open-Meteo, with cache headers. Every field nullable.
+`/api/conditions/[slug]` proxying Open-Meteo, plus the strip that reads it. Every field
+nullable.
 
-Shipped with the conditions strip that reads it. SPEC §4 lists the strip and no phase owned
-it, SPEC §15 needs it to call the project done, and a route handler nothing calls is not a
-deliverable. Agreed in session before starting.
-
-**Gate (SPEC §11):**
-
-- [x] Tests against recorded Open-Meteo fixtures — `tests/conditions.test.ts`, four fixtures
-- [x] **An API-down case** — `tests/conditions-route.test.ts`: a refused connection, a
-      timeout, a 429/500/503, a 200 carrying HTML, and a 200 carrying an Open-Meteo error
-
-### Done
-
-- [x] `lib/conditions.ts` — `conditionsUrl` and `parseConditions`, pure and tested in node,
-      the same split as `lib/run-list.ts`: the mapping is where the mistakes are, the handler
-      is fetch and headers
+- [x] `lib/conditions.ts` — `conditionsUrl` and `parseConditions`, pure and tested in node
 - [x] `app/api/conditions/[slug]/route.ts` — slug lookup, one fetch, cache headers
 - [x] `components/conditions-strip.tsx` — four readings below the resort facts
-- [x] `lib/format.ts` — `wind()` and `observedAt()`. `celsius()` and `centimetres()` were
-      written in phase 0 for this and had been unused ever since
-- [x] `tests/fixtures/open-meteo-*.json` — three recorded live, one derived and marked so
+- [x] `lib/format.ts` — `wind()`, `observedAt()`
+- [x] `tests/fixtures/open-meteo-*.json` — three recorded live, one derived and marked
 
-### Decisions worth recording
+**Constraints**
 
-- **An upstream failure is 502, not a 200 of nulls.** This reverses the comment committed
-  with the `Conditions` type in phase 0, and `lib/types.ts` has been corrected rather than
-  left contradicting the code. The handler is a gateway; answering 200 with a well-formed
-  reading of nulls makes "Open-Meteo is down" indistinguishable from "no snow fell", which at
-  a ski resort are opposite facts. The page still never blanks — that is the strip's job, and
-  it renders a dash for a failed response exactly as it does for an absent variable. The
-  fields stay nullable for the reason they always should have: Open-Meteo omits a variable
-  its model does not carry at a location.
-- **`stale-while-revalidate` is what the 200-of-nulls was really for.** A cache holding a
-  recent reading keeps serving it while a refetch runs, so a blip degrades to the last _real_
-  reading rather than to a fabricated one. Full header:
-  `public, s-maxage=900, stale-while-revalidate=3600`. 900s is Open-Meteo's own
-  `current.interval`; asking more often returns the same numbers. This header was written
-  with `stale-if-error=86400` on the end and reviewed with it removed: **Vercel supports
-  neither `stale-if-error` nor `proxy-revalidate` for server-side caching, and caches no 502
-  at all** (its cacheable statuses are 200, 404, 410, 301, 302, 307, 308). So an outage past
-  the hour is a 502 and a strip of dashes, which is the honest outcome — but it is not the
-  one the directive promised, and a header should not describe behaviour the deploy target
-  does not give.
-- **Snow depth arrives in metres and is published in centimetres.** `current_units.snow_depth`
-  is `"m"` while `snowfall` is `"cm"` in the same response.
-- **A rolling 24 hours, not the calendar day.** `hourly=snowfall&past_hours=24` summed,
-  because `daily=snowfall_sum` answers "since midnight", and at 9am that is not what
-  `snowfall_cm_24h` promises.
-- **Every unit is asserted against the response's own `*_units` block.** A unit change
-  upstream would not crash anything — metres published as centimetres is a plausible-looking
-  number — so `tests/conditions.test.ts` pins `snow_depth: "m"`, `snowfall: "cm"`,
-  `temperature_2m: "°C"` and `wind_speed_10m: "km/h"` on both fixtures. If a re-recording
-  ever disagrees, the units fail before the arithmetic does.
-- **The reading is printed on the mountain's clock, not UTC and not the reader's.**
-  "21:00 UTC" is the correct instant and tells a skier nothing; "3:00 PM MDT" is the number
-  they can hold against their own watch. `timezone=auto` makes Open-Meteo resolve the zone
-  from the coordinates, which is also the only version of this that works for Niseko without
-  this project keeping a timezone table.
-- **The zone is carried as an IANA name, never as a fixed abbreviation.** Alberta is MDT for
-  most of a ski season and MST for the rest of it, so "Mountain Standard Time" would be wrong
-  from March to November. `Intl` derives the abbreviation from `America/Edmonton` and the
-  instant, and gets the changeover right on its own. Open-Meteo's own
-  `timezone_abbreviation` is no help — it answers "GMT-6".
-- **`observed_at` stays a UTC instant in the JSON, and the local time is derived for display.**
-  Open-Meteo returns a naive wall clock plus `utc_offset_seconds`; `toInstant` puts those back
-  together. A timestamp in a payload should be unambiguous, and the clock the reader wants is
-  a rendering question, not a storage one.
-- **"Weather from Open-Meteo", not a bare "Open-Meteo".** The strip carries provenance for
-  SPEC §8, and a brand name on its own does not tell a reader whether they are looking at a
-  source or a reading. It is the footer's existing wording, so the two agree.
-- **The Lake Louise fixture cannot prove the metres-to-centimetres scaling or the rolling
-  sum**, because it is September and every snow value in it is a real zero — a unit
-  conversion and a sum can both be wrong in every way and still produce 0. The second fixture
-  is Aoraki / Mount Cook, recorded the same day, in late winter: 2.69m of depth and 3.78cm
-  over 12 of the 24 hours.
-- **The strip is a client component, and that is not a style preference.** Awaiting a runtime
-  fetch in a server component turns the whole route dynamic and takes the 168 prerendered
-  rows out of the served HTML — the same trap phase 3 avoided by keeping the selection in the
-  hash rather than in `useSearchParams` (SPEC §9). Checked on the build: still `●`, still 169
-  `<tr>`.
-- **A failed request and an absent variable render identically**, because to a reader they
-  are the same thing: no number. There is no retry button, no spinner and no error text. What
-  the strip does drop is the timestamp: with no reading it says "Open-Meteo" and not a time.
-- **The slug is validated against `resorts.json`, and that is the security property.** The
-  lat/lon that reach Open-Meteo are only ever committed values, and an unknown slug is a 404
-  answered before any request is made. `plannedResorts()` is a static import compiled into
-  the function; `readResort()` reads `public/` off disk at `process.cwd()`, which is a
-  build-time pattern and not reliably there in a deployed function.
-- **One attempt, 4s timeout, no retry** — deliberately unlike `scripts/bake/cache.ts`'s
-  `[2000, 8000, 20000]` ladder. That is right for a background job and wrong inside a
-  visitor's request, where a retry only makes them wait twice. The cache directives absorb
-  the blip instead.
-- **This is the project's first network stub.** Everything else is tested against a recorded
-  fixture with the `fetch` left uncovered, which is the house pattern and is what
-  `tests/conditions.test.ts` still does. The gate names an API-down case, and there is no way
-  to reach one without intercepting the call — `vi.stubGlobal` is built into vitest, so it
-  cost no dependency and no `setupFiles`.
+- **An upstream failure is 502, not a 200 of nulls.** Answering 200 with nulls makes
+  "Open-Meteo is down" indistinguishable from "no snow fell", which at a ski resort are
+  opposite facts. The page never blanks — that is the strip's job, and it renders a dash.
+- Header is `public, s-maxage=900, stale-while-revalidate=3600`. 900s is Open-Meteo's own
+  `current.interval`. **Vercel honours neither `stale-if-error` nor `proxy-revalidate` and
+  caches no 502**, so do not write a directive describing behaviour the target does not give.
+- `snow_depth` arrives in metres, `snowfall` in centimetres, in the same response.
+- 24h snow is `hourly=snowfall&past_hours=24` summed. `daily=snowfall_sum` means "since
+  midnight", which at 9am is not what `snowfall_cm_24h` promises.
+- Every unit is asserted against the response's own `*_units` block — a silent unit change
+  produces a plausible-looking number, so it must fail before the arithmetic does.
+- The reading prints on the mountain's clock, from an **IANA name** never a fixed abbreviation
+  (Alberta is MDT for most of a season and MST for the rest). `observed_at` stays a UTC instant
+  in the JSON; local time is derived for display.
+- The strip is a client component. Awaiting a runtime fetch in a server component turns the
+  route dynamic and drops the prerendered rows (SPEC §9).
+- A failed request and an absent variable render identically — to a reader they are the same
+  thing. No retry button, no spinner. What drops is the timestamp.
+- The slug is validated against `resorts.json` and that is the security property: the lat/lon
+  reaching Open-Meteo are only ever committed values.
+- One attempt, 4s timeout, no retry — unlike the bake's ladder. A retry inside a visitor's
+  request only makes them wait twice.
+- The Lake Louise fixture cannot prove the metres-to-centimetres scaling or the rolling sum; it
+  is September and every snow value is a real zero. The Aoraki / Mount Cook fixture can.
 
-**Verified:** 215 tests green (44 new), format/lint/typecheck/build clean. The build still
-lists `/resorts/[slug]` as `●` prerendered and `/api/conditions/[slug]` as `ƒ` dynamic, and
-the built `lake-louise.html` still carries 169 `<tr>` at 77,492 bytes gzipped. Live:
-`/api/conditions/lake-louise` answers 200 with the full header and a real reading,
-`/api/conditions/whistler` answers 404 `no-store` without calling anyone. In the browser the
-strip reads 7°C, 0cm, 0cm, 13km/h from SE under the facts, with
-`Weather from Open-Meteo · 3:00 PM MDT` beside it — and `/api/conditions/niseko` resolves
-`Asia/Tokyo` off the same code path; with `fetch` forced to 502 the four readings become dashes, the timestamp
-disappears, and all 168 rows, the disclaimer and the avalanche.ca link are untouched. Console
-clean apart from the `THREE.Clock` deprecation phase 2 already recorded. Checked at 1456,
-1280 and phone widths; the strip's min-content is 80px, so it wraps rather than overflowing.
+**Open, accepted:** every snow number at all six resorts is currently zero, because it is
+September. SPEC §13's risk; decision D3 closes it with baked history in phase 6.
 
-**Found and fixed during that pass:** the strip broke the header's own scrim. The gradient
-over the canvas fades from its midpoint, and the facts used to end at 64% of the header;
-four more readings pushed content to 74%, so "SNOW DEPTH" was being read against a lit
-mountain face at about a third opacity. The fix is the invariant rather than a nudge — the
-scrim is now solid to where content ends (`via-85%`) and fades through the padding below it,
-and the padding came down from `pb-24` to `pb-12` so the taller header does not simply push
-the whole scrim further down the mountain. Net effect on the west face, where this mountain
-keeps its runs: none.
+**Gate:** 215 tests. `/api/conditions/lake-louise` answers 200 with the full header;
+`/api/conditions/whistler` answers 404 `no-store` without calling anyone;
+`/api/conditions/niseko` resolves `Asia/Tokyo` off the same code path. With `fetch` forced to
+502 the four readings become dashes and the rows, disclaimer and avalanche.ca link are intact.
 
-**Found and fixed in a comment review afterwards**, and all three were comments rather than
-code until one of them turned out not to be: `sumSnowfall` returned 0 when `hourly.snowfall`
-arrived present but with every hour null, publishing "no reading" as "0cm" — the exact
-inversion the file's own doc comment forbids, now reproduced by a test and fixed. Three
-comments justified themselves with floating-point behaviour that does not occur (`2.69 * 100`
-is exactly 269, and the Mount Cook hourly array sums to exactly 3.78 with a plain
-accumulator), and one of them cited a number, 3.43, that appears nowhere in the fixture; a
-comment that invents a constraint makes the next reader preserve an odd line believing it is
-load-bearing. And the header leaned on `stale-if-error`, which Vercel does not honour. The
-rest of the pass cut narration: one rationale had been restated seven times, and two doc
-comments were longer than the code under them.
-
-**Known, accepted:** every snow number at all six resorts is currently zero, because it is
-September. That is SPEC §13's risk and decision D3 closes it with baked historical snow in
-phase 6, not here.
+---
 
 ## Winter drape ✅ done
 
-The mountain is snow-covered. Esri's imagery is a summer scene, there is no seasonal
-variant of it to swap in, and the bake now remaps it to a winter surface from the source
-pixels' own colour.
+The mountain is snow-covered. Esri's imagery is a summer scene with no seasonal variant, so the
+bake remaps it to a winter surface from the source pixels' own colour. Not in SPEC §11; taken
+before phase 5 because phase 5 aims the light this had to retune.
 
-Not in SPEC §11. The drape was baked in phase 1 and draped in phase 2 and no phase has
-owned its appearance since, so a green mountain sat there reading as a bike map — SPEC §15
-needs a visitor who has never skied the place to recognise what they are looking at.
-Agreed in session before starting. Taken before phase 5 because phase 5 aims the light
-this change had to retune, and tuning that twice would have been tuning against a target
-about to be deleted.
-
-### Done
-
-- [x] `scripts/bake/winter.ts` — `winterize`, a pure remap over the raw mosaic. Luminance
-      carries the conifer/snow split, saturation only holds rock back from going white
-- [x] `scripts/bake/imagery.ts` — the one seam, between `fetchMosaic` and the JPEG encode.
-      Signature unchanged, and deliberately still takes no `Grid`
-- [x] `tests/winter.test.ts` — the landcover classes, and SPEC §8 tested as a safety rule
-- [x] `components/terrain-scene.tsx` — lighting retuned for a bright drape; three comments
-      whose premise this change deleted
-- [x] `components/run-overlay.tsx` — receded runs mix toward `--color-rock`, not the ground
+- [x] `scripts/bake/winter.ts` — `winterize`, a pure remap over the raw mosaic
+- [x] `scripts/bake/imagery.ts` — the one seam, between `fetchMosaic` and the JPEG encode
+- [x] `components/terrain-scene.tsx` — lighting retuned for a bright drape
+- [x] `components/run-overlay.tsx` — receded runs mix toward `--color-rock`
 - [x] `components/site-footer.tsx`, `README.md` — attribution discloses the derivation
 
-### Decisions worth recording
+**Constraints**
 
-- **Synthesized, not photographed.** Real winter imagery was the obvious answer and is the
-  wrong one. Sentinel-2 is the only free date-filtered source and it is 10 m/px against
-  this drape's 2.98; it carries its own low winter sun, which phase 5 would then be sliding
-  a second synthetic sun across; and it depicts one day's real cover, which invites being
-  read as current cover on a site whose whole stance is the permanent shape of a mountain.
-- **Keyed on colour, never on slope.** A snow line keyed on steepness is the avalanche
-  terrain product SPEC §8 forbids, and `grid` is in scope at the call site. `winterize`
-  takes a buffer and nothing else, and `tests/winter.test.ts` asserts both that a colour
-  maps the same wherever it sits and that the module never names a terrain derivative.
-- **The shadow risk measured away.** The worry was that dark pixels are terrain shadow
-  rather than forest, which would bake a fixed shadow into a surface phase 5 relights.
-  Pearson r between a DEM hillshade and image luminance is −0.254, and strongly shaded
-  terrain is _brighter_ than strongly lit terrain — landcover dominates illumination here,
-  because Esri curates against shadow the same way it curates against snow.
-- **Lambert divides by pi.** The retune was first argued from the claim that 4.2 units of
-  light would clip a white drape to flat white and erase the relief. `BRDF_Lambert` is
-  `RECIPROCAL_PI * diffuseColor`, so those units land near 1.3 and nothing clips. The
-  retune was still needed, for the other reason: on a near-neutral snow the warm sun and
-  cool shade are the _only_ colour in the scene, where over a photograph they were a lean
-  on one that supplied its own.
-- **Recolouring a photograph is not enough, and was the first version's mistake.** Tinted
-  and lifted, the drape came back as a _greyscale summer photograph_ — because a summer
-  photograph's detail is what says summer. Every tree crown and scree stipple survived the
-  remap intact.
-- **Snow blankets; that is the whole trick.** Snow fills gullies, rounds edges and erases
-  small detail, so an open slope under it is a smooth bright field whose only variation is
-  the shape of the ground. That shape is the renderer's job — the mesh normals and the
-  light already carry it, and the drape was burying them under summer texture. So the two
-  halves are now treated as opposites: snow is keyed and toned from a _blurred_ luminance
-  and comes out smooth, forest keeps the _sharp_ luminance because trees really are the
-  texture at this scale.
-- **Forest is lifted far off photographic darkness, then pulled back.** A winter canopy is
-  loaded and reads as grey, not forest green, so toning it from the summer photograph's own
-  darkness turned the treed half of the massif into a hole. But lifted too far a canopy gap
-  gets as bright as a run corridor, which is the same complaint in the other direction —
-  and that one is measured now, by a test that cuts a corridor through a synthetic canopy
-  and asserts it comes out at least a third brighter than the trees around it.
-- **Snow stops short of white and stays neutral.** Short of white leaves the renderer
-  somewhere to put a lit slope. A blue-cast snow fights the gold sun and wins, so the drape
-  is near-neutral and the lights carry the hue.
-- **The lights are exposed for the mid-tones, not the highlights.** Most of the frame is
-  forest, so metering for the brightest snow left the whole massif dim. Sunlit snow is now
-  free to blow out, which is what a snowfield does.
-- **Receding toward the ground colour promotes a run over snow.** `RECEDED_MIX` mixed
-  toward `--color-shadow-deep`, which on a dark photograph was a step back and on snow
-  roughly doubles a line's contrast. Retargeted to `--color-rock`, which sits between the
-  two backgrounds the drape now has. The casing stays `--color-shadow-deep`.
-- **No toggle, no second artifact, no manifest field.** The winter surface replaces
-  `satellite.jpg`. SPEC §16 already defers a base-map toggle as a v1 non-goal.
+- **Keyed on colour, never on slope.** A snow line keyed on steepness is the avalanche terrain
+  product SPEC §8 forbids. `winterize` takes a buffer and nothing else, and
+  `tests/winter.test.ts` asserts the module never names a terrain derivative.
+- **Synthesized, not photographed.** Sentinel-2 is 10 m/px against this drape's 2.98, carries
+  its own low winter sun for phase 5 to fight, and depicts one day's real cover — which invites
+  being read as current cover.
+- **The transfer must be monotonic**, and that is a test over a grey _ramp image_. The shipped
+  defect was a band-pass on the very quantity being remapped: source 138 came out 91 levels
+  brighter than source 169, which drew a grey rim around every snow patch. Probing single
+  pixels cannot see this.
+- **There is no rock class.** It was the sole source of the rim, ~1% of the frame, and its
+  interiors barely separated from snow. A dark cliff falls the forest side and reads correctly.
+- Classification runs on a one-texel blur, not the raw plane — Esri's tiles are JPEG, so the
+  finest scale in the mosaic is compression rather than ground.
+- Snow is keyed and toned from a **blurred** luminance and comes out smooth; forest keeps the
+  **sharp** luminance. Snow blankets; the shape is the renderer's job. Reinjecting detail into
+  snowfields is the first version's mistake — it returns a greyscale summer photograph.
+- Snow stops short of white and stays neutral, so the renderer has somewhere to put a lit slope
+  and the lights carry the hue.
+- No toggle, no second artifact, no manifest field. SPEC §16 defers a base-map toggle.
+- The sky is CSS on the wrapper, not a shader — a `ShaderMaterial` would need its own output
+  colour-space conversion. Fog is scaled to the mosaic diagonal, never to `opening.distance`,
+  which is fitted to the runs box and much smaller than the ground the mesh covers.
 
-**Verified:** 226 tests green; format, lint, typecheck clean. Lake Louise re-baked at
-2.09 MB of the 5 MB budget (SPEC §10) — the remap costs about 40% more JPEG than the
-summer drape, which the budget has room for. By eye at the dev server: the massif reads as
-winter at the opening framing, run corridors read as white ribbons through dark trees
-without the overlay drawn at all, alpine rock bands still carry, and flown in to one run
-the gold halo separates over snow while receded runs step back rather than forward.
+**Open:** the mesh's cut edge is visible at the near corners. Haze does not cover it — linear
+fog is weakest close to the camera. It wants a skirt or an edge fade.
 
-**Known, accepted:** the key light moved to the camera side of the massif so the face the
-opening framing looks at is lit. It was a backlight, which cost nothing on a dark
-photograph and left the whole front side flat on a bright one. Phase 5 replaces this
-position with a real sun and will have to answer the same question honestly.
+**Gate:** 228 tests. Measured over the real mosaic, before → after: descending grey levels
+29 → 0; mid-band local contrast inversions 56.3% → 15.3%; forest-band variation 20.6 → 8.4.
+Re-baked at 1.73 MB — less high-frequency content to encode.
 
-### Follow-up — the transfer was not monotonic
+**Measured and dropped:** keying rock on image roughness instead of brightness. It fixes the
+fold but roughness is high at every patch edge as well as on scree, so it draws a softer rim of
+its own — 39.1% inversions against 15.3% for no rock term at all.
 
-The drape above shipped with a defect that reads as a contour map once you look for it: a
-grey rim around every snow patch on the mountain.
-
-**The cause was structural, not a mistuning.** The rock term was a band-pass on source
-brightness — `smoothstep(138,170,·) * (1-smoothstep(198,224,·))` — multiplied into a pull
-toward a _constant_ dark colour. A band-pass on the very quantity being remapped folds the
-transfer back on itself. Measured on a grey ramp: source 138 came out 227 while source 169
-came out 136, so **brighter ground came out 91 levels darker**, across 29 of 255 levels.
-Crossing a patch edge sweeps brightness through that notch, which is what drew the rim.
-
-**Decisions worth recording:**
-
-- **There is no rock class any more, and the drape is better for it.** A cliff the sun was
-  not on is already dark in the photograph, so it falls the forest side of the split and
-  takes the same cool dark tone — which is what a cliff band under snow looks like anyway.
-  Rock was ~1% of the frame, was the sole source of the rim, and measured over Lake Louise
-  its interiors barely separated from snow interiors (texture energy 5.79 against 5.36).
-  Deleting it is simpler, provably monotonic, and keeps the cliff bands.
-- **The saturation gate was inverted.** It was meant to hold rock back from going white.
-  Measured, it evaluated to 0.16 where real rock lives and 0.97–1.00 on lying snow — closed
-  where it was needed and open where it did harm. It went with the rock term.
-- **Classification moved off the raw plane onto a one-texel blur.** Esri's tiles are JPEG,
-  so the finest scale in the mosaic is compression rather than ground, and keying canopy on
-  it turned flat forest into salt-and-pepper dither. This also fixed a second thing: a
-  narrow corridor classified from the radius-3 plane averaged the trees back in and so came
-  out dimmer than a wide one.
-- **The snow stretch tops out above the brightest ground in the mosaic.** It ended at 196
-  where the rock gate did not release until 224, so there was no brightness at which clean
-  snow existed. Sharp detail is deliberately _not_ reinjected to give snowfields texture —
-  that is the first version's mistake, and measured, the tonal spread within snow was
-  already 39 levels without it.
-- **Monotonicity is now a test, not a hope.** `tests/winter.test.ts` probes a grey _ramp
-  image_ rather than isolated colours — the old suite could not see this defect because it
-  probed single pixels, and its rock case sat inside the notch and asserted the bug's own
-  output as correct.
-
-**Verified:** 228 tests green; format, lint, typecheck clean. Measured over the real Lake
-Louise mosaic, before → after: descending grey levels 29 → **0**; local contrast inversions
-in the mid band 56.3% → **15.3%**; forest-band local variation 20.6 → **8.4**; clipped
-highlights 2.08% → **1.59%**. Re-baked at 1.73 MB, down from 2.09 MB — there is less
-high-frequency content to encode.
-
-**Measured and dropped:** keying rock on image roughness instead of brightness. It is the
-obvious replacement and it does fix the fold, but roughness is high at every patch _edge_
-as well as on scree, so it drew a softer rim of its own — the mid-band inversion rate only
-fell to 39.1% against 15.3% for having no rock term at all.
-
-### Follow-up — aerial perspective
-
-The massif sat against flat page colour, so the far side of the range carried the same
-contrast as the near side and the whole thing read as a cut-out rather than as a place.
-
-- **The sky is CSS, not a shader.** A gradient on the wrapper in `terrain-viewer.tsx`, with
-  the canvas turned transparent. A custom `ShaderMaterial` would have had to do its own
-  output colour-space conversion — three only applies that to its own materials — and a
-  screen-space gradient is what a map does anyway.
-- **Fog is measured against the mosaic, not against the camera.** Scaled to
-  `opening.distance` it wiped the massif out entirely at first; the framing distance is
-  fitted to the _runs_ box and is much smaller than the ground the mesh covers. The
-  mosaic's diagonal is the honest reference, and it means the far side of a massif sits
-  back by the same amount however close the viewer has flown.
-- **Phase 5 will re-aim this.** The haze colour is `--color-shade-dim` to match the horizon
-  end of the gradient; a real sun position will want both revisited together.
-
-**Known, not fixed:** the terrain mesh is a rectangular slab and its cut edge is visible at
-the near corners. Haze does not cover it — that edge is close to the camera, which is
-exactly where linear fog is weakest. It wants a skirt or an edge fade, and it is not this
-change's to make.
+---
 
 ## Phase 5 — Sun/shade ✅ done
 
-Directional light positioned by `suncalc`, casting the shadows that position throws. The
-first-person run camera was built against the same data and dropped; it has its own section
-below.
+Directional light positioned by `suncalc`, casting the shadows that position throws.
 
-**Gate (SPEC §11):**
+- [x] `resorts.json` → manifest — the resort's IANA zone, so a slider can say "2pm at Lake
+      Louise" with no network call
+- [x] `lib/sun.ts` — `sunPosition`, `sunTimes`, `sunDirection`, `openingWallClock`
+- [x] `lib/view-hash.ts` — the hash parser lifted out of `run-explorer.tsx`, widened to carry
+      the hour, tested without a DOM
+- [x] `components/sun-control.tsx` — date, time, the hour on the mountain's clock, sun times
+- [x] `components/terrain-scene.tsx` — the key light, an altitude ramp, a shadow map rendered
+      only when the sun moves
 
-- [x] Known sunrise/sunset asserted for a fixed date and latitude — `tests/sun.test.ts`,
-      derived from the hour angle rather than pinned from the library's own answer
-- [x] ~~Camera path stays on the polyline within tolerance~~ — met, and then the camera it
-      gated was dropped. See "Built and dropped" below
+**Constraints**
 
-### Done
+- **The installed `suncalc` is not the one in memory.** v2 answers in degrees, azimuth
+  clockwise from north, where every older example is radians from south. `@types/suncalc@1.9`
+  described the opposite convention and is removed.
+- **The sun's vertical component is scaled by the exaggeration.** Unscaled, the sun sits `k`
+  times too low: over 67,000 slope-and-sun combinations, 6.3% land on the wrong side of lit.
+- "Known sunrise" means known **independently** — derived in the test from the hour-angle
+  formula, not pinned from the library's own answer.
+- The shadow camera must be **constructed**, not assigned as props. Assigning leaves the
+  projection on the default ten-unit box, which reports the whole massif as shadowed.
+- `shadowMap.autoUpdate` is off; `needsUpdate` is set from an effect on the sun direction. The
+  terrain is the only caster and never moves.
+- The light ramps on **altitude, not `N·L`** — the geometry of a slope turning away is already
+  the material's job, and folding it in counts it twice.
+- The opening hour is local, or solar noon of that day if the sun is down. A visitor arriving
+  at 11pm would otherwise meet a black massif.
+- The zone is configuration, not a reading. Phase 4's `timezone=auto` arrives after hydration
+  and is null when the call fails; the page is prerendered.
+- **No per-run sun readout.** An incidence angle off baked aspect and pitch is blind to the
+  ridge in front of the run, and a sortable sun column is a hair from ranking runs (SPEC §8).
+- The hour travels in the hash; nothing about the camera does (SPEC §15).
 
-- [x] `resorts.json`, `lib/manifest.ts`, `lib/types.ts`, `scripts/bake.ts` — the resort's
-      IANA zone through to the manifest, so a slider can say "2pm at Lake Louise" with no
-      network call
-- [x] `lib/sun.ts` — `sunPosition`, `sunTimes`, `sunDirection`, `openingWallClock`, and the
-      wall-clock/instant pair `Intl` has no inverse for
-- [x] `lib/view-hash.ts` — the hash parser lifted out of `run-explorer.tsx` and widened to
-      carry the hour beside the run, tested without a DOM
-- [x] `components/sun-control.tsx` — date, time, the hour on the mountain's clock, and
-      sunrise/sunset, beside the filters
-- [x] `components/terrain-scene.tsx` — the real key light, an altitude ramp on it and on the
-      fill, and a shadow map rendered only when the sun moves
-- [x] `lib/format.ts` — `clockTime`, `observedAt` with the zone left unsaid
-- [x] `package.json` — `@types/suncalc` dropped
+**Gate:** 260 tests. At Lake Louise on 14 February: 9am the marked west-facing terrain is
+shaded with the far ridge lit; 2pm the opening face is lit; 9pm is a blue night mountain with
+runs still readable. Pika faces E 112° and is shaded at 2pm. Re-baked: only the manifest moved,
+so the bake is confirmed deterministic over the new field.
 
-### Decisions worth recording
-
-- **The installed `suncalc` is not the one in anyone's memory.** v2 answers in **degrees**
-  with azimuth **clockwise from north**, where every older example is radians from south,
-  and its `getTimes` fields are nullable. It ships its own types, so
-  `@types/suncalc@1.9` was both redundant and actively wrong — a declaration file
-  describing the opposite convention is a trap and it is gone.
-- **The sun's vertical component is scaled by the exaggeration, and the terminator is why.**
-  Mesh positions are the real terrain under `diag(1, k, 1)`; a direction scales the same
-  way, a normal by the inverse transpose, and the two `k`s cancel in `L·N` before either is
-  normalised. Normalising leaves one positive factor per pitch — a contrast trim that
-  cannot move a sign. So lit and shaded fall exactly where the real mountain has them, and
-  among slopes of one pitch the shading is the real proportions to the last digit.
-  Unscaled, the sun sits `k` times too low: measured over 67,000 slope-and-sun
-  combinations, 6.3% come out on the wrong side of lit.
-- **"Known sunrise" has to mean known independently.** Pinning suncalc's own output would
-  assert the library as its own reference, which is the mistake `tests/winter.test.ts` was
-  rewritten to stop making. The solstice day lengths are derived in the test from the
-  hour-angle formula with the obliquity of the ecliptic as the declination, and the noon
-  altitudes from `90° − φ ± ε` — textbook identities that owe suncalc nothing. They agree
-  to 18 seconds and 0.005°. The February clock times are pinned on top of that as a
-  regression anchor, which is all a pin is good for.
-- **The shadow frustum is a proven bound, not a guess.** Every mesh vertex lies within
-  `hypot(half-diagonal, relief)` of the origin, so an orthographic frustum that wide
-  contains the massif at every sun angle — low ones included, which was the worry. At Lake
-  Louise that is 5.8m per texel across 2048, against an 11.9m heightmap pixel, so the
-  shadow map is provably not what limits the shadow.
-- **The shadow camera has to be constructed, not assigned.** Setting `shadow-camera-near`
-  and its neighbours as props leaves the projection matrix on the ten-unit box the default
-  was built with. The symptom is not a missing shadow: a frustum covering ten metres of a
-  ten-kilometre massif reports the whole mountain as shadowed, and the massif renders as
-  the sky gradient. `<orthographicCamera attach="shadow-camera" args={…}>` builds it.
-- **The map is re-rendered when the sun moves and at no other time.** The terrain is the
-  only caster and it never moves, so `shadowMap.autoUpdate` is off and `needsUpdate` is set
-  from an effect on the sun direction. Measured at 60fps idle and 60fps with the slider
-  being dragged, so SPEC §10 is unaffected by having shadows at all.
-- **The light ramps on altitude, not on `N·L`.** The geometry of a slope turning away is
-  already the material's job and folding it in here would count it twice. What altitude
-  changes is extinction, so the key smoothsteps to nothing over the last twelve degrees
-  while the hemisphere term rises to meet it — a blue mountain at night rather than a black
-  one, and not a flat overcast day at noon.
-- **The opening hour is now on the mountain, unless the sun is down, in which case it is
-  solar noon of that same local day.** A visitor arriving at 11pm would otherwise meet a
-  black massif, which says nothing about the terrain the rest of the page is about — the
-  same kind of framing decision `openingFraming` makes about where to stand. Nothing is
-  hidden: the readout states the hour being drawn and the slider is sitting on it.
-- **The zone is configuration, not a reading.** Phase 4 gets an IANA name from Open-Meteo's
-  `timezone=auto`, but that arrives after hydration, is null when the call fails, and the
-  page is prerendered. A zone is a static fact about a place. `Conditions.timezone` stays
-  where it is; the two agree, and a test says so.
-- **No per-run sun readout, in the panel or the table.** An incidence angle off baked
-  aspect and pitch is blind to the ridge in front of the run, so it would disagree with
-  what the render shows — and a sortable sun column is a hair from ranking runs (SPEC §8).
-  The mountain answers. What the control prints instead is sunrise and sunset, which are
-  facts about the place rather than about the render, so the readout still says something
-  with no GPU (SPEC §9).
-- **The hour travels in the hash; nothing about the camera does.** SPEC §15 ends with
-  sending that exact view to a friend. A link that starts moving the camera on arrival is a
-  surprise.
-- **The haze and the CSS sky were left alone.** The aerial-perspective follow-up flagged
-  that a real sun would want both revisited. Looked at across the day and they hold: the
-  horizon gradient is a sky, not a sunlit sky, and it does not fight a low sun. Recording
-  that it was checked rather than forgotten.
-
-**Verified:** 260 tests green (32 new), format/lint/typecheck/build clean. The build still
-lists `/resorts/[slug]` as `●` prerendered and the built `lake-louise.html` still carries
-169 `<tr>`, now at 77,760 bytes gzipped against 77,492 — the sun control is 265 bytes of
-prerendered HTML and renders its dashes before hydration, the same shape as the conditions
-strip. Re-baked: only the manifest moved, so the heightmap, drape and runs are
-byte-identical and the bake is confirmed deterministic over the new field.
-
-In the browser at Lake Louise on 14 February: at 9am the marked terrain — which faces west
-— is in shade with the far ridge lit; at 2pm the face the opening framing looks at is lit;
-at 4:40pm ridge shadows run out across the lower slopes; at 9pm the massif is a blue night
-mountain with the runs still readable rather than a hole. Pika faces E 112° and is shaded at
-2pm, which is the product working. Without a hash the control resolves to the hour it is on
-the mountain, with the right daylight-saving abbreviation. Console clean apart from the
-`THREE.Clock` deprecation phase 2 already recorded.
-
-**Closed, and it had been open since phase 3:** `prefers-reduced-motion` was recorded there
-as "typechecked and in place but not verified at runtime". It is verified now — with the
-query emulated, the flight snaps rather than eases and auto-rotate stays off.
-
-### Built and dropped — the first-person run camera
-
-SPEC §4 and §5.2 both list it, and it was built: `lib/run-camera.ts` walking
-`ProfileSample.d` rather than the sample index, its gate met at 0.01m off the polyline, the
-near plane dropped for the ride and restored after, four ways out of it, and a
-reduced-motion branch that places the view and holds it. It is not shipped.
-
-- **It does not look like skiing, and it cannot.** The heightmap is 11.9m per pixel and the
-  drape is 2.98m; from a few metres off the snow both are a smooth white blur. The thing a
-  skier wants from a first-person view is the shape of the fall line at the scale they turn
-  on, which is metres, and this project measures the mountain in tens of them.
-- **Nor can the camera get down to a skier's eye.** `DRAPE_OFFSET_M` lifts the line eight
-  exaggerated metres clear of the mesh because the bake samples elevation bilinearly while
-  the mesh spans the cell with two flat triangles, and a camera below those triangles is
-  looking at the inside of the mountain. So the ride sat about five and a half real metres
-  up, which reads as a drone.
-- **A view that misrepresents the terrain is worse than no view**, on a site whose whole
-  claim is that the numbers come from the elevation model rather than from a trail map. The
-  camera flight onto a picked run already answers "where on this mountain is it", which is
-  the question phase 3 raised and the one a reader actually asks.
-- Decided in session after looking at it running. The elevation profile, the flight and the
-  sun are what the `profile` samples are for.
+**Built and dropped — the first-person run camera.** SPEC §4 and §5.2 both list it and it was
+built, gate met at 0.01m off the polyline. Not shipped, and do not rebuild it: the heightmap is
+11.9m per pixel and the drape 2.98m, so from a few metres off the snow both are a smooth white
+blur. `DRAPE_OFFSET_M` also holds the line eight exaggerated metres clear of the mesh, so the
+ride sits ~5.5 real metres up and reads as a drone. A view that misrepresents the terrain is
+worse than no view on a site whose claim is that the numbers come from the DEM.
 
 ---
 
 ## Phase 5.5 — Lifts and named places ✅ done
 
-Not in SPEC §11 as written. Added because the mountain read as a survey rather than as a
-ski area: a trail map shows the lifts that get you up it and the lodges at the top, and
-this showed neither. SPEC §3 rejects lift _status_, which is live operational data with no
-standard API; where a lift runs is a permanent fact about the mountain, and §3 and §4 now
-say which is which. Numbered 5.5 rather than renumbering 6–9, which would churn SPEC §11
-for nothing.
-
-**Gate:** the baked artifact carries no pitch or aspect on any lift; one tower per OSM
-node; cable clearance uniform within a lift.
+The mountain read as a survey rather than a ski area. Not in SPEC §11 as written; SPEC §3
+rejects lift _status_ (live operational data, no standard API) while where a lift runs is a
+permanent fact.
 
 - [x] `mountain.json` — a fourth artifact beside `runs.json`, read at build time
-- [x] A third Overpass query, clipped to the `landuse=winter_sports` polygon via
-      `map_to_area`. Separate from the runs query on purpose: the downhill filter is a
-      safety rule, and a query with no piste clause cannot widen one
-- [x] Lift polylines kept exactly as mapped — the OSM nodes are the surveyed pylons, so
-      resampling would invent towers that do not exist and discard the ones that do
+- [x] A third Overpass query, clipped to `landuse=winter_sports` via `map_to_area`
 - [x] Cables drawn over their pylons, surface lifts draped on the snow
-- [x] Places as labelled callouts on leader lines, carrying the same `PlaceMark`
-      component the list renders
-- [x] Lift table and place list below the runs, plus a lift count in the header facts
-- [x] Hover cross-lights the cable and its row both ways, with a readout in the canvas
-      chrome. No selection and no camera flight — see below
+- [x] Places as labelled callouts on leader lines, sharing `PlaceMark` with the list
+- [x] Lift table and place list below the runs, lift count in the header facts
 
-**§8 additions.** A lift carries no pitch and no aspect. The ground under a cable is not a
-marked run, and reporting its steepness would publish the angle of unpatrolled terrain
-through an infrastructure feature. Enforced at three levels: the type has no such field,
-`tests/mountain.test.ts` walks a derived lift's keys, and `tests/mountain.golden.test.ts`
-walks the committed artifact — so a future bake cannot add one quietly.
+**Constraints**
 
-**Vertical is terminal to terminal, not max−min**, which is the opposite of a run: a lift
-crossing a gully has not climbed the dip. Vertical and length are both measured on
-`ground_m` and never on `cable_m`, and clearance is asserted uniform within a lift, so the
-rendering constant is structurally unable to reach a published number.
+- **A lift carries no pitch and no aspect** (SPEC §8). The ground under a cable is not a marked
+  run. Enforced three ways: the type has no field, `tests/mountain.test.ts` walks a derived
+  lift's keys, and `tests/mountain.golden.test.ts` walks the committed artifact.
+- The third query is separate from the runs query on purpose — the downhill filter is a safety
+  rule, and a query with no piste clause cannot widen one.
+- **Vertical is terminal to terminal, not max−min** — the opposite of a run. A lift crossing a
+  gully has not climbed the dip. Both vertical and length are measured on `ground_m`, never
+  `cable_m`, so the rendering constant cannot reach a published number.
+- Lift polylines are kept exactly as mapped; the OSM nodes are the surveyed pylons, so
+  resampling would invent towers and discard real ones.
+- One clearance constant (12m), not per-span. Per-span is a relaxation, not a pure function,
+  and varying clearance reopens the measured-on-the-ground rule by the side door.
+- A lift is a **dark core in a light casing** — inverted from a run, so it can never be misread
+  as a grade. Identity by the cableway hatch, so it survives being drawn thin.
+- Lifts draw over ordinary runs and under a hovered or picked one: the lifts are the skeleton.
+- **Lifts are not clickable.** A straight cable held above the surface has none of the
+  foreshortening `focusFraming` exists for, and it would collide with run selection.
 
-**Verified against physics rather than against the pipeline.** Baked length over OSM's
-tagged ride time gives 2.2–2.4 m/s for Lake Louise's three fixed-grip lifts and 4.4–5.6
-m/s for its five detachables, which is what that cable actually runs at. A length wrong by
-fifteen percent leaves the band.
+**Open:** Grizzly Express Gondola bakes 713m over 2862m, a longer alignment than the operator
+publishes — a question about what OSM has mapped, and the bake is not fudged to match a
+brochure. Richardson's Ridge Express has 3 towers over 1739m; still under construction.
 
-### The second pass, which is the one that works
-
-The first pass drew a lift as a quiet steel line under the runs, reasoning that a lift is
-context and a run is the subject. On the mountain it was invisible: a thin dark line that
-vanished into forest and read as a scratch on snow. Three changes fixed it, and all three
-are borrowed rather than invented.
-
-- **The cableway hatch.** Short bars across the line at every mapped pylon — the symbol
-  every topographic map uses for an aerial cableway, and the same device that draws a
-  railway. Identity by texture rather than by weight, so it survives being drawn thin, and
-  nothing else on the mountain looks remotely like it.
-- **The line inverted.** A run is a coloured core inside a dark casing; a lift is a dark
-  core inside a light one. The drape carries snow, bare rock and forest in one frame and a
-  single hairline holds up over exactly one of the three. It also means a lift can never be
-  misread as a grade, because no grade is drawn inside out.
-- **Lifts over runs.** An ordinary run now draws under the cable and only a hovered or
-  picked one draws over it, which is the order a trail map uses: the lifts are the skeleton
-  the runs hang off.
-
-The place markers were replaced outright. Fat filled pictograms floating on the terrain read
-as clip art pasted on a photograph. They are now labelled callouts on leader lines, carrying
-the same `PlaceMark` component the list renders — one SVG path for both, so the map and the
-list cannot drift — with the name in `.u-feature` and a summit's height in `.u-data`. The
-mark got small and fine; the label does the work, which is the way round a map does it.
-
-Five of Lake Louise's lodges sit within a hundred metres of each other at the base, so a
-cluster's labels are lifted a tier apart and hang to the right of their leaders, stacking
-into a column that shares one left edge. The tier is decided once from the baked
-coordinates — nothing measures the screen or runs per frame.
-
-### Not shipped, and why
-
-- **Clicking a lift.** The camera flight exists because a run tilted away from the viewer
-  is foreshortened and then eaten by its own ridge — that is what `focusFraming` and the
-  ghost line are for. A cable held above the surface in a straight line has none of that
-  problem, so flying to one would be motion without information, and it would collide with
-  run selection: clicking a lift while a run is selected either clears the stats being read
-  or leaves two things selected. Lifts are styled not to look clickable as a result.
-- **Per-span cable clearance.** Raising a tower until its own span clears is not a pure
-  function — raising one moves the two spans either side, so it is a relaxation with a
-  termination condition. It would also make clearance vary along a lift, which reopens the
-  measured-on-the-ground rule by the side door. One constant, and nothing on Lake Louise
-  needed more. Twelve metres: real pylons run 5–25m, and twelve reads as a lift at every
-  zoom the camera reaches without standing a gondola on stilts.
-
-### Open
-
-- **Grizzly Express Gondola** rises 713m over 2862m, monotonically, 1657m → 2371m. That is
-  a longer alignment than the operator publishes for the gondola. The geometry is
-  internally consistent, so this is a question about what OSM has mapped rather than about
-  the arithmetic, and the bake is not fudged to match a brochure.
-- **Richardson's Ridge Express** has 3 towers over 1739m — a sparse alignment for a lift
-  still under construction. It will redraw itself as OSM fills in.
-
-**Verified:** 328 tests green, format/lint/typecheck/build clean, lifts and places present
-in the prerendered HTML so they survive without WebGL, hover cross-light working both ways.
+**Gate:** 328 tests. Verified against physics rather than the pipeline: baked length over OSM's
+tagged ride time gives 2.2–2.4 m/s for the three fixed-grip lifts and 4.4–5.6 m/s for the five
+detachables. A length wrong by fifteen percent leaves the band.
 
 ---
 
 ## Phase 5.6 — The labels, inverted ✅ done
 
-Phase 5.5 named the lodges on the mountain and left the lifts to be discovered by pointing
-at them. That is backwards, and the printed trail map has said so since Berann: runs are
-named, lifts are named, and facilities are pictograms keyed to a legend in the margin. A
-reader looking at a ski map is asking "which lift is that" — the hatch across a cable
-answers "a lift" and can never answer "which".
+5.5 named the lodges and left the lifts to be discovered by pointing. A reader asks "which lift
+is that", and a hatch across a cable can only answer "a lift".
 
-It is doubly backwards here, because `RunOverlay` labels nothing: 168 runs cannot carry
-type, so a run is identified by picking it. That leaves the lift names as the only words on
-the mountain, which is exactly the job the skeleton of a trail map does.
+- [x] Lifts named always; pointing adds `Vertical 104m · Length 475m` and lights the cable
+- [x] Summits named always, with their surveyed height
+- [x] Everything else is a mark that answers to being pointed at
+- [x] The base-area stack is one mark with a count, opening one box of five rows
+- [x] `lib/label-layout.ts` — the whole placement pass, pure
 
-### Done
+**Constraints**
 
-- **Lifts are named always.** Name only at rest in `.u-data` with the hatch glyph leading;
-  pointing at one adds `Vertical 104m · Length 475m` and lights the cable. The two are
-  named rather than merely paired: both are metres, so a bare "104m · 475m" makes a reader
-  work out which is the rise, and on a short lift the guess can go either way. Ride time
-  used to carry its own unit and hid the problem. Ten names at Lake
-  Louise — the three magic carpets are unnamed in OSM and stay unlabelled, because a plate
-  reading "Unnamed lift" is noise with a border around it.
-- **Summits are named always**, which is the oldest label in topography. A peak is a
-  landform rather than a business, and it is the one place kind carrying a surveyed height.
-- **Everything else is a mark that answers to being pointed at** — no plate, no leader.
-- **The base-area stack is one mark with a count**, and hovering it opens a single box with
-  five rows in it. Pointing at a row in the list below opens the same box, so the two views
-  answer each other even for a place inside a cluster.
-- **Ride time is no longer published** (see below).
+- **Places cannot be ranked, so they are not.** At Lake Louise the mid-mountain lodge and the
+  sushi counter in the base are both `amenity=restaurant`. Any ranking would be invented here
+  rather than read, so crowding is settled geometrically.
+- Placement is **screen space**, not baked lat/lon. Under a free orbit "close on the mountain"
+  and "close on screen" are different questions and only the second is the one being asked.
+- Occlusion is a heightfield walk against the vertex buffer, not a raycast — the mosaic is
+  hundreds of thousands of unindexed triangles and the question is asked per label per move.
+- A name slides along its cable; `PlateCandidate` carries absolute spots, not offsets from one
+  anchor. Two positions either side of the midpoint places one of ten names on a face.
+- A plate sits on one of **eight compass sides**, so it holds while the mountain turns and
+  snaps once. Creeping reads as drift; stepping reads as a decision.
+- Only decisions are state. A pass reaching the same answer writes nothing.
+- Plate width is estimated from the text, never measured — measuring is a DOM read per label
+  per pass, which forces a reflow inside the render loop.
+- **Ride time is baked, not published.** `aerialway:duration` is transit at full line speed,
+  not the ride anyone takes. It stays in the artifact only because
+  `tests/mountain.golden.test.ts` divides `length_m` by it as a physics check.
 
-### Places cannot be ranked, so they are not
+**Open:** plates lag the camera by up to a pass while it swings, so two placed clear of each
+other can drift together mid-drag. Fixing it properly means a React render every frame.
 
-The plan was to split the `lodge` kind into a real lodge and a food outlet, and label the
-first. OSM does not support it. At Lake Louise:
-
-```
-Temple Lodge                amenity=restaurant
-Whitehorn Lodge and Bistro  amenity=restaurant  building=yes
-Lodge of the Ten Peaks      amenity=restaurant
-Whiskey Jack Lodge          amenity=restaurant
-Kuma Yama                   amenity=restaurant  cuisine=sushi
-Slope side                  amenity=cafe
-Banded Peak Base Camp       amenity=bar
-```
-
-The mid-mountain lodge and the sushi counter in the base carry the same tag. Any ranking
-would be invented here rather than read, so crowding is settled geometrically instead —
-by what is close together _in front of the reader_. No bake change, no schema change.
-
-### Screen space, because the camera orbits
-
-The tiering this replaces (`CLUSTER_M`, `TIER_RISE`) decided the stack from baked lat/lon,
-once. Under a free orbit "close together on the mountain" and "close together on screen"
-are different questions, and only the second is the one a crowded label is asking — which
-is why it held for the opening framing and fell apart everywhere else.
-
-`lib/label-layout.ts` is the replacement and is pure, so the decisions are settled by
-`npm test` rather than by a screenshot at one camera angle. Each pass projects every
-candidate, drops what a ridge is standing in front of, clusters the places, then hands out
-what room is left in order of importance: summits, then lifts biggest first.
-
-- **Occlusion is a heightfield walk, not a raycast.** `isVisibleFrom` samples the ground
-  along the ray against the vertex buffer the geometry already holds. The mosaic is
-  hundreds of thousands of triangles with nothing indexing them and the question is asked
-  for every label on every camera move; walking the grid is the same answer for a
-  thousandth of the work, and it can be tested without a GPU.
-- **A name slides along its cable.** Two positions either side of the midpoint is not
-  enough — ten names on one face collide, and the first pass placed one of them. A
-  cartographer given a name that will not fit beside the middle of a line slides it up the
-  line, so `PlateCandidate` carries absolute spots rather than offsets from one anchor.
-- **A plate sits on one of eight compass sides**, not at a free angle, so it holds position
-  while the mountain turns and snaps once when the cable crosses a boundary. Creeping reads
-  as drift; stepping reads as a decision.
-- **Only decisions are state.** A pass that reaches the same answer writes nothing, and a
-  camera that has not moved skips the pass entirely, so a still mountain costs nothing and
-  drei goes on tracking the points without React.
-- **Plate width is estimated from the text**, not measured. Measuring means a DOM read per
-  label per pass, which forces a reflow inside the render loop, and the estimate only has
-  to be good enough to keep two plates apart.
-
-### Ride time, dropped from the published surface
-
-`aerialway:duration` is the cable's transit time at full line speed, not the ride anyone
-takes: a lift slows for loading, for wind and for a crowd, and none of that is in the tag.
-Lake Louise's Top of the World Express tags 3.9 min over 1156m — 4.9 m/s, which is exactly
-what a detachable quad runs at and nothing like the four minutes a rider experiences.
-Phase 5.5 already called it "the exception to this file's precision rule"; it is now the
-one number here that was asserted by a stranger rather than measured, sitting next to four
-that were not.
-
-It stays in the artifact, because `tests/mountain.golden.test.ts` divides `length_m` by it
-and checks the result against the speed such a cable really runs at — a physics check on
-the length that nothing else here can perform. SPEC §4 and §8 updated to say baked, not
-published.
-
-### Open
-
-- **The header gradient washes out the top of the massif.** `Whitehorn Mountain` and the
-  `Summit` lift sit under it in the opening framing and read faintly. Pre-existing — the
-  peak label was already permanent in 5.5 — but permanent lift names make it easier to
-  notice. It is a framing question, not a label one.
-- **Plates lag the camera by up to a pass while it is swinging.** Two placed clear of each
-  other can drift together mid-drag and separate again. Fixing it properly means placing
-  every frame, which is a React render every frame.
-
-**Verified:** 345 tests green, format/lint/typecheck clean, checked by eye at both canvas
-widths and through a full orbit.
+**Gate:** 345 tests, checked by eye at both canvas widths and through a full orbit.
 
 ---
 
 ## Phase 5.7 — The map leads ✅ done
 
-Sat in front of the two panes, the page was a spreadsheet with a mountain beside it. The
-right 42% was dense white numerals, a gold sort rule and twenty rows; the left was a massif
-at mid-tones. The brighter, denser half wins that fight every time, and four things were
-paying for it:
+The page was a spreadsheet with a mountain beside it: the dense white half wins that fight
+every time. The two-pane layout is gone.
 
-- **A ~340px header scrim over the top of the terrain**, carrying a back link, a 31px title,
-  six facts and the weather. 5.6 already recorded the consequence as open: `Whitehorn
-Mountain` and the `Summit` lift read faintly under it.
-- **The sun clock on the far side of the window from the shadows it moves.** A control you
-  cannot watch yourself using, and it is SPEC §4's signature feature.
-- **A run picked on the terrain answered 1500px away**, and with the list folded it degraded
-  to a truncated name inside a button.
-- **Filter state invisible from the map.** Folded away, "27 of 168" went with it: runs gone
-  from the mountain with nothing on screen saying why.
-
-### Done
-
-- [x] `components/run-explorer.tsx` — the `xl:grid` two-pane is gone. The canvas is
-      `absolute inset-0` of an `h-svh` frame and everything else is positioned over it
-- [x] `components/run-drawer.tsx` — the list, docked at the right edge above `xl` and a
-      sheet along the bottom below it. One `open` boolean, two idioms. Opaque, unlike the
-      chrome: it is 168 rows of numerals, and a backdrop filter over a live canvas across a
-      quarter of the window is the cheapest way to lose SPEC §10's frame rate
-- [x] `components/map-chrome.tsx` — four clusters in four corners, all anchored to the same
-      safe area, and the thing that measures what they cover
-- [x] `components/resort-identity.tsx` — the masthead, kept: the name, the six facts in one
-      row and the weather, all of it out where it was. What changed is the ground under it —
-      a veil to about half its height instead of a near-solid band, with the type carried by
-      its own halo (`.u-halo`), the way a map halos a name rather than boxing it
-- [x] `components/run-detail-card.tsx` — replaces `run-panel.tsx`, on the map under the
-      resort's own name
-- [x] `components/grade-filter.tsx`, `components/chip.tsx` — grade moved out of the
-      disclosure onto the terrain; `run-filters.tsx` keeps search, aspect and vertical
-- [x] `lib/inset.ts` + `components/terrain-scene.tsx` — the camera composes into what the
-      chrome leaves, on three edges: the masthead's measured height above, the drawer's
-      width or height beside or below
-- [x] `lib/label-layout.ts` `sameRects`, and chrome rects seeded into `placePlates`
-- [x] `components/map-attribution.tsx`, `app/not-found.tsx` — SPEC §8, without a page footer
-      to scroll to
+- [x] `components/run-explorer.tsx` — canvas `absolute inset-0` of an `h-svh` frame, everything
+      else positioned over it
+- [x] `components/run-drawer.tsx` — docked at the right above `xl`, a sheet along the bottom
+      below it. Opaque: a backdrop filter over a live canvas is the cheapest way to lose SPEC
+      §10's frame rate
+- [x] `components/map-chrome.tsx` — the chrome slots, and what measures them
+- [x] `components/run-detail-card.tsx` — replaces `run-panel.tsx`, on the map
+- [x] `components/grade-filter.tsx`, `chip.tsx` — grade onto the terrain
+- [x] `lib/inset.ts` + `terrain-scene.tsx` — the camera composes into what the chrome leaves
 - [x] `lib/webgl.ts` — the probe, shared, because the answer decides the layout too
+- [x] `components/map-attribution.tsx`, `app/not-found.tsx` — SPEC §8 without a page footer
 
-### Decisions worth recording
+**Constraints**
 
-- **This reverses "nothing on the terrain but the header" and `run-panel.tsx`'s own note
-  that floating the panel "put a card across the mountain".** Both were right about the
-  cause. What is different is that the scene is now told what the chrome covers and composes
-  around it, so the card no longer costs the mountain the ground it stands on. Without that
-  step this is the phase-3 filter card again, and if it had not worked the answer was a
-  pushing drawer rather than a card over the runs.
-- **The camera moves its projection, not itself.** `PerspectiveCamera.setViewOffset` with
-  the frame grown by the inset and the far side rendered. Shifting `camera.position` or
-  `controls.target` instead would put the orbit's centre off the massif, and every drag
-  after that would swing it out of frame. `lib/terrain-mesh.ts` is untouched: `focusFraming`
-  already reads `camera.aspect`, which is now the composed one.
-- **The inset is measured off the drawer's own box, never its position.** Width and height
-  hold still; position slides for the length of the transition, and an inset read from that
-  would drag the mountain along a frame at a time.
-- **Which edge the inset lands on is pure**, in `lib/inset.ts`, so "masthead covers the top,
-  docked drawer covers width, raised sheet covers height, folded drawer covers nothing" is
-  settled by `npm test` rather than by dragging a window across the breakpoint.
-- **This closes 5.6's open item, and closes it as a framing question.** A header washing out
-  the summit is not fixed by dimming the header; it is fixed by not standing the mountain
-  behind it. Once the massif composes below the masthead, the scrim is free to be a veil
-  rather than a band, and the type is held by a halo instead of by a block — which is what
-  stops the whole top of the page reading as something sitting on the page.
-- **A summit name is still the one label nothing may push off.** Lift plates take the
-  masthead as occupied; peaks are placed first against a screen empty of everything, chrome
-  included. A peak plate carries its own ground, so one landing beside the weather still
-  reads, and dropping `Whitehorn Mountain` to protect a row of facts is the wrong trade.
-- **Chrome rects go into the label pass's `reserved`.** `placePlates` already took the
-  array for the place marks. Without this, "LARCH EXPRESS" lands under the sun clock and is
-  simply gone — and it did, before the rects went in.
-- **Measured every render, deduped by `sameRects`.** Four `getBoundingClientRect` calls are
-  cheap; handing the pass a new array each render is what makes it never stop.
-- **Grade moved rather than being mirrored.** Two controls for one value is a live region
-  that announces twice. The count is live on the mountain and plain in the drawer, for the
-  same reason.
-- **The disclaimer is on the map now, not below a fold that no longer exists.** `SiteFooter`
-  left the root layout, so every page renders it itself and `app/not-found.tsx` had to start
-  existing. Neither copy is ever the only one: with the sheet raised on a narrow window the
-  map line is behind it and the footer at the foot of the sheet carries it.
-- **Two obligations in that line, and only one of them folds.** The safety words are out at
-  all times; the credits sit behind an ⓘ, which is what the OSMF attribution guidelines
-  allow a map short of room and what every slippy map does. It is also what pays for the
-  visible line being cut to "terrain approximate, not for navigation or safety decisions,
-  avalanche.ca": the §8 sentence in full is one press away, and `SiteFooter` still carries
-  it at the foot of the list. Set against the mountain, a band of type across the bottom of
-  the window was the second-brightest thing on the page, and most of it was licence names.
-- **A first-visit acknowledgment gate was considered and rejected.** It would have bought
-  the right to drop the line entirely. The sites that gate — CalTopo's slope layer, FATMAP —
-  are the avalanche-terrain products §8 spends five paragraphs keeping this one clear of, so
-  borrowing the ritual argues the opposite of "a dated snapshot of public data". A notice
-  beside the numbers at the moment they are read is also the stronger one: a wall is clicked
-  through in half a second, on some other page view, possibly weeks ago. And it buys nothing
-  — ODbL credit accompanies the map, not a modal someone accepted once, so the chrome stays
-  either way. The costs land on what this phase built: `#run=` links opening on a wall, a
-  gate that needs storage to not fire every navigation, and a focus trap the sheet does not
-  have yet.
-- **The drawer has its own scroller again**, which "one scroll region" removed. The reason
-  it was removed was _two_ scrollbars down the middle of the page. The page does not scroll
-  at all now, so there is still exactly one.
-- **A skip link, because this redesign earned one.** A dozen map controls now stand between
-  the top of the document and the numbers. It opens the drawer as well as going there, since
-  the drawer it leads to may be shut.
-- **Desktop drawer is not modal and does not trap focus.** It is a docked panel. The sheet
-  at full height is another matter and is not claimed to be handled.
+- **The camera moves its projection, not itself.** Shifting `camera.position` or
+  `controls.target` would put the orbit's centre off the massif, and every drag after that
+  swings it out of frame.
+- The inset is measured off the drawer's own **box, never its position** — position slides for
+  the length of the transition and would drag the mountain along a frame at a time.
+- Which edge the inset lands on is pure, in `lib/inset.ts`, so it is settled by `npm test`
+  rather than by dragging a window across the breakpoint.
+- **A summit name is the one label nothing may push off.** Peaks are placed first against a
+  screen empty of everything, chrome included.
+- Chrome rects go into `placePlates`' `reserved`, deduped by `sameRects`. Without it a lift
+  plate lands under the sun clock and is simply gone.
+- Grade **moved** rather than being mirrored. Two controls for one value is a live region that
+  announces twice.
+- `SiteFooter` left the root layout, so every page renders it and `app/not-found.tsx` had to
+  exist. Neither the map line nor the footer is ever the only copy.
+- The credits fold behind an ⓘ; the **safety words never do**. Folding credits is what the OSMF
+  guidelines allow a map short of room; folding §8 is not.
+- **No first-visit acknowledgment gate.** The sites that gate are the avalanche-terrain
+  products §8 exists to stay clear of, and ODbL credit accompanies the map, not a modal
+  someone accepted once — so the chrome stays either way.
+- The desktop drawer is a docked panel: not modal, does not trap focus. The sheet at full
+  height is not claimed to be handled.
 
-### Open
+**Open**
 
-- **Below `xl` the mountain is composed close and crops.** The bottom inset is applied but
-  `openingFraming` is still frozen against the whole canvas, so fitting a run box into the
-  strip above the sheet magnifies it. Inside SPEC §3's "must not be broken on a phone, is
-  not designed for one", and better than the distant ridge behind the sheet that preceded
-  it, but it is not a framing anyone chose.
-- **The sheet toggles rather than drags.** Tapping its head raises and lowers it; there is
-  no drag-to-snap.
-- **The detail card is in the DOM twice below `xl`** — once on the map, once at the head of
-  the sheet, one of them `display: none`. Cheap, and the hidden copy is out of the
-  accessibility tree, but it is duplication.
-- **The card's height budget is tuned, not derived.** Three columns of figures, a shorter
-  profile and a `short:` variant at 52rem are what make it fit between the masthead and the
-  sun clock. A card that measured the gap it was given would need none of the three.
+- The sheet toggles rather than drags; there is no drag-to-snap.
+- The detail card is in the DOM twice below `xl`, one copy `display: none`.
+- The card's height budget is tuned, not derived — three columns, a shorter profile and a
+  `short:` variant at 52rem. A card that measured its gap would need none of them.
 
-**Verified:** 356 tests green (11 new, all pure: `lib/inset.ts` and `sameRects`),
-format/lint/typecheck/build clean, console clean apart from the `THREE.Clock` deprecation
-phase 2 already recorded. Build carries 183 `<tr>` and 80.8 KB gzipped against 5.6's 76.6 KB.
-Every route's HTML carries the avalanche.ca link and the ODbL credit, with the drawer open
-and with it collapsed. In the browser at 1710x1000: the massif composes clear of the drawer
-and recentres when it folds; `#run=883614829` restores Maverick at 25°, 30°, SW 238°, 337m,
-796m, profile 2251m→1914m, matching `runs.json`; the lift plates place clear of the sun clock
-and of the masthead's type, `Whitehorn Mountain` reads beside the conditions row, and the
-detail card fits between the two without scrolling. At 900x757 the
-sheet works and the bottom chrome steps aside rather than hiding behind it.
+**Gate:** 356 tests. `#run=883614829` restores Maverick at 25°, 30°, SW 238°, 337m, 796m,
+matching `runs.json`. Every route's HTML carries the avalanche.ca link and the ODbL credit with
+the drawer open and collapsed. 183 `<tr>`, 80.8 KB gzipped.
 
-**Not verified at runtime:** the no-WebGL branch, which now also forces the drawer open and
-moves the sun and grade controls into it.
+**Not verified at runtime:** the no-WebGL branch.
 
 ---
 
 ## Phase 5.8 — Two edges, two scrims ✅ done
 
-5.7 put the chrome on the mountain. It did not ask how much of the mountain it was standing
-on. Measured at 2000x1164 with the drawer shut, the answer was most of it: a ~300px masthead
-across the top, a 785x175 panel owning the bottom-left quadrant, a 375x315 card over the
-west face, and two more buttons in two more corners. Four clusters, four boxes, four corners.
+5.7 put the chrome on the mountain without asking how much of the mountain it stood on. At
+2000x1164 with the drawer shut: a ~300px masthead, a 785x175 panel owning the bottom-left
+quadrant, a 375x315 card over the west face, and two more corners. Four clusters became two
+edges, and the masthead came down to ~170px.
 
-The masthead was the expensive one, and not only visually. It is `ResizeObserver`-watched
-into `chromeInset`, so its height _is_ `inset.top`: `terrain-scene.tsx` grows the projection
-frame by it and renders the far side, which pushed the massif down and shrank it. A quarter
-of the window was being spent to say "Lake Louise, Canada, 1560–2827m" twice over.
-
-### Done
-
-- [x] `components/map-chrome.tsx` — four corner slots become two edges. `topLeft` /
-      `bottomLeft` / `bottomRight` / `footer` → `selection` / `instruments` / `disclaimer`,
-      named for what they are now that "where" is no longer a corner
+- [x] `components/map-chrome.tsx` — `topLeft`/`bottomLeft`/`bottomRight`/`footer` →
+      `selection`/`instruments`/`disclaimer`, named for what they are
 - [x] `app/globals.css` — `.u-scrim` / `.u-scrim-up` for an edge, `.u-scrim-soft` for chrome
-      floating on the terrain. The masthead's inline gradient was the only recipe before
-- [x] `components/sun-control.tsx` — the panel becomes one row on the bottom edge;
-      sunrise/sunset splits out as `SunTimes`
-- [x] `components/chip.tsx` — `GlyphChip`, the same chip with its label moved into its
-      accessible name; `components/grade-filter.tsx` takes `compact` to choose
+      floating on terrain
+- [x] `components/sun-control.tsx` — one row on the bottom edge; `SunTimes` splits out
+- [x] `components/chip.tsx` — `GlyphChip`; `grade-filter.tsx` takes `compact`
 - [x] `components/run-detail-card.tsx` — un-boxed onto its own soft veil
-- [x] `components/resort-identity.tsx` + `conditions-strip.tsx` — facts inline, ~300px → ~170px
+- [x] `components/resort-identity.tsx` + `conditions-strip.tsx` — facts inline
 
-### Decisions worth recording
+**Constraints**
 
-- **`Baked` and `Vertical scale` stay visible, and that is SPEC §8, not taste.** The first
-  sketch folded them into the ⓘ credits popover to buy a line. §8 requires "provenance and
-  age, visible", so the masthead got shorter by layout alone and no fact was removed. Raised
-  rather than decided, per AGENTS.md — the answer just happened to be "you may not".
-- **A scrim is as tall as its own content, which is the whole trick.** The first cut reused
-  the masthead's gradient — let go by just past half its height — and it let go _under the
-  last two rows of type_, because those rows are what make it that tall. Over a sunlit
-  snowfield `--color-rock` at 35% backing is not text. It holds to ~82% now and feathers
-  only in the run-out, which is what `pb-12` on the masthead is for.
-- **Chrome off a frame edge needs a different veil.** An edge scrim can be near-solid where
-  it meets the frame; one floating under the masthead cannot, and `u-scrim` on the run card
-  drew a hard horizon straight across the west face. `.u-scrim-soft` comes out of nothing at
-  both ends, and a right-edge mask dissolves the third side. The fourth runs off-frame.
-- **Empty means every, and the glyphs made that visible.** `NO_FILTER` is `difficulties: []`
-  meaning all grades. `active={includes(d)}` therefore lit nothing in the opening state —
-  invisible when off was a slightly paler chip, a lie once off became 35% opacity. Reading
-  it as `length === 0 || includes(d)` is what the control actually means.
-- **Glyphs on the mountain, words in the drawer.** Five toggles that add and remove lines in
-  front of a reader teach their own shapes. Without a GPU there is no mountain to teach
-  them, and unlabelled marks beside the aspect chips' words would read as decoration — so
-  `steerOnMap` picks the form, and `ChipGroup`'s `w-16` label keeps the drawer column
-  aligned with `Sun` and `Vertical`.
-- **The card is _visually_ in the masthead's column and structurally nowhere near it.** The
-  `masthead` ref is measured as `inset.top`; a card rendered inside it would re-project the
-  camera on every run click. One column, two boxes, two rects.
-- **Un-boxed chrome takes the pointer one cluster at a time.** `[&>*]:pointer-events-auto`
-  on a full-width strip would have made the bottom band of the window stop turning the
-  mountain. Same reason the card is `pointer-events-none` except for `Clear`, and why it
-  lost `overflow-y-auto`: an invisible scroll region on the terrain is worse than a short
-  card, so `short:` does the height work alone now.
-- **A button on un-boxed chrome is filled, not outlined.** `Clear` and `Reset view` were
-  `border-line` on `text-rock` — two of the quietest tokens in the palette, which read as a
-  hint rather than a control the moment the panel behind them went away. Filled `surface`
-  with `snow` type and a `rock-dim` edge. Both, because they are one vocabulary and only
-  one of them being findable is worse than neither.
-- **The focus halo was nearly a silent regression.** `:focus-visible`'s dark box-shadow was
-  scoped to `.u-panel` descendants, and every control in the bottom cluster inherited it
-  from a wrapper this phase deleted. The rule now covers `.u-halo` too — the comment above
-  it already said why, and the bottom edge of this page is the snowfield it warns about.
-- **`.u-rule` went with the divider that was its only caller.**
+- **`Baked` and `Vertical scale` stay visible.** SPEC §8 requires provenance and age visible,
+  so the masthead got shorter by layout alone and no fact was removed.
+- A scrim is as tall as its own content. Reusing the masthead's gradient let go _under the last
+  two rows of type_, because those rows are what make it that tall.
+- Chrome off a frame edge needs `.u-scrim-soft`, which comes out of nothing at both ends.
+  `u-scrim` on the run card drew a hard horizon across the west face.
+- **Empty means every.** `NO_FILTER` is `difficulties: []` meaning all grades, so the chip row
+  reads its lit state off `shownDifficulties`, not off `includes`.
+- Glyphs on the mountain, words in the drawer — `steerOnMap` picks the form. Without a GPU
+  there is no mountain to teach the shapes.
+- The detail card is visually in the masthead's column and structurally nowhere near it. The
+  `masthead` ref is measured as `inset.top`; a card inside it would re-project the camera on
+  every run click.
+- Un-boxed chrome takes the pointer one cluster at a time. A full-width
+  `[&>*]:pointer-events-auto` strip would stop the bottom band of the window turning the
+  mountain. Same reason the card is `pointer-events-none` except for `Clear`, and has no
+  scroller.
+- A button on un-boxed chrome is filled, not outlined — `border-line` on `text-rock` reads as a
+  hint once the panel behind it is gone.
+- `:focus-visible`'s halo must cover `.u-halo`, not only `.u-panel` descendants.
 
-### Open
+**Fixed on review**
 
-- **The drawer's own tab is not measured.** It lives in a different tree at `z-30` and is
-  not a `data-chrome` box, so a lift plate can still land under it. Pre-existing.
-- **The bottom strip is not in `chromeInset`.** Deliberate — the framing change was kept to
-  one variable — so the camera composes around the masthead and the drawer but not the
-  strip. The strip is halo'd type on a veil, so the mountain reads through it.
-- **The narrow-width wrap is declared but not designed.** `min-w-72 flex-1` on the sun drops
-  it to its own line first; at 900px the row reflows into something legible rather than
-  something composed. Inside SPEC §3.
-- **The elevation profile's area fill is a hard-edged rectangle** against its own veil. It
-  is the chart's ground and it reads, but nobody chose that silhouette.
+- **The projection was held backwards.** The frame was grown past the canvas and a window
+  rendered onto it, which is a crop — so the massif was magnified ×1.31 into a strip that had
+  shrunk to 0.60 of its area. `lib/inset.ts` gains `viewFrame`: the clear strip is the frame,
+  the canvas is the larger crop around it. Measured against three's own projection, 0.686 where
+  it was 1.314.
+- **`active` and `toggle` disagreed.** `active` read `length === 0 || includes`; `toggle` read
+  bare `includes`, false for every chip at rest — so clicking a lit Black _selected_ advanced
+  and hid the other four. `shownDifficulties` / `toggleDifficulty` moved to `lib/run-list.ts`
+  so both read one thing. Switching off the last lit grade wraps back to all.
+- **`u-scrim-soft` painted outside its card** — on terrain that is the point, at the head of
+  the drawer it is a band across the run table. Now behind a `veiled` prop.
+- **The live count vanished without a GPU.** `runCount` renders only inside `instruments`,
+  which is `steerOnMap`-gated. `RunFilters` takes `announce`.
+- **`transition-colors transition-opacity`** both set `transition-property`, so one snapped.
 
-**Verified:** 356 tests green, format/lint/typecheck/build clean, console clean. Built
-`lake-louise.html` still carries all six fact labels, all four conditions labels, the §8
-sentence twice, the abbreviated map line, the avalanche.ca link and 183 `<tr>` at 80.8 KB
-gzipped — unchanged from 5.7. `SunTimes` renders its dash in the prerendered drawer head, so
-the §9 obligation survives the move off the strip. Checked by eye at 1710x1000 with the
-drawer both open and shut: the masthead reads over lit snow, the card and its figures read
-un-boxed, the massif recentres and fills materially more of the frame. At 900x757 the strip
-wraps, clears the peeking sheet and keeps the disclaimer out.
+**Open**
 
-**Not verified at runtime:** the no-WebGL branch, which takes the labelled chip form and the
-`SunControl` row into the drawer.
+- The drawer's own tab is not measured — a different tree at `z-30`, not a `data-chrome` box,
+  so a lift plate can still land under it. Pre-existing.
+- The bottom strip is not in `chromeInset`. Deliberate: the framing change was kept to one
+  variable.
+- `opening` is fitted to the canvas aspect, not the clear strip. It freezes in a `useState`
+  initializer while `inset` is still `NO_INSET`, and the freeze is what holds the orbit clamps
+  still. `fitDistance`'s 1.3 margin absorbs the difference with ~13% to spare.
+- The narrow-width wrap is declared but not designed — at 900px the row reflows into something
+  legible rather than something composed.
+- The elevation profile's area fill is a hard-edged rectangle against its own veil.
 
-### Fixed on review
+**Gate:** 368 tests. `tests/inset.test.ts` drives a real `PerspectiveCamera` and asserts the
+frame centre, the scale against a canvas the size of the clear strip, and that covering chrome
+can only ever shrink the subject — which fails on the old form. Built `lake-louise.html`
+carries all six fact labels, four conditions labels, the §8 sentence twice, the avalanche.ca
+link and 183 `<tr>` at 80.8 KB gzipped. Checked at 1512x757 and 430x900.
 
-Five findings, four of them in the chrome this phase moved.
-
-- [x] **The projection was held backwards.** `terrain-scene.tsx` grew the frame past the
-      canvas and rendered a window onto it, which is a crop — so the massif was magnified
-      ×1.31 into a strip that had shrunk to 0.60 of its area, not composed into it. The
-      centring was always right. `lib/inset.ts` gains `viewFrame`: the clear strip is the
-      frame, the canvas is the larger crop around it. Measured against three's own
-      projection, 0.686 where it was 1.314.
-- [x] **"Empty means every" was only half done.** `active` read `length === 0 || includes`;
-      `toggle` still read bare `includes`, which is false for every chip at rest. Clicking a
-      lit Black therefore _selected_ advanced and hid the other four, and the chip stayed
-      `aria-pressed`. `shownDifficulties` / `toggleDifficulty` move to `lib/run-list.ts` so
-      the lit state and the click read one thing. Switching off the last lit grade wraps
-      back to all — `[]` is the only spelling of "no constraint" the filter has.
-- [x] **`u-scrim-soft` painted outside its card.** The veil is negatively inset on all four
-      sides, which on the terrain is the point and at the head of the drawer is a band
-      across the top rows of the run table — every narrow window, and every window without
-      WebGL. Now behind a `veiled` prop.
-- [x] **The live count vanished without a GPU.** `runCount` renders only inside
-      `instruments`, which is `steerOnMap`-gated, and the drawer's copy had its `aria-live`
-      removed on the grounds that the mountain carries it. With no mountain, nothing did.
-      `RunFilters` takes `announce`.
-- [x] **`transition-colors transition-opacity`** both set `transition-property`, so one of
-      the two snapped. One `transition-[…]` naming what actually changes.
-
-**Verified:** 368 tests green (12 new). `tests/inset.test.ts` drives a real
-`PerspectiveCamera` and asserts the frame centre, the scale against a canvas the size of the
-clear strip, and that covering chrome can only ever shrink the subject — that last one fails
-on the old form. Checked by eye at 1512x757 and 430x900: the massif composes into the strip,
-a lit grade chip goes dark on its own click, and the drawer head no longer shades the table.
-
-**Left alone deliberately:** `opening` is still fitted to the canvas aspect rather than the
-clear strip. It is frozen in a `useState` initializer while `inset` is still `NO_INSET`, so
-reading the strip there means changing when the freeze happens — and the freeze is what
-holds the orbit clamps still. `fitDistance`'s 1.3 margin absorbs the difference with ~13%
-to spare.
+**Not verified at runtime:** the no-WebGL branch.
 
 ---
 
-## ⛳ Valid stopping point
+## Phase 5.9 — The home page tells the truth ✅ done
 
-**After phase 5, with three resorts baked, this is a finished, pinnable thing.**
-Terrain, runs, stats, filters and a real sun. SPEC §11 is explicit: everything past here is
-addition, not completion. If the calendar tightens, stop and ship rather than
-half-building phase 7.
+`app/page.tsx` was a phase 0 artifact. Its masthead drew an invented massif with invented
+numbers — 21° / NE / 604m, captioned "Sample section" — on a site whose whole claim is that
+its numbers are measured. Six resorts are baked, so the figure now draws one of their runs.
+
+- [x] `lib/masthead.ts` — the featured run, held by OSM way id
+- [x] `components/ridgeline.tsx` — real `profile` in; invented massif, lift, chairs, five
+      other trails and the treeline rule out. 491 lines to 158
+- [x] `app/page.tsx` — masthead on a `.u-scrim` over the figure, facts in the resort page's
+      interpunct `<dl>`, resort index as a table, Grades legend cut
+- [x] `app/globals.css` — the lift-ride motion went with the lift
+- [x] "Baked" is "Measured", here and on the resort page
+
+**Constraints**
+
+- **Nothing in the figure is drawn that the bake did not measure.** The treeline rule and
+  label went for that reason: no treeline elevation is baked anywhere. The alpine/treed value
+  split stays as shading, which asserts no number. Same reason the lift went — an invented
+  cable over real Panorama terrain claims infrastructure that is not there.
+- **Wild Thing, not Falling Star.** The first pick was Fernie's biggest clean descent and it
+  draws as a steep quarter and a long flat runout. Silhouette is a property of the data; the
+  run was chosen by looking at all six resorts' profiles, not by its numbers.
+- **Light bands under the ridge, not by height.** A vertical gradient across the plot shades
+  by absolute y, so the runout got the valley's value and vanished. The lit band is a clipped
+  non-scaling stroke following the line, so the same slope is lit wherever it sits.
+- The header is `bg-shadow-deep`, not `bg-shadow`: the terrain body is `--color-shadow`, and
+  against a `bg-shadow` header it was invisible.
+- `preserveAspectRatio="none"` means no `<text>` in the svg. The axis readouts are HTML, the
+  way `elevation-profile.tsx` already puts its own outside the frame.
+- Counting is not computing. `runs.runs.length` on the index is what
+  `app/resorts/[slug]/page.tsx` already does for `Marked runs`; the alternative was a manifest
+  field and a re-bake of six resorts to change a landing page.
+- Country is the column a phone loses. The other five, `Measured` among them, stay — SPEC §8
+  wants age visible.
+
+**Open**
+
+- No OG image and no favicon for `/`. Dynamic OG is phase 8; the favicon is nobody's phase.
+- `app/not-found.tsx` still hard-codes "six resorts".
+
+**Gate:** 372 tests. `tests/masthead.test.ts` pins way 777349974 in `panorama/runs.json` by id,
+name, sample count and relief, so a re-bake that drops it fails rather than blanking the
+masthead. Checked by hand at 1456px: the hero's five stats and its 2452m–1671m axis match the
+detail card reached through the hero link. Table measured at 342px and 312px containers.
+
+**Not verified at runtime:** `prefers-reduced-motion`, and the narrow viewport — the harness
+would not resize, so the table was measured by constraining its container instead.
+
+---
+
+## ⛳ Valid stopping point — passed
+
+**After phase 5, with three resorts baked, this is a finished, pinnable thing.** All six are
+baked. SPEC §11 is explicit: everything past here is addition, not completion. If the calendar
+tightens, stop and ship rather than half-building phase 7.
 
 ---
 
 ## Phase 6 — Historical snow charts ⬜
 
-Monthly snowfall and depth from the Open-Meteo archive, baked as JSON rather than fetched
-per visitor. This is what closes the September problem (decision D3).
+Monthly snowfall and depth from the Open-Meteo archive, baked as JSON rather than fetched per
+visitor. Closes the September problem (decision D3).
 
 **Gate:** baked archive JSON matches a recorded API response; chart renders from a fixture.
 
@@ -1387,12 +581,14 @@ Polar chart of run distribution by direction; two resorts side by side at identi
 
 ## Phase 8 — Dynamic OG images ⬜
 
-`/api/og/[slug]/[run]` via `ImageResponse`, from baked data only — no network call, so a
-shared link can't fail on someone else's API.
+`/api/og/[slug]/[run]` via `ImageResponse`, from baked data only — no network call, so a shared
+link cannot fail on someone else's API.
 
 **Gate:** route returns a valid PNG for a known run; visual check of one card.
 
 ## Phase 9 — Remaining resorts, polish, deploy ⬜
+
+All six resorts are baked. What remains is polish and the deploy.
 
 **Gate:** `npm run bake -- --all` green, SPEC §10 budget met, live at
 `treeline.aidenkopec.com`.
