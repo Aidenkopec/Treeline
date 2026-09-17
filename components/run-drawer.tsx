@@ -3,6 +3,16 @@
 import type { ReactNode, Ref } from "react";
 
 /**
+ * Written as `transform` rather than as a `translate-y-*` utility, which sets a
+ * custom property registered `syntax: "*"` and so holds its start value for the
+ * length of the transition instead of interpolating. The dock above `xl` still
+ * moves on the utility and still does not animate.
+ */
+const PEEK_HANDHELD =
+  "handheld:[transform:translateY(calc(62svh-8.5rem-env(safe-area-inset-bottom)))] squat:[transform:translateY(calc(92svh-2.75rem))]";
+const PEEK = `[transform:translateY(calc(62svh-8.5rem))] ${PEEK_HANDHELD}`;
+
+/**
  * The run list, docked beside the mountain or drawn up over it.
  *
  * Opaque, unlike the chrome that floats on the terrain: this is a reading
@@ -25,6 +35,7 @@ export function RunDrawer({
   onToggle,
   open,
   ref,
+  untouched,
 }: {
   /** The list itself. Scrolls under `head`. */
   children: ReactNode;
@@ -36,13 +47,19 @@ export function RunDrawer({
   open: boolean;
   /** Held by the explorer, which measures what this covers for the camera. */
   ref?: Ref<HTMLElement>;
+  /**
+   * True until the reader has said. The server cannot measure a window, so the
+   * phone's own default is left to the media query: resolved in JavaScript it
+   * would paint the list over the mountain until hydration.
+   */
+  untouched: boolean;
 }) {
   return (
     <aside
-      className={`fixed inset-x-0 bottom-0 z-30 flex h-[62svh] flex-col rounded-t-xl border-t border-line bg-shadow shadow-panel transition-transform duration-200 ease-out xl:inset-y-0 xl:right-0 xl:left-auto xl:h-svh xl:w-152 xl:rounded-none xl:border-t-0 xl:border-l 2xl:w-168 ${
+      className={`fixed inset-x-0 bottom-0 z-30 flex h-[62svh] flex-col rounded-t-xl border-t border-line bg-shadow shadow-panel transition-transform duration-200 ease-out xl:inset-y-0 xl:right-0 xl:left-auto xl:h-svh xl:w-152 xl:rounded-none xl:border-t-0 xl:border-l 2xl:w-168 handheld:h-[calc(62svh-env(safe-area-inset-bottom))] squat:h-[92svh] squat:pr-[env(safe-area-inset-right)] squat:pl-[env(safe-area-inset-left)] ${
         open
-          ? "translate-y-0 xl:translate-x-0"
-          : "translate-y-[calc(62svh-8.5rem)] xl:translate-x-full xl:translate-y-0"
+          ? `[transform:none] xl:translate-x-0 ${untouched ? PEEK_HANDHELD : ""}`
+          : `${PEEK} xl:translate-x-full xl:[transform:none]`
       }`}
       id="run-list"
       ref={ref}
@@ -88,7 +105,9 @@ export function RunDrawer({
         {head}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-10">{children}</div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-10 handheld:pb-[calc(2.5rem+env(safe-area-inset-bottom))]">
+        {children}
+      </div>
     </aside>
   );
 }

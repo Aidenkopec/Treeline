@@ -82,11 +82,23 @@ export function GlyphChip({
  * because a `<legend>` in a flex row is laid out inconsistently across
  * browsers. The visible label beside it does the same job for the eye.
  */
-export function ChipGroup({ children, label }: { children: ReactNode; label: string }) {
+export function ChipGroup({
+  children,
+  compact,
+  label,
+}: {
+  children: ReactNode;
+  /** On the map, where a handheld has no room for a word column. */
+  compact?: boolean;
+  label: string;
+}) {
   return (
     <fieldset className="flex flex-wrap items-center gap-1.5">
       <legend className="sr-only">{label}</legend>
-      <span aria-hidden="true" className="u-data mr-1 w-16 shrink-0">
+      <span
+        aria-hidden="true"
+        className={`u-data mr-1 w-16 shrink-0 ${compact ? "handheld:hidden" : ""}`}
+      >
         {label}
       </span>
       {children}

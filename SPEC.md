@@ -51,8 +51,8 @@ none of them is in this version.
   static host.
 - **Runtime resort search.** Resorts are baked ahead of time, not fetched on
   demand.
-- **Mobile-first design.** The site must not be broken on a phone; it is not
-  designed for one.
+- **A separate mobile site.** One document and one set of components. The phone
+  view is this page composed differently, not a parallel build.
 - **Route planning between runs**, lift-aware pathfinding, or "plan my day".
 
 ## 4. Scope — v1
@@ -86,6 +86,9 @@ none of them is in this version.
 - Dynamic Open Graph images per run and per resort
 - Shareable URL per resort and per run
 - Accessible fallback: the same run data as an HTML table
+- A phone layout for the resort page: the mountain keeps the screen, the masthead
+  folds to a title bar, the run list is a sheet that peeks and rises, and every
+  map control stays reachable with a thumb. Portrait and landscape
 - Attribution and safety disclaimer
 
 ## 5. Architecture

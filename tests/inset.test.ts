@@ -1,8 +1,28 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
-import { type Inset, NO_INSET, chromeInset, sameInset, viewFrame } from "@/lib/inset";
+import { type Inset, NO_INSET, chromeInset, drawerOpen, sameInset, viewFrame } from "@/lib/inset";
 
 const CHROME = { drawerHeight: 470, drawerWidth: 608, mastheadHeight: 270 };
+
+describe("drawerOpen", () => {
+  it("opens on a laptop and peeks on a phone", () => {
+    expect(drawerOpen({ choice: null, phone: false, steerOnMap: true })).toBe(true);
+    expect(drawerOpen({ choice: null, phone: true, steerOnMap: true })).toBe(false);
+  });
+
+  it("is out at every width without a GPU, whatever was last asked for", () => {
+    for (const phone of [true, false]) {
+      for (const choice of [true, false, null]) {
+        expect(drawerOpen({ choice, phone, steerOnMap: false })).toBe(true);
+      }
+    }
+  });
+
+  it("keeps a reader's own answer over the default", () => {
+    expect(drawerOpen({ choice: true, phone: true, steerOnMap: true })).toBe(true);
+    expect(drawerOpen({ choice: false, phone: false, steerOnMap: true })).toBe(false);
+  });
+});
 
 describe("chromeInset", () => {
   it("covers the drawer's own width when docked", () => {

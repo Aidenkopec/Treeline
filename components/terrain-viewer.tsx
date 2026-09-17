@@ -64,6 +64,7 @@ class SceneBoundary extends Component<{ children: ReactNode }, { failed: boolean
 }
 
 export function TerrainViewer({
+  handheld,
   inset,
   mountain,
   overlay,
@@ -72,6 +73,8 @@ export function TerrainViewer({
   sunAt,
   webgl,
 }: {
+  /** A phone's GPU fills a 3x screen at a cost its battery notices. */
+  handheld: boolean;
   /** What the drawer is standing on, in canvas pixels. */
   inset: Inset;
   mountain: MountainOverlayState;
@@ -110,6 +113,7 @@ export function TerrainViewer({
       >
         <SceneBoundary>
           <TerrainScene
+            handheld={handheld}
             inset={inset}
             mountain={mountain}
             overlay={overlay}

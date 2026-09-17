@@ -14,7 +14,7 @@ import { RunTable } from "@/components/run-table";
 import { SiteFooter } from "@/components/site-footer";
 import { SunControl, SunTimes } from "@/components/sun-control";
 import { TerrainViewer } from "@/components/terrain-viewer";
-import { type Inset, NO_INSET, chromeInset, sameInset } from "@/lib/inset";
+import { type Inset, NO_INSET, chromeInset, drawerOpen, sameInset } from "@/lib/inset";
 import { type Rect, sameRects } from "@/lib/label-layout";
 import {
   NO_FILTER,
@@ -97,6 +97,36 @@ const noop = () => () => {};
 /** Tailwind's `xl`, which is where the drawer stops being a sheet and docks. */
 const DOCKED = "(min-width: 80rem)";
 
+/**
+ * The `handheld` variant in `app/globals.css`, which has to say the same thing
+ * in both places: the masthead folds and the sheet opens peeked together.
+ */
+const HANDHELD = "(max-width: 47.9375rem), (max-height: 30rem) and (max-width: 79.9375rem)";
+
+/**
+ * A media query as a store. The server has no window to measure, so it answers
+ * no — which keeps the prerendered HTML the wide one it has always been.
+ *
+ * One list, held: `get` is read on every render and again after every commit,
+ * and this component re-renders for each hovered run and each step of the sun.
+ */
+function mediaStore(query: string) {
+  let list: MediaQueryList | null = null;
+  const watched = () => (list ??= window.matchMedia(query));
+
+  return {
+    subscribe: (onChange: () => void) => {
+      const watching = watched();
+      watching.addEventListener("change", onChange);
+      return () => watching.removeEventListener("change", onChange);
+    },
+    get: () => watched().matches,
+    server: () => false,
+  };
+}
+
+const handheldStore = mediaStore(HANDHELD);
+
 export function RunExplorer({
   facts,
   lifts,
@@ -120,9 +150,12 @@ export function RunExplorer({
   const [sortKey, setSortKey] = useState<SortKey>("vertical_m");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [hovered, setHovered] = useState<string | null>(null);
-  // Starts open, so the list is in the prerendered HTML and is what a visit
-  // without JavaScript gets (SPEC §9). Collapsing only ever hides it.
-  const [drawerOpen, setDrawerOpen] = useState(true);
+  // Null until the reader says. The default is the window's, not a constant:
+  // out beside a mountain there is room next to, peeked over one there is not.
+  const [drawerChoice, setDrawerChoice] = useState<boolean | null>(null);
+  // Six facts and four readings are a third of a phone's window. Folded there
+  // and nowhere else, so `md` up never reads this.
+  const [factsOpen, setFactsOpen] = useState(false);
   // Lives beside the button that presses it. A counter rather than a flag:
   // pressing reset twice has to fly twice, and the scene reports no arrival.
   const [resetSignal, setResetSignal] = useState(0);
@@ -130,6 +163,7 @@ export function RunExplorer({
   const masthead = useRef<HTMLDivElement>(null);
   const [inset, setInset] = useState<Inset>(NO_INSET);
   const [chrome, setChrome] = useState<Rect[]>([]);
+  const [covered, setCovered] = useState<Rect[]>([]);
   const hash = useSyncExternalStore(
     subscribeToHash,
     () => window.location.hash,
@@ -154,9 +188,14 @@ export function RunExplorer({
   // With no mountain to change they fall back into the drawer rather than
   // floating over a paragraph explaining why there isn't one.
   const steerOnMap = webgl !== false;
-  // Forced out when the terrain cannot be drawn: the table is then the site,
-  // and a collapsed drawer would leave a browser with no GPU an empty window.
-  const listOpen = drawerOpen || !steerOnMap;
+  const phone = useSyncExternalStore(
+    handheldStore.subscribe,
+    handheldStore.get,
+    handheldStore.server,
+  );
+  const listOpen = drawerOpen({ choice: drawerChoice, phone, steerOnMap });
+  // The facts are the page without a GPU, so they are never folded away there.
+  const factsShown = factsOpen || !steerOnMap;
 
   const sun = view.sun ?? openingHour;
   const sunAt = useMemo(
@@ -188,6 +227,36 @@ export function RunExplorer({
     (next: Rect[]) => setChrome((held) => (sameRects(held, next) ? held : next)),
     [],
   );
+
+  /**
+   * The sheet is a sibling of the frame that measures the chrome clusters, so
+   * the band it covers is reserved here instead. Peeked is the phone's default
+   * and still covers 8.5rem of the window, which is where the bottoms of the
+   * runs are.
+   *
+   * Read on arrival: it slides for the length of its transition and renders
+   * nothing on the way, so a rect taken when the move starts is the old one.
+   */
+  useEffect(() => {
+    const panel = drawer.current;
+    if (panel === null) return;
+
+    const measure = () => {
+      const { x, y, width, height } = panel.getBoundingClientRect();
+      const next = width > 0 && height > 0 ? [{ x, y, width, height }] : [];
+      setCovered((held) => (sameRects(held, next) ? held : next));
+    };
+
+    measure();
+    panel.addEventListener("transitionend", measure);
+    window.addEventListener("resize", measure);
+    return () => {
+      panel.removeEventListener("transitionend", measure);
+      window.removeEventListener("resize", measure);
+    };
+  }, [listOpen]);
+
+  const reserved = useMemo(() => [...chrome, ...covered], [chrome, covered]);
 
   /**
    * What the chrome is standing on, so the scene can compose the mountain into
@@ -247,6 +316,7 @@ export function RunExplorer({
 
   const sunControl = (
     <SunControl
+      compact={steerOnMap}
       onChange={(next) => writeView({ ...view, sun: next })}
       pinned={view.sun !== null}
       resort={resort}
@@ -283,7 +353,7 @@ export function RunExplorer({
         // `not-sr-only` counterpart resets the padding back off again.
         className="u-panel u-data absolute top-5 left-5 z-40 -translate-y-24 px-3 py-2 text-snow focus:translate-y-0"
         onClick={() => {
-          setDrawerOpen(true);
+          setDrawerChoice(true);
           drawer.current?.focus();
         }}
         type="button"
@@ -293,6 +363,7 @@ export function RunExplorer({
 
       <div className="absolute inset-0">
         <TerrainViewer
+          handheld={phone}
           inset={inset}
           mountain={{
             lifts,
@@ -301,7 +372,7 @@ export function RunExplorer({
             hoveredPlaceId,
             onHoverLift: setHoveredLiftId,
             onHoverPlace: setHoveredPlaceId,
-            reserved: chrome,
+            reserved,
           }}
           overlay={{
             runs,
@@ -327,8 +398,10 @@ export function RunExplorer({
             // window that swallowed a drag would be the bottom of the mountain
             // gone. The sun holds the flexible middle, so it is what drops to
             // its own line first when the window is too narrow for one row.
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-              <div className="pointer-events-auto min-w-72 flex-1">{sunControl}</div>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3 handheld:gap-x-3 handheld:gap-y-2">
+              <div className="pointer-events-auto min-w-72 flex-1 handheld:min-w-min">
+                {sunControl}
+              </div>
 
               <div className="pointer-events-auto flex flex-wrap items-center gap-x-3 gap-y-2">
                 {gradeFilter}
@@ -341,12 +414,15 @@ export function RunExplorer({
                   Outside the aria-hidden canvas, so it is still reachable by
                   keyboard. */}
               <button
+                aria-label="Reset view"
                 className="u-data pointer-events-auto flex shrink-0 cursor-pointer items-center gap-2 rounded border border-rock-dim bg-surface px-2.5 py-1.5 text-snow transition-colors hover:border-rock hover:bg-surface-high"
                 onClick={() => setResetSignal((presses) => presses + 1)}
                 type="button"
               >
                 <span aria-hidden="true">↺</span>
-                Reset view
+                {/* The glyph carries it where the row has no width for a word;
+                    `aria-label` is the name either way, so it does not change. */}
+                <span className="handheld:hidden">Reset view</span>
               </button>
             </div>
           )
@@ -354,7 +430,13 @@ export function RunExplorer({
         listOpen={listOpen}
         masthead={
           <div ref={masthead}>
-            <ResortIdentity facts={facts} resort={resort} />
+            <ResortIdentity
+              collapsible={steerOnMap}
+              facts={facts}
+              factsShown={factsShown}
+              onToggleFacts={() => setFactsOpen(!factsOpen)}
+              resort={resort}
+            />
           </div>
         }
         onMeasure={onMeasure}
@@ -399,9 +481,10 @@ export function RunExplorer({
             )}
           </>
         }
-        onToggle={() => setDrawerOpen(!drawerOpen)}
+        onToggle={() => setDrawerChoice(!listOpen)}
         open={listOpen}
         ref={drawer}
+        untouched={drawerChoice === null}
       >
         <RunTable
           hoveredId={hoveredId}

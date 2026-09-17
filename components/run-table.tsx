@@ -14,14 +14,17 @@ import type { Run } from "@/lib/types";
  * JavaScript runs — sorting is the only part that needs it.
  */
 
-const COLUMNS: { key: SortKey; label: string; numeric: boolean }[] = [
-  { key: "name", label: "Run", numeric: false },
-  { key: "difficulty", label: "Grade", numeric: false },
-  { key: "pitch_avg_deg", label: "Avg pitch", numeric: true },
-  { key: "pitch_max_deg", label: "Steepest", numeric: true },
-  { key: "aspect", label: "Aspect", numeric: false },
-  { key: "vertical_m", label: "Vertical", numeric: true },
-  { key: "length_m", label: "Length", numeric: true },
+// Seven columns need 33rem of header. A handheld has half that, so three of
+// them fold into a line under the name — the idiom `components/resort-index.tsx`
+// already uses, and no value leaves the table.
+const COLUMNS: { key: SortKey; label: string; numeric: boolean; folds: boolean; tight?: true }[] = [
+  { key: "name", label: "Run", numeric: false, folds: false },
+  { key: "difficulty", label: "Grade", numeric: false, folds: false, tight: true },
+  { key: "pitch_avg_deg", label: "Avg pitch", numeric: true, folds: false },
+  { key: "pitch_max_deg", label: "Steepest", numeric: true, folds: true },
+  { key: "aspect", label: "Aspect", numeric: false, folds: true },
+  { key: "vertical_m", label: "Vertical", numeric: true, folds: false },
+  { key: "length_m", label: "Length", numeric: true, folds: true },
 ];
 
 export function RunTable({
@@ -49,7 +52,7 @@ export function RunTable({
           come to 33rem; the run name takes whatever is left. Asserting more
           than that scrolls the table sideways inside the list pane for no
           reason, which is what min-w-3xl was doing. */}
-      <table className="w-full min-w-[33rem] border-collapse text-sm">
+      <table className="w-full min-w-[33rem] border-collapse text-sm handheld:min-w-0">
         <caption className="sr-only">
           Marked runs with pitch, aspect, vertical and length measured from the elevation model.
         </caption>
@@ -64,7 +67,9 @@ export function RunTable({
                   }
                   className={`group px-2 py-2.5 first:pl-0 last:pr-0 ${
                     column.numeric ? "text-right" : "text-left"
-                  } ${active ? "border-b-2 border-sun" : ""}`}
+                  } ${active ? "border-b-2 border-sun" : ""} ${
+                    column.folds ? "handheld:hidden" : ""
+                  }`}
                   key={column.key}
                   scope="col"
                 >
@@ -74,11 +79,13 @@ export function RunTable({
                   <button
                     className={`u-data inline-flex cursor-pointer items-center gap-1 whitespace-nowrap transition-colors group-hover:text-snow ${
                       active ? "text-snow" : ""
-                    }`}
+                    } ${column.tight ? "handheld:px-2 handheld:py-1" : ""}`}
                     onClick={() => onSort(column.key)}
                     type="button"
                   >
-                    {column.label}
+                    {/* A handheld's grade cell is the mark alone, a few pixels
+                        wide. Left visible, the word would set the column. */}
+                    <span className={column.tight ? "handheld:sr-only" : ""}>{column.label}</span>
                     <span aria-hidden="true" className={active ? "text-sun" : "text-rock-dim"}>
                       {active ? (sortDirection === "asc" ? "↑" : "↓") : "↕"}
                     </span>
@@ -114,27 +121,42 @@ export function RunTable({
                       still in the cell, and in the panel once it is picked. */}
                   <button
                     aria-current={selected ? "true" : undefined}
-                    className="u-feature block w-full cursor-pointer truncate text-left text-snow"
+                    className="u-feature block w-full cursor-pointer truncate text-left text-snow handheld:overflow-visible"
                     title={cells.name}
                     onBlur={() => onHover(null)}
                     onClick={() => onSelect(run.id)}
                     onFocus={() => onHover(run.id)}
                     type="button"
                   >
-                    {cells.name}
+                    <span className="block truncate">{cells.name}</span>
+
+                    {/* The three columns a handheld folds, kept as a line under
+                        the name and inside the button, which is what makes the
+                        whole two-line block a thumb's target. */}
+                    <span className="u-data mt-0.5 hidden truncate handheld:block">
+                      <span className="sr-only">Steepest </span>
+                      {cells.pitchMax} · <span className="sr-only">Aspect </span>
+                      {cells.aspect} · <span className="sr-only">Length </span>
+                      {cells.length}
+                    </span>
                   </button>
                 </th>
-                <td className="px-2 py-2">
+                <td className="px-2 py-2 handheld:pr-0 handheld:pl-1">
                   <span className="flex items-center gap-1.5 whitespace-nowrap">
                     <DifficultyMark difficulty={run.difficulty} size={9} />
-                    <span className="u-data">{difficultyStyle(run.difficulty).label}</span>
+                    {/* The mark is the shape that carries grade on the map
+                        (SPEC §9) and names itself, so the word folds away
+                        rather than to `sr-only`, which would say it twice. */}
+                    <span className="u-data handheld:hidden">
+                      {difficultyStyle(run.difficulty).label}
+                    </span>
                   </span>
                 </td>
                 <td className="px-2 py-2 text-right text-snow">{cells.pitchAvg}</td>
-                <td className="px-2 py-2 text-right text-snow">{cells.pitchMax}</td>
-                <td className="px-2 py-2 text-rock">{cells.aspect}</td>
+                <td className="px-2 py-2 text-right text-snow handheld:hidden">{cells.pitchMax}</td>
+                <td className="px-2 py-2 text-rock handheld:hidden">{cells.aspect}</td>
                 <td className="px-2 py-2 text-right text-snow">{cells.vertical}</td>
-                <td className="py-2 pl-2 text-right text-snow">{cells.length}</td>
+                <td className="py-2 pl-2 text-right text-snow handheld:hidden">{cells.length}</td>
               </tr>
             );
           })}

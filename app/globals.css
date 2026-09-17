@@ -10,6 +10,24 @@
    less than its height to give the card. */
 @custom-variant short (@media (max-height: 52rem));
 
+/* A phone, either way up. Narrow, or short enough that a sheet and a strip
+   would leave the massif nothing — a phone on its side is 852px wide, so width
+   alone does not find it. The second clause is bounded above by `xl` because a
+   short laptop window is not a handheld. */
+@custom-variant handheld {
+  @media (max-width: 47.9375rem) {
+    @slot;
+  }
+  @media (max-height: 30rem) and (max-width: 79.9375rem) {
+    @slot;
+  }
+}
+
+/* A handheld on its side, where height is the scarce axis. Declared after
+   `handheld` because it overrides it: the list is raised or it is a handle,
+   never a sheet sharing a window with a map that has no room left. */
+@custom-variant squat (@media (max-height: 30rem) and (max-width: 79.9375rem));
+
 /* ---------------------------------------------------------------------------
    Treeline design tokens
 

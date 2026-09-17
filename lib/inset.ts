@@ -52,6 +52,27 @@ export function chromeInset({
 }
 
 /**
+ * Whether the list is out, before and after anyone has said.
+ *
+ * Without a GPU the list is the site and there is nothing to fold it over. On a
+ * phone the sheet is most of the window, so it starts peeked: raised, the page
+ * would open on a table with the mountain entirely behind it.
+ */
+export function drawerOpen({
+  choice,
+  phone,
+  steerOnMap,
+}: {
+  /** What the reader last asked for, or null if they have not asked. */
+  choice: boolean | null;
+  phone: boolean;
+  steerOnMap: boolean;
+}): boolean {
+  if (!steerOnMap) return true;
+  return choice ?? !phone;
+}
+
+/**
  * A `setViewOffset` frame: the clear strip is the frame, the canvas is the
  * larger crop around it. Growing the frame past the canvas instead renders a
  * window onto a wider view, which magnifies rather than fits.

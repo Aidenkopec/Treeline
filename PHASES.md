@@ -3,7 +3,7 @@
 Progress tracker for [SPEC.md](./SPEC.md) §11. Each phase ends working, committed and
 deployable, and runs in its own session with its own verification gate.
 
-**Status: phases 0–5.9 done. All six resorts baked. 400 tests green.** The ⛳ stopping point
+**Status: phases 0–5.10 done. All six resorts baked. 407 tests green.** The ⛳ stopping point
 (three resorts) is passed. Everything past it is addition, not completion.
 
 > **Next action:** phase 6, or phase 9's deploy. Nothing is blocking either.
@@ -592,6 +592,97 @@ and 414px (fits exactly), and 640px up.
 screenshot. It holds a live Metal context and logs no error, but a GPU canvas does not
 composite into the capture, so the resort page behind the call to action was confirmed by its
 DOM and its numbers rather than by its pixels.
+
+---
+
+## Phase 5.10 — The phone ✅ done
+
+SPEC §3 used to put mobile-first out of scope. It is in scope now, and the resort page was
+measured rather than assumed: at 390×844 the masthead stood 339px tall and the sheet was
+pinned at y=321, so the uncovered band was negative and **no pixel of terrain was on screen**.
+The map-leads composition of 5.7 only composed at a laptop's width.
+
+- [x] `SPEC.md` — §3's mobile-first non-goal replaced with "a separate mobile site"; §4 carries
+      the phone view
+- [x] `app/globals.css` — `@custom-variant handheld` (narrow **or** short-and-not-wide, because
+      a phone on its side is 852px) and `squat` for that side
+- [x] `components/resort-identity.tsx` — the six facts and the conditions fold behind `Facts`,
+      339px → 89px
+- [x] `lib/inset.ts` — `drawerOpen`, the tri-state rule; `run-explorer.tsx` reads a `handheld`
+      `matchMedia` through `useSyncExternalStore`
+- [x] `components/run-drawer.tsx` — the peek works at last (see Constraints), safe-area insets,
+      a grab-bar-only peek on `squat`
+- [x] `components/map-chrome.tsx` — the strip's clearance matches the peek it stands on
+- [x] `components/run-table.tsx`, `lift-table.tsx` — three columns fold into a line under the
+      name; the whole two-line block is the button
+- [x] `components/sun-control.tsx`, `chip.tsx`, `grade-filter.tsx` — `compact` folds the word
+      columns on the map
+- [x] `components/terrain-scene.tsx` — `dpr` capped at 1.5 on a handheld
+
+**Constraints**
+
+- **`transition-transform` does not move a `translate-*` utility.** Tailwind registers
+  `--tw-translate-*` with `syntax: "*"`, so `translate: var(…) var(…)` is not interpolable and
+  the transition holds the start value indefinitely — the sheet's peek and the panel's retract
+  both did nothing at all. The sheet is written as `transform` instead, which is why it moves
+  at every width below `xl`. **The dock above `xl` still carries the live bug**: `Hide runs`
+  sets the class and the panel stays put. Left alone on purpose, because this phase was not
+  allowed to change desktop.
+- **`handheld` is a width test _or_ a height test.** Width alone misses a phone in landscape at
+  852px; height alone catches a 1280×800 laptop. The second clause is bounded by `xl`.
+- `@custom-variant` takes no comma-separated media list — the block form with `@slot` per
+  clause is the one that compiles. A comma silently emits a dangling selector.
+- **`squat` is declared after `handheld`** because it overrides it. Variant order is source
+  order.
+- **Desktop is the invariant, and it was measured, not asserted.** The DOM signature and the
+  boxes of the sheet, masthead, table and `h1` were captured at 1280, 1440 and 1920 before the
+  first edit and compared after: geometry identical, and with `handheld:`/`squat:` tokens
+  stripped, zero nodes removed or changed. Everything new is additive and hidden.
+- **No datum left the table.** The folded columns return as a line inside the row's `<th>`, the
+  idiom `resort-index.tsx` already used, so the served document is the same at every width
+  (SPEC §9). Grade keeps its mark and folds only its word, to `sr-only` rather than away —
+  a second `DifficultyMark` per row would have been a thousand hidden nodes on desktop.
+- The masthead is watched by a `ResizeObserver`, so folding the facts re-frames the camera with
+  no extra wiring: `inset.top` follows.
+
+**Open**
+
+- **The instrument strip is not in `chromeInset`.** The massif is composed against the masthead
+  and the drawer only, so on a phone the bottom 188px of the frame is veiled terrain the camera
+  does not know it is losing. 5.8 recorded this; a phone is where it costs the most.
+- **The RSC document is ~500KB decoded**, because every run's 25m `profile` is serialized into
+  `<RunExplorer>`'s props. Nothing on the table's path reads it — only the 3D overlay and the
+  elevation chart do, and `runs.json` is already a static file in `public/`. Fetching it on the
+  WebGL path instead would take ~220KB off every visit. Its own pass: it retypes `Run` through
+  the tree and touches the desktop scene.
+- `satellite.jpg` (1.5MB at Fernie, 2.1MB at Panorama) is still awaited alongside the heightmap
+  before the mesh draws. Splitting them would show terrain on a quarter of the bytes.
+- The sheet toggles rather than drags, still. At 320×568 the strip is 265px of a 568px window.
+- The instrument row still stacks to two lines below 390px, and the date field is a native
+  `type="date"` whose width is the browser's to set. Condensed on a handheld, not replaced.
+- **Three columns are read-only on a phone.** Folding `Steepest`, `Aspect` and `Length` hides
+  their headers, and the sort control lives in the header. The other four still sort, so the
+  table is still sortable (SPEC §9); restoring these three means a phone-only sort control.
+- **The `handheld` query is written out three times** — `app/globals.css`, `HANDHELD` in
+  `run-explorer.tsx`, and the `<noscript>` rule in `resort-identity.tsx`. Nothing asserts that
+  the three agree, and CSS cannot read the first from the other two.
+- **The instrument strip appears a beat after hydration on a phone.** Its `max-xl:hidden` is
+  keyed to the resolved `listOpen`, which needs `matchMedia`. The sheet's own default moved to
+  CSS and no longer waits, so the terrain is there from the first paint; the strip is not.
+- The opening framing is frozen at first render, so a phone that loads in portrait and turns
+  keeps a portrait fit until `Reset view`.
+
+**Gate:** 407 tests, up from 404 — `tests/inset.test.ts` pins `drawerOpen` across phone, dock,
+no-GPU and a reader's own choice. Measured in real viewports at 390×844, 430×932, 375×667,
+360×640, 320×568 and landscape 852×393 and 932×430: no page overflow and no table scroller at
+any of them, every instrument reachable with the sheet peeked, the map 60–76% of the window
+where it was 0%, and the run name's target 31×19px → 161×36px before the coarse-pointer floor.
+Desktop re-measured at 1280, 1440 and 1920 against a pre-change capture: unchanged.
+
+**Not verified at runtime:** the terrain canvas itself, which does not composite into a
+screenshot; `env(safe-area-inset-*)` on real notched hardware, since a desktop Chrome resolves
+every inset to 0px; and VoiceOver on the folded row, whose `<th>` now reads the name and the
+three folded numbers as one cell.
 
 ---
 
