@@ -56,6 +56,9 @@ export interface Cluster {
   anchorId: string;
 }
 
+/** Members within this of the most central are level, and settled by id. */
+const TIE_PX = 0.5;
+
 /**
  * Points closer together on screen than `radius`, merged into one group.
  *
@@ -93,12 +96,15 @@ export function clusterPoints(points: ScreenPoint[], radius: number): Cluster[] 
   return [...groups.values()].map((members) => {
     const cx = members.reduce((sum, i) => sum + points[i].x, 0) / members.length;
     const cy = members.reduce((sum, i) => sum + points[i].y, 0) / members.length;
-    let anchor = members[0];
-    let best = Infinity;
-    for (const i of members) {
-      const distance = Math.hypot(points[i].x - cx, points[i].y - cy);
-      if (distance < best) [best, anchor] = [distance, i];
-    }
+    const spread = members.map((i) => Math.hypot(points[i].x - cx, points[i].y - cy));
+    const nearest = Math.min(...spread);
+    // A pair sits equidistant from its own centre exactly, so nothing but the
+    // rounding of the centre separates the two — and that lands differently
+    // every pass while the camera drifts, which is a mark that twitches between
+    // two summits. Members this close to level are settled by id instead.
+    const anchor = members
+      .filter((_, k) => spread[k] <= nearest + TIE_PX)
+      .reduce((a, b) => (points[a].id <= points[b].id ? a : b));
     return { ids: members.map((i) => points[i].id), anchorId: points[anchor].id };
   });
 }
