@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-16T12:20:56.636Z",
+  "generated_at": "2026-09-17T00:01:17.121Z",
   "resorts": [
     {
       "slug": "fernie",
@@ -20,7 +20,7 @@
       "height": 768,
       "metres_per_pixel": 12.419926739398278,
       "vertical_exaggeration": 1.4,
-      "baked_at": "2026-09-16"
+      "baked_at": "2026-09-17"
     },
     {
       "slug": "kimberley",
@@ -83,7 +83,7 @@
       "height": 768,
       "metres_per_pixel": 14.007247011073371,
       "vertical_exaggeration": 1.5,
-      "baked_at": "2026-09-16"
+      "baked_at": "2026-09-17"
     },
     {
       "slug": "panorama",

@@ -1,7 +1,7 @@
 import { liftStyle } from "@/lib/mountain";
 import type { Lift, LiftTower, Place } from "@/lib/types";
 import { elevationAt, type Grid } from "./terrain";
-import { lonLatToMosaicPixel, type TileRange } from "./tiles";
+import { lonLatToMosaicPixel, mosaicBounds, type TileRange } from "./tiles";
 import {
   type OverpassPlace,
   type OverpassWay,
@@ -31,6 +31,16 @@ import { haversineM } from "./runs";
  * `DRAPE_OFFSET_M`.
  */
 export const CABLE_CLEARANCE_M = 12;
+
+/**
+ * Whether a point has ground under it. `elevationAt` clamps to the mosaic edge,
+ * so a feature outside it is baked at the height of the nearest pixel and drawn
+ * hanging in the sky beside the mountain.
+ */
+function onMosaic(range: TileRange, { lon, lat }: { lon: number; lat: number }): boolean {
+  const bounds = mosaicBounds(range);
+  return lon >= bounds.west && lon <= bounds.east && lat >= bounds.south && lat <= bounds.north;
+}
 
 /** Elevation at a point, read off the baked grid. */
 function elevationReader(grid: Grid, range: TileRange) {
@@ -95,6 +105,9 @@ export function deriveLift(way: OverpassWay, grid: Grid, range: TileRange): Lift
 
   const towers = liftTowers(way, grid, range);
   if (towers.length < 2) return null;
+  // The query is clipped to the resort's winter_sports polygons, which at some
+  // resorts include a second area outside the box the mosaic was built from.
+  if (!towers.some((tower) => onMosaic(range, tower))) return null;
 
   const round1 = (n: number) => Math.round(n * 10) / 10;
   const bottom = towers[0];
@@ -124,7 +137,7 @@ export function derivePlace(el: OverpassPlace, grid: Grid, range: TileRange): Pl
   const name = el.tags?.name;
   const kind = readPlaceKind(el);
   const point = placePoint(el);
-  if (!name || kind === null || point === null) return null;
+  if (!name || kind === null || point === null || !onMosaic(range, point)) return null;
 
   const ele = Number(el.tags?.ele);
 
@@ -153,7 +166,10 @@ export interface MountainCoverage {
   mostWaysPerName: number;
 }
 
-export function summariseMountain(elements: (OverpassWay | OverpassPlace)[]): MountainCoverage {
+export function summariseMountain(
+  elements: (OverpassWay | OverpassPlace)[],
+  range: TileRange,
+): MountainCoverage {
   const coverage: MountainCoverage = {
     lifts: 0,
     aerial: 0,
@@ -179,11 +195,12 @@ export function summariseMountain(elements: (OverpassWay | OverpassPlace)[]): Mo
       continue;
     }
 
-    // The same three conditions `derivePlace` applies, so `--check` reports
-    // what would actually be baked rather than what came back. A count that
-    // included places the bake then drops is the opposite of a coverage check.
+    // The same conditions `derivePlace` applies, so `--check` reports what
+    // would actually be baked rather than what came back. A count that included
+    // places the bake then drops is the opposite of a coverage check.
     const place = readPlaceKind(el as OverpassPlace);
-    if (place !== null && el.tags?.name && placePoint(el as OverpassPlace) !== null) {
+    const point = placePoint(el as OverpassPlace);
+    if (place !== null && el.tags?.name && point !== null && onMosaic(range, point)) {
       coverage.places++;
       coverage.byPlaceKind[place] = (coverage.byPlaceKind[place] ?? 0) + 1;
     }

@@ -175,8 +175,8 @@ async function bakeResort(resort: ResortInput): Promise<void> {
 async function checkResort(resort: ResortInput): Promise<void> {
   const { elements, mountain, bounds } = await resolveTerrain(resort);
   const c = summariseCoverage(elements);
-  const m = summariseMountain(mountain);
   const range = tileRangeForBounds(bounds, resort.zoom);
+  const m = summariseMountain(mountain, range);
   const dem = mosaicSize(range);
   const imagery = mosaicSize(zoomedRange(range, IMAGERY_ZOOM_OFFSET));
   const pct = (n: number) => (c.kept === 0 ? "0%" : `${Math.round((n / c.kept) * 100)}%`);
