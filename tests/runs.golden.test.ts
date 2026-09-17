@@ -22,29 +22,9 @@ describe("great-circle distance", () => {
 });
 
 /**
- * SPEC §6: pitch and aspect for two hand-checked Lake Louise runs, asserted to
- * a tolerance rather than exactly — the DEM is 30m data and a precision claim
- * beyond that would be false.
- *
- * The reference values are NOT this pipeline's own output. They were checked on
- * 2026-09-15 against Copernicus DEM GLO-90 via the Open-Meteo elevation API — a
- * different satellite mission and a different processing chain from the AWS
- * terrarium tiles the bake reads:
- *
- *   run             metric      ours   Copernicus   diff
- *   Wiwaxy          vertical    359m       402m     +43m
- *   Wiwaxy          avg pitch   9.2°      12.7°     +3.5°
- *   Eagles Flight   vertical    261m       220m     -41m
- *   Eagles Flight   avg pitch    21°      20.7°     -0.3°
- *
- * The elevation pipeline was separately checked against seven OSM peaks and lift
- * stations carrying surveyed `ele` tags. Every sharp summit read low (mean -43m,
- * worst -85m), the valley floor read +6m high, and a broad rounded hill read
- * exact — the signature of resampling ~30m source data, not of a bug.
- *
- * Tolerances are set from those two comparisons. They are wide on purpose: they
- * exist to catch a sign error, a transposed axis or a broken projection, each of
- * which moves these numbers by tens of degrees. They are not a precision claim.
+ * SPEC §6: pitch and aspect for two hand-checked Lake Louise runs, against Copernicus DEM
+ * GLO-90 rather than this pipeline's own output (the comparison is in PHASES.md). The
+ * tolerances are wide on purpose: they catch a sign error or a transposed axis, not drift.
  */
 describe("golden run stats — Lake Louise", () => {
   const golden = [
@@ -114,13 +94,9 @@ describe("golden run stats — Lake Louise", () => {
 });
 
 /**
- * Structural invariants over every baked run. These cost nothing and catch the
- * failures that a two-run golden cannot: a broken projection, a sign flip, a
- * profile built backwards.
- *
- * Deliberately absent: `pitch_avg <= pitch_max`. It looks obvious and is false —
- * on an undulating run the 100m chord can be shallower than the mean of its
- * segments.
+ * Structural invariants over every baked run, catching what a two-run golden cannot: a
+ * broken projection, a sign flip, a profile built backwards. Deliberately absent is
+ * `pitch_avg <= pitch_max`, which looks obvious and is false on an undulating run.
  */
 describe("every baked Lake Louise run", () => {
   const file = JSON.parse(
@@ -161,8 +137,7 @@ describe("every baked Lake Louise run", () => {
   });
 
   it("labels every aspect the same way the UI will", () => {
-    // Shared with lib/aspect.ts so a run cannot be filtered into one bucket and
-    // labelled another.
+    // Shared with lib/aspect.ts, so a bucket and its label can never disagree.
     for (const run of file.runs) {
       expect(run.aspect_label).toBe(aspectLabel(run.aspect_deg));
     }

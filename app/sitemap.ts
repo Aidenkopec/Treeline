@@ -3,9 +3,8 @@ import { readManifest } from "@/lib/manifest";
 import { SITE_URL } from "@/lib/site";
 
 /**
- * The manifest, not resorts.json: a planned-but-unbaked resort has no page, and
- * advertising one would be advertising a 404. `baked_at` rather than the clock,
- * so a rebuild of unchanged data produces an unchanged sitemap.
+ * The manifest, not resorts.json: a planned but unbaked resort has no page.
+ * `baked_at` rather than the clock, so unchanged data gives an unchanged sitemap.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const manifest = await readManifest();

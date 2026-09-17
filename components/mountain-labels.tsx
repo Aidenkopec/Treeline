@@ -11,29 +11,9 @@ import { type Heightfield, isVisibleFrom } from "@/lib/terrain-mesh";
 import type { Lift, Place } from "@/lib/types";
 
 /**
- * Everything on the mountain that is written rather than drawn.
- *
- * Split from the cables it labels because the decision it makes needs all of
- * them at once: a lift's name must not land on a lodge, so one pass has to hold
- * every candidate. The lines belong to `lift-overlay.tsx`; the type belongs
- * here.
- *
- * What is named without being asked, and what answers to being pointed at, is
- * the whole of the hierarchy — and it follows the printed trail map. Lifts and
- * summits rank first: the hatch across a cable says "a lift" and nothing about
- * the line says *which*, and a spot height is the oldest label in topography.
- * Everything else is a mark that gives its name when pointed at.
- *
- * First in the ranking, not guaranteed. `decide` drops a name that is hidden
- * behind the mountain, too near the edge of the frame, on a cable too short to
- * carry one, or with nowhere clear left to sit — and a summit standing close
- * enough to another place to cluster with it becomes a mark like the rest.
- *
- * Lodges are not ranked, because OSM gives nothing to rank them by: at Lake
- * Louise the mid-mountain lodge and the sushi counter in the base are both
- * `amenity=restaurant`. Sorting them by importance would mean inventing the
- * importance, so crowding is settled geometrically instead — by what is close
- * together in front of the reader.
+ * Everything on the mountain that is written rather than drawn. Split from the cables it
+ * labels because one pass has to hold every candidate at once: a lift's name must not land
+ * on a lodge. Lifts and summits are named unasked; everything else names itself on hover.
  */
 
 export interface DrawnLift {
@@ -48,13 +28,9 @@ export interface MarkedPlace {
 }
 
 /**
- * How long between passes, at most. Between them drei goes on tracking the
- * points, so only the *decisions* are this stale — and a decision only shows as
- * stale while the camera is actually swinging, when two plates placed clear of
- * each other can drift together before the next pass separates them.
- *
- * A pass is skipped outright when the camera has not moved, so this is the rate
- * during a drag and nothing at rest.
+ * How long between passes, at most. Between them drei goes on tracking the points, so only
+ * the decisions are stale, and only while the camera swings. A pass is skipped outright
+ * when the camera has not moved, so this is the rate during a drag and nothing at rest.
  */
 const PASS_MS = 60;
 
@@ -74,16 +50,9 @@ const CABLE_GAP_PX = 7;
 const MIN_LIFT_PX = 56;
 
 /**
- * A plate's width, estimated from its text rather than measured.
- *
- * Measuring means reading layout back out of the DOM for every label on every
- * pass, which forces a reflow inside the render loop. The estimate only has to
- * be good enough to keep two plates off each other.
- *
- * Calibrated on the lift plate: `.u-data` at one size, one glyph, one gap. A
- * peak plate sets its name in `.u-feature`, a wider face, and carries a third
- * child — so its footprint comes out tighter than it really is, and a lift name
- * can be seated closer to a summit than the pixels allow.
+ * A plate's width, estimated from its text rather than measured, because measuring forces
+ * a reflow inside the render loop. Calibrated on the lift plate: `.u-data`, one glyph, one
+ * gap. A peak plate is wider, so its footprint comes out tighter than it really is.
  */
 const CHAR_PX = 4.8;
 const PLATE_CHROME_PX = 38;
@@ -93,12 +62,8 @@ function plateWidth(text: string): number {
 }
 
 /**
- * Directions a plate may sit in from the thing it names.
- *
- * Eight, not a free angle, so a plate holds its position while the mountain
- * turns under it and snaps once when the cable swings past a boundary. A label
- * that creeps around its line as the camera moves reads as drift; one that
- * moves in steps reads as a decision.
+ * Directions a plate may sit in from the thing it names. Eight, not a free angle, so a
+ * plate holds position while the mountain turns under it and snaps once at a boundary.
  */
 const COMPASS = 8;
 
@@ -111,9 +76,7 @@ function compassSide(x: number, y: number): number {
 function plateOffset(side: number, width: number): { x: number; y: number } {
   const angle = (side / COMPASS) * 2 * Math.PI;
   const [dx, dy] = [Math.cos(angle), Math.sin(angle)];
-  // The plate's own half-extent along the direction it is being pushed, so a
-  // plate beside a vertical cable clears it by its width and one above a
-  // horizontal cable clears it by its height.
+  // The plate's half-extent along the push direction, so it clears by width or by height.
   const reach = CABLE_GAP_PX + (Math.abs(dx) * width) / 2 + (Math.abs(dy) * PLATE_HEIGHT_PX) / 2;
   return { x: dx * reach, y: dy * reach };
 }
@@ -126,16 +89,9 @@ const PEAK_OFFSETS = [
 ];
 
 /**
- * Where along a cable a name is tried, as a fraction of the visible run of it.
- *
- * The middle first, because that is where a label reads as belonging to the
- * whole line rather than to one end of it, then outward in pairs. Ten lift
- * names on one face will not all fit beside their own midpoints — Lake Louise's
- * cables converge on the base — and the answer a map uses is to slide the
- * crowded ones along their lines, not to drop them.
- *
- * Fractions rather than neighbouring towers: two adjacent pylons are a few
- * pixels apart, so stepping tower by tower tries the same place five times.
+ * Where along a cable a name is tried, as a fraction of the visible run of it. The middle
+ * first, then outward in pairs, because crowded names slide along their lines rather than
+ * drop. Fractions rather than towers: two adjacent pylons are a few pixels apart.
  */
 const ALONG_CABLE = [0.5, 0.34, 0.66, 0.2, 0.8];
 
@@ -190,8 +146,7 @@ export function MountainLabels({
   const liftById = useMemo(() => new Map(lifts.map((l) => [l.lift.id, l])), [lifts]);
   const placeById = useMemo(() => new Map(places.map((p) => [p.place.id, p])), [places]);
 
-  // Biggest first, so where two names cannot both be drawn the mountain keeps
-  // the lift more of it hangs off.
+  // Biggest first, so where two names cannot both be drawn the longer lift keeps its own.
   const ranked = useMemo(
     () => [...lifts].sort((a, b) => b.lift.vertical_m - a.lift.vertical_m),
     [lifts],
@@ -203,9 +158,7 @@ export function MountainLabels({
   const from = useRef<THREE.Matrix4 | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
 
-  // A camera that has not moved cannot have changed the answer, so a still
-  // mountain costs nothing. Clearing this is how everything else that would —
-  // a resize, a different resort — asks for one more pass.
+  // A camera that has not moved cannot change the answer; clearing this asks for a pass.
   useEffect(() => {
     from.current = null;
   }, [size.width, size.height, ranked, places, reserved]);
@@ -219,8 +172,7 @@ export function MountainLabels({
 
     const next = decide(ranked, places, field, camera, size.width, size.height, reserved);
     const key = signature(next);
-    // Only a change in the decision is worth a render: between passes every
-    // plate is still tracking its own point, which drei does without React.
+    // Only a decision change is worth a render: between passes drei tracks without React.
     if (key === drawn.current) return;
     drawn.current = key;
     setLayout(next);
@@ -296,9 +248,7 @@ export function MountainLabels({
         const members = ids
           .map((id) => placeById.get(id))
           .filter((marked): marked is MarkedPlace => marked !== undefined);
-        // Pointing at the row in the list below opens the mark it is under, so
-        // the two views answer each other in both directions even when the
-        // place is one of five inside a cluster.
+        // Pointing at the row below opens the mark it is under, so the views answer both ways.
         const open =
           openId === anchorId || (hoveredPlaceId !== null && ids.includes(hoveredPlaceId));
 
@@ -386,8 +336,7 @@ function decide(
 
   const project = (point: THREE.Vector3): { x: number; y: number } | null => {
     ndc.copy(point).project(camera);
-    // Behind the camera comes back mirrored through the origin, which is a
-    // label on the far side of the screen from the thing it names.
+    // Behind the camera comes back mirrored through the origin, on the far side of the screen.
     if (ndc.z > 1) return null;
     const x = (ndc.x * 0.5 + 0.5) * width;
     const y = (-ndc.y * 0.5 + 0.5) * height;
@@ -413,9 +362,7 @@ function decide(
     CLUSTER_PX,
   );
 
-  // Summits first and against an empty screen — the page's own chrome included.
-  // A mountain's name is the one label nothing may push off, and the masthead it
-  // may land under is a veil with a plate's own ground to read against.
+  // Summits first and against an empty screen: a mountain's name is the one nothing pushes.
   const peaks = placePlates(
     groups
       .filter((group) => group.ids.length === 1 && byId.get(group.anchorId)?.kind === "peak")
@@ -461,9 +408,7 @@ function decide(
     const last = towers[seen[seen.length - 1]]!;
     if (Math.hypot(last.x - first.x, last.y - first.y) < MIN_LIFT_PX) continue;
 
-    // Along the visible run of the cable, middle first. The top terminals of
-    // half this mountain's lifts sit on one ridge, so naming a lift at its end
-    // would stack every name in one place.
+    // Middle first: half this mountain's top terminals share one ridge, stacking end labels.
     const plate = plateWidth(liftCells(lift).name);
     const tried = new Set<number>();
     const spots: { x: number; y: number }[] = [];
@@ -481,9 +426,7 @@ function decide(
 
       const [dx, dy] = [after.x - before.x, after.y - before.y];
       const run = Math.hypot(dx, dy) || 1;
-      // Square to the cable, and on the up-screen side of it where there is a
-      // choice: a label sits above the line it names, which also keeps the
-      // plate off the slope the lift is climbing.
+      // Square to the cable, on the up-screen side where there is a choice.
       const up = dx > 0 ? 1 : -1;
       const side = compassSide((up * dy) / run, (-up * dx) / run);
 
@@ -508,11 +451,8 @@ function decide(
 }
 
 /**
- * The cableway hatch again, at label size.
- *
- * A legend that travels with the thing it explains: the plate carries the same
- * mark the line does, so the bars across a line on the mountain are learned
- * once and read everywhere after.
+ * The cableway hatch again, at label size: the plate carries the same mark the line does,
+ * so the bars across a cable are learned once and read everywhere after.
  */
 function LiftGlyph({ lit }: { lit: boolean }) {
   return (

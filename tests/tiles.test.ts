@@ -10,10 +10,8 @@ import {
 } from "@/scripts/bake/tiles";
 
 /**
- * SPEC §13 budgets a day for this module and asks for it to be isolated with
- * its own tests. The values below are properties of the Web Mercator
- * projection itself, not numbers this code produced — which is the only way a
- * test here proves anything.
+ * SPEC §13 budgets a day for this module and asks for its own tests. The values below are
+ * properties of the Web Mercator projection itself, not numbers this code produced.
  */
 describe("web mercator tile math", () => {
   it("puts the world in one tile at zoom 0, clipped at the Mercator limit", () => {

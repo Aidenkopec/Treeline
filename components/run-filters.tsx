@@ -8,17 +8,9 @@ import { NO_FILTER, type RunFilter, isFiltered } from "@/lib/run-list";
 import type { AspectLabel } from "@/lib/types";
 
 /**
- * Narrowing the list, on both views at once (SPEC §9).
- *
- * An empty selection means "no constraint" rather than "nothing", so the panel
- * opens showing the whole mountain. The labels state what they select and
- * nothing more — no direction is presented as a better one (SPEC §8).
- *
- * Grade is not here. It moved to the mountain, where five chips add and remove
- * lines in front of the reader and a shut drawer can still say why runs are
- * missing. What is left is search, always out, and aspect and vertical folded
- * behind a count: expanded they are nine controls and a slider standing between
- * the reader and the run list, for something most visits never touch.
+ * Narrowing the list, on both views at once (SPEC §9). An empty selection means "no
+ * constraint" rather than "nothing", so the panel opens showing the whole mountain. No
+ * direction is presented as a better one (SPEC §8). Grade lives on the mountain instead.
  */
 
 function toggle<T>(values: T[], value: T): T[] {

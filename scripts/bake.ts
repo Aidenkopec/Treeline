@@ -1,16 +1,8 @@
 #!/usr/bin/env tsx
 /**
- * The bake pipeline (SPEC §5.1).
- *
- * Runs on a laptop or in a scheduled GitHub Action and writes artifacts that
- * are committed to the repo. It never runs on Vercel and never runs inside a
- * request: a bake is minutes of rate-limited Overpass queries and dozens of
- * tile downloads, which is precisely why it cannot be a runtime call.
- *
- *   npm run bake -- --resort lake-louise    bake one resort
- *   npm run bake -- --all                   bake every resort in resorts.json
- *   npm run bake -- --check lake-louise     report OSM coverage, write nothing
- *   npm run bake -- --resort X --no-cache   ignore the on-disk download cache
+ * The bake pipeline (SPEC §5.1). Runs on a laptop or in a scheduled GitHub Action and
+ * writes artifacts committed to the repo. Never on Vercel and never inside a request: a
+ * bake is minutes of rate-limited Overpass queries and dozens of tile downloads.
  */
 
 import { readFile } from "node:fs/promises";
@@ -70,16 +62,12 @@ async function resolveTerrain(resort: ResortInput) {
   const found = await runQuery<OverpassWay>(downhillRunsQuery(polygon));
   const ways = found.elements.filter(isInboundsDownhill);
 
-  // The lifts and named places, clipped to the resort polygon rather than to
-  // the mosaic — see `mountainQuery`. Deliberately not unioned into `bounds`
-  // below: they are already inside the polygon the box is built from, and
-  // widening the box here would move the mosaic and stale every heightmap.
+  // Not unioned into `bounds`: widening the box moves the mosaic and stales every heightmap.
   const mountain = await runQuery<OverpassWay & OverpassPlace>(
     mountainQuery(resort.lat, resort.lon),
   );
 
-  // Take the runs into the box before choosing tiles: a way mapped just past
-  // the resort polygon would otherwise be clipped at the mosaic edge.
+  // Runs into the box before choosing tiles, or a way past the polygon clips at the edge.
   const bounds = ways.reduce((b, w) => unionBounds(b, w.geometry ?? []), polygon);
   return { elements: found.elements, ways, mountain: mountain.elements, bounds };
 }
@@ -87,14 +75,9 @@ async function resolveTerrain(resort: ResortInput) {
 const mb = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 
 /**
- * Bake one resort end to end:
- *   1. Resolve bounds from OSM landuse=winter_sports
- *   2. Download + stitch + decode terrarium elevation tiles
- *   3. Download + stitch Esri imagery for the same box
- *   4. Query Overpass for piste:type=downhill ways — downhill only, see §8
- *   5. Sample elevation along each polyline
- *   6. Compute per-run derived stats (§6)
- *   7. Emit heightmap.png, satellite.jpg, runs.json, manifest entry
+ * Bake one resort end to end: bounds from OSM, terrarium elevation and Esri imagery over
+ * the same box, `piste:type=downhill` ways only (§8), elevation sampled along each
+ * polyline, per-run stats (§6), then heightmap.png, satellite.jpg, runs.json and manifest.
  */
 async function bakeResort(resort: ResortInput): Promise<void> {
   console.log(`\n${resort.name} (${resort.slug})`);
@@ -129,8 +112,7 @@ async function bakeResort(resort: ResortInput): Promise<void> {
   const lifts = mountain
     .map((el) => deriveLift(el, grid, range))
     .filter((lift): lift is NonNullable<typeof lift> => lift !== null)
-    // Biggest first, and baked that way: the lift list does not sort, because
-    // ten rows do not need the machinery a hundred and sixty-eight do.
+    // Biggest first, and baked that way, because the lift list does not sort.
     .sort((a, b) => b.vertical_m - a.vertical_m || a.id.localeCompare(b.id));
   const places = mountain
     .map((el) => derivePlace(el, grid, range))
@@ -144,8 +126,7 @@ async function bakeResort(resort: ResortInput): Promise<void> {
     slug: resort.slug,
     name: resort.name,
     country: resort.country,
-    // The mosaic rectangle, not the OSM polygon: the app maps lon/lat onto the
-    // heightmap through this, and a mismatch offsets every run in the scene.
+    // The mosaic rectangle, not the OSM polygon: a mismatch offsets every run in the scene.
     bounds: mosaicBounds(range),
     lat: resort.lat,
     lon: resort.lon,
@@ -167,10 +148,8 @@ async function bakeResort(resort: ResortInput): Promise<void> {
 }
 
 /**
- * Coverage check, writing nothing.
- *
- * Exists so a resort with poor OSM coverage is caught before it is baked
- * rather than after it looks wrong on screen (SPEC §13).
+ * Coverage check, writing nothing. Exists so a resort with poor OSM coverage is caught
+ * before it is baked rather than after it looks wrong on screen (SPEC §13).
  */
 async function checkResort(resort: ResortInput): Promise<void> {
   const { elements, mountain, bounds } = await resolveTerrain(resort);

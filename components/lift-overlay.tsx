@@ -10,17 +10,9 @@ import { type Heightfield, lonLatToMesh } from "@/lib/terrain-mesh";
 import type { Lift, Place, Resort } from "@/lib/types";
 
 /**
- * The lifts and the named places, drawn on the terrain.
- *
- * A lift is infrastructure, not terrain: it is drawn where it runs and carries
- * no pitch and no aspect, because the ground under a cable is not a marked run
- * (SPEC §8). Nothing here shades the mountain by anything.
- *
- * The cable is carried over the lift's real pylons — the OSM way nodes are the
- * surveyed tower positions, so the shape is measured rather than suggested.
- *
- * The lines are here; the type over them is `mountain-labels.tsx`, which needs
- * every label at once to keep them off each other.
+ * The lifts and the named places, drawn on the terrain. A lift is infrastructure: drawn
+ * where it runs, carrying no pitch and no aspect, because the ground under a cable is not
+ * a marked run (SPEC §8). The cable rides the OSM way nodes, which are surveyed towers.
  */
 
 export interface MountainOverlayState {
@@ -31,61 +23,34 @@ export interface MountainOverlayState {
   onHoverLift: (id: string | null) => void;
   onHoverPlace: (id: string | null) => void;
   /**
-   * Where the page's own controls are standing, in canvas pixels.
-   *
-   * Carried here rather than as a seventh prop down six components: it reaches
-   * the label pass by the same road everything else it needs does. The pass
-   * treats these as plates it cannot move — a lift name under the sun clock is
-   * a name nobody can read.
-   *
-   * Referentially stable between measurements, because it is what tells the
-   * pass to run again.
+   * Where the page's own controls are standing, in canvas pixels. The label pass treats
+   * these as plates it cannot move. Referentially stable between measurements, because a
+   * new array is what tells the pass to run again.
    */
   reserved: Rect[];
 }
 
 /**
- * A lift is drawn inside out from a run, and that is the whole of how the two
- * are told apart at a glance.
- *
- * A run is a coloured core inside a dark casing. A lift is a *dark* core inside
- * a *light* one. The inversion is not decoration: this drape carries snow, bare
- * rock and dark forest in one frame, and a single hairline holds up over
- * exactly one of the three. Dark-on-light reads over all of them, and it can
- * never be mistaken for a grade because no grade is drawn that way.
+ * A lift is drawn inside out from a run: a dark core in a light casing, where a run is a
+ * coloured core in a dark one. The drape carries snow, rock and forest in one frame and
+ * dark-on-light reads over all three; no grade is drawn that way, so it cannot be one.
  */
 const CABLE_WIDTH = 1.5;
 const CABLE_HOVER_WIDTH = 2.4;
 const CASING_EXTRA = 3;
 
 /**
- * The cableway hatch: short bars across the line, at every mapped pylon.
- *
- * This is the standard topographic symbol for an aerial cableway — the same
- * device a map uses to draw a railway — and it is what gives a lift an identity
- * that weight and colour alone cannot. A straight dark line is a scratch on the
- * imagery; a straight dark line with bars across it is a lift, immediately, at
- * any zoom and to anyone who has ever read a map.
- *
- * Length is in ground metres and is a *symbol*, not a measurement: a real
- * crossarm is about five metres, which is a third of a pixel across a nine
- * kilometre massif. Line width is already unfaithful in the same way and for
- * the same reason.
+ * The cableway hatch: short bars across the line at every mapped pylon, the standard
+ * topographic symbol. Length is in ground metres and is a symbol, not a measurement: a
+ * real crossarm is five metres, a third of a pixel across a nine kilometre massif.
  */
 const TICK_LENGTH_M = 46;
 const TICK_WIDTH = 1.3;
 
 /**
- * Above the terrain and above an ordinary run, below one being looked at.
- *
- * The terrain mesh draws at the default 0 and writes depth; these lines write
- * none, so at 0 they tie with the ground and it paints straight over them —
- * which is a lift that is simply not there. `RunOverlay` puts an ordinary run
- * at 1 and 2, a hovered one at 3 and a picked one at 5.
- *
- * Sitting at 2.5 — over every ordinary run, under the one being read — matches
- * what a trail map does: lifts are the skeleton the runs hang off, drawn on
- * top, right up until the reader asks about one particular run.
+ * Above the terrain and above an ordinary run, below one being looked at. These lines
+ * write no depth, so at 0 they tie with the ground and it paints over them. `RunOverlay`
+ * puts an ordinary run at 1 and 2, a hovered one at 3 and a picked one at 5.
  */
 const LAYER = { lift: 2.5, hovered: 2.8 };
 
@@ -122,15 +87,10 @@ export function LiftOverlay({
           return new THREE.Vector3(x, y, z);
         });
 
-        // Pylons and hatch bars in one buffer. A big resort's lifts run to a
-        // dozen towers each, which would otherwise be hundreds of separate line
-        // objects, each with its own material, against a budget of sixty frames
-        // a second on integrated graphics (SPEC §10).
+        // Pylons and bars in one buffer: a dozen towers a lift would be hundreds of objects.
         const marks: THREE.Vector3[] = [];
         for (let i = 0; i < line.length; i++) {
-          // The bar is square to the cable, so take the direction from whichever
-          // neighbours this tower has — averaged at a bend so the hatch turns
-          // with the line instead of stepping.
+          // Square to the cable, averaged at a bend so the hatch turns instead of stepping.
           const before = line[i - 1] ?? line[i];
           const after = line[i + 1] ?? line[i];
           const dx = after.x - before.x;
@@ -148,8 +108,7 @@ export function LiftOverlay({
             new THREE.Vector3(here.x - px, here.y, here.z - pz),
           );
 
-          // The tower itself, under the bar. The terminals are buildings rather
-          // than pylons, so they get a bar and no post.
+          // Terminals are buildings rather than pylons, so they get a bar and no post.
           if (aerial && i > 0 && i < line.length - 1) {
             const { lon, lat, ground_m } = lift.towers[i];
             const [gx, gy, gz] = lonLatToMesh(lon, lat, ground_m, resort);
@@ -190,8 +149,7 @@ export function LiftOverlay({
               lineWidth={width + CASING_EXTRA}
               onPointerOut={() => onHoverLift(null)}
               onPointerOver={(event) => {
-                // Without this every line under the pointer reports a hover and
-                // the last drawn wins rather than the one in front.
+                // Without this every line under the pointer reports, and the last drawn wins.
                 event.stopPropagation();
                 onHoverLift(lift.id);
               }}
@@ -212,9 +170,7 @@ export function LiftOverlay({
                 depthWrite={false}
                 lineWidth={TICK_WIDTH + (lit ? 0.8 : 0)}
                 points={marks}
-                // Not a pointer target: the cable is the thing worth pointing
-                // at, and every bar would be another object to raycast on every
-                // pointer move.
+                // Not a pointer target: every bar would be another object to raycast.
                 raycast={() => null}
                 renderOrder={order + 0.1}
                 segments

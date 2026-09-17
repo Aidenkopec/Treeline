@@ -38,8 +38,7 @@ describe("the shareable view", () => {
   });
 
   it("drops an hour that is not one", () => {
-    // Same policy as an id naming no run: a bad value selects nothing rather
-    // than throwing a shared link away.
+    // Same policy as an id naming no run: a bad value selects nothing, not a throw.
     for (const sun of ["2026-02-30T14:00", "2026-02-14T25:00", "yesterday", "2026-02-14"]) {
       expect(parseViewHash(`#run=23301816&sun=${sun}`), sun).toEqual({
         runId: "23301816",

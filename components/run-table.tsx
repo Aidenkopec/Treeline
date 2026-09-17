@@ -6,17 +6,12 @@ import { type SortDirection, type SortKey, runCells } from "@/lib/run-list";
 import type { Run } from "@/lib/types";
 
 /**
- * The same runs as real HTML.
- *
- * Not a fallback and not an `aria-label`: the canvas is `aria-hidden` and needs
- * a GPU, so without one this table is the site (SPEC §9). It renders every
- * filtered row with the document, so the numbers are readable before any
- * JavaScript runs — sorting is the only part that needs it.
+ * The same runs as real HTML. Not a fallback: the canvas is `aria-hidden` and needs a GPU,
+ * so without one this table is the site (SPEC §9). Every filtered row renders with the
+ * document, so the numbers read before any JavaScript runs; only sorting needs it.
  */
 
-// Seven columns need 33rem of header. A handheld has half that, so three of
-// them fold into a line under the name — the idiom `components/resort-index.tsx`
-// already uses, and no value leaves the table.
+// Seven columns need 33rem of header; a handheld has half, so three fold under the name.
 const COLUMNS: { key: SortKey; label: string; numeric: boolean; folds: boolean; tight?: true }[] = [
   { key: "name", label: "Run", numeric: false, folds: false },
   { key: "difficulty", label: "Grade", numeric: false, folds: false, tight: true },
@@ -48,10 +43,8 @@ export function RunTable({
 }) {
   return (
     <div className="overflow-x-auto">
-      {/* Seven columns whose width is set by their headers, not their values,
-          come to 33rem; the run name takes whatever is left. Asserting more
-          than that scrolls the table sideways inside the list pane for no
-          reason, which is what min-w-3xl was doing. */}
+      {/* Seven columns sized by their headers rather than their values come to
+          33rem; the run name takes what is left. Asserting more scrolls the pane. */}
       <table className="w-full min-w-[33rem] border-collapse text-sm handheld:min-w-0">
         <caption className="sr-only">
           Marked runs with pitch, aspect, vertical and length measured from the elevation model.
@@ -102,8 +95,7 @@ export function RunTable({
             const selected = run.id === selectedId;
             const hovered = run.id === hoveredId;
             return (
-              // Hover is tracked rather than left to CSS because it lights the
-              // run on the mountain too, and the mountain lights the row back.
+              // Tracked rather than left to CSS: it lights the run on the mountain too.
               <tr
                 className={`border-b border-line/50 transition-colors ${
                   selected ? "bg-surface-high" : hovered ? "bg-surface" : ""
@@ -114,11 +106,9 @@ export function RunTable({
                 onMouseLeave={() => onHover(null)}
               >
                 <th className="w-full max-w-0 py-2 pr-3 text-left font-normal" scope="row">
-                  {/* Clipped rather than wrapped. The name column takes what the
-                      other six leave, which on a narrow list pane is not much,
-                      and a handful of two-line rows makes 168 of them harder to
-                      run an eye down than a few tails do. The whole name is
-                      still in the cell, and in the panel once it is picked. */}
+                  {/* Clipped rather than wrapped: the name column takes what the other
+                      six leave, and two-line rows make 168 of them harder to run an
+                      eye down. The whole name is still in the cell either way. */}
                   <button
                     aria-current={selected ? "true" : undefined}
                     className="u-feature block w-full cursor-pointer truncate text-left text-snow handheld:overflow-visible"

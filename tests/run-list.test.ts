@@ -222,8 +222,7 @@ describe("shownDifficulties and toggleDifficulty", () => {
 
 describe("sortRuns", () => {
   it("orders aspect around the compass, not by degrees", () => {
-    // 350° is north. Sorted numerically it would land after west, which would
-    // split the N bucket across both ends of the column.
+    // 350° is north; sorted numerically it lands after west, splitting the N bucket.
     const north = run({ id: "n", aspect_deg: 350, aspect_label: aspectLabel(350) });
     const west = run({ id: "w", aspect_deg: 270, aspect_label: "W" });
 
@@ -276,11 +275,9 @@ describe("sortRuns", () => {
 });
 
 /**
- * The phase gate — "stats in UI match runs.json" — as a test rather than an eye.
- *
- * Read straight out of the committed artifact, so a change to the bake, to the
- * formatters or to the cells has to be looked at rather than discovered on the
- * page.
+ * The phase gate, "stats in UI match runs.json", as a test rather than an eye. Read out of
+ * the committed artifact, so a change to the bake, the formatters or the cells has to be
+ * looked at rather than discovered on the page.
  */
 describe("runCells against the committed Lake Louise artifact", () => {
   const file: RunsFile = JSON.parse(

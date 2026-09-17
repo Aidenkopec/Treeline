@@ -8,9 +8,7 @@ const eslintConfig = defineConfig([
   ...nextTs,
   {
     rules: {
-      // The bake pipeline ships typed signatures ahead of their bodies, so
-      // unimplemented parameters are deliberate. Underscore marks them as
-      // intentional and keeps genuinely dead variables visible.
+      // The bake ships typed signatures ahead of their bodies, so `_` marks a deliberate gap.
       "@typescript-eslint/no-unused-vars": [
         "warn",
         {

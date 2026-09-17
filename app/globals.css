@@ -1,19 +1,11 @@
 @import "tailwindcss";
 
-/* A window too short to spend on a chart. Used by the run detail card, which
-   drops its profile rather than running off the bottom of the frame. It has no
-   scroller of its own: nothing is drawn around the card, and an invisible
-   scroll region on the terrain is worse than a short card.
-
-   Measured against what is left rather than against the window: the masthead
-   veils the top and the instrument strip the bottom, so a 13-inch laptop has
-   less than its height to give the card. */
+/* Too short for a chart, so the run card drops its profile. Measured against what
+   is left after the masthead veil and the instrument strip, not against the window. */
 @custom-variant short (@media (max-height: 52rem));
 
-/* A phone, either way up. Narrow, or short enough that a sheet and a strip
-   would leave the massif nothing — a phone on its side is 852px wide, so width
-   alone does not find it. The second clause is bounded above by `xl` because a
-   short laptop window is not a handheld. */
+/* A phone either way up: one on its side is 852px wide, so width alone does not find
+   it. The second clause is bounded above by `xl` so a short laptop is not caught. */
 @custom-variant handheld {
   @media (max-width: 47.9375rem) {
     @slot;
@@ -23,64 +15,41 @@
   }
 }
 
-/* A handheld on its side, where height is the scarce axis. Declared after
-   `handheld` because it overrides it: the list is raised or it is a handle,
-   never a sheet sharing a window with a map that has no room left. */
+/* Declared after `handheld` because it overrides it: here height is the scarce axis. */
 @custom-variant squat (@media (max-height: 30rem) and (max-width: 79.9375rem));
 
-/* ---------------------------------------------------------------------------
-   Treeline design tokens
-
-   The palette is the product's own subject: a mountain is read by where the
-   sun hits it. Lit slopes go warm, shaded slopes go cool blue-violet, and
-   nothing is ever true black — the Imhof/Swisstopo relief-shading convention,
-   which is also literally the sun/shade feature (SPEC §4).
-
-   Deliberately NOT here: the avalanche-forecast danger scale (green/amber/red)
-   and any steepness ramp. SPEC §8 forbids this site reading as a safety
-   product, and palette is the fastest way to accidentally imply one.
---------------------------------------------------------------------------- */
-
+/* Design tokens. Lit is warm, shaded is cool, and nothing is true black
+   (Imhof/Swisstopo relief shading). Deliberately absent: the avalanche danger scale
+   and any steepness ramp, either of which would imply a safety product (SPEC §8). */
 @theme {
-  /* --- Ground: shadowed snow, never black ------------------------------- */
   --color-shadow-deep: #0f141c; /* page */
   --color-shadow: #151b24; /* base */
   --color-surface: #1e2631; /* panel */
   --color-surface-high: #2a3440; /* raised, hover */
   --color-line: #36424f; /* hairline rules */
 
-  /* --- Ink -------------------------------------------------------------- */
   --color-snow: #e6edf4; /* primary text, blue-cast white */
   --color-rock: #8592a3; /* secondary text */
   --color-rock-dim: #5b6775; /* tertiary, disabled */
 
-  /* --- Accent: the sun ---------------------------------------------------
-     Warm gold means "lit". It is the only warm hue in the system, so it
-     reads as information rather than decoration. Cool blue means "shaded". */
+  /* Gold is the only warm hue here, so it reads as information rather than decoration. */
   --color-sun: #e3a54b;
   --color-sun-bright: #f3bf74;
   --color-sun-dim: #6d5227;
   --color-shade: #5c7a99;
   --color-shade-dim: #2f4055;
 
-  /* --- Difficulty --------------------------------------------------------
-     The real trail-map standard, tuned for a dark cool ground. Advanced and
-     expert share a color on purpose: on a mountain they are both "black",
-     distinguished by one diamond or two. Shape carries the meaning, which is
-     also how this stays readable without color (SPEC §9). */
+  /* Advanced and expert share a color on purpose: one diamond or two carries it (SPEC §9). */
   --color-diff-easy: #57b96e;
   --color-diff-intermediate: #3e8fd8;
   --color-diff-advanced: #edf2f7;
   --color-diff-expert: #edf2f7;
   --color-diff-unknown: #8592a3;
 
-  /* --- Type --------------------------------------------------------------
-     One superfamily across three widths, the way a map labels a massif, a
-     feature and a spot height differently. --font-map is bound in app/fonts.ts */
+  /* One superfamily across three widths; `--font-archivo` is bound in app/fonts.ts. */
   --font-map: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
 
-  /* Major-third scale from a 15px base; the bottom two steps exist because
-     map labels are small and dense, not because the UI is cramped. */
+  /* Major-third scale from a 15px base; the two smallest steps are for dense map labels. */
   --text-2xs: 0.6875rem; /* 11px — data labels */
   --text-xs: 0.75rem; /* 12px */
   --text-sm: 0.8125rem; /* 13px */
@@ -91,9 +60,7 @@
   --text-3xl: 2.625rem; /* 42px — resort name */
   --text-4xl: 3.5rem; /* 56px */
 
-  /* --- Elevation ---------------------------------------------------------
-     Panels sit above terrain, so they get a cast shadow with a cool tint
-     rather than the default neutral grey. */
+  /* Panels sit above terrain, so the cast shadow is cool-tinted rather than neutral grey. */
   --shadow-panel: 0 1px 2px rgb(8 12 18 / 0.5), 0 8px 28px rgb(8 12 18 / 0.45);
 }
 
@@ -115,8 +82,7 @@
     font-synthesis-weight: none;
   }
 
-  /* Numbers in this product are compared down a column constantly — pitch
-     against pitch, vertical against vertical. They line up everywhere. */
+  /* Numbers here are compared down a column constantly, so they line up everywhere. */
   :where(table, .u-data, .u-massif) {
     font-variant-numeric: tabular-nums;
   }
@@ -127,24 +93,19 @@
     border-radius: 1px;
   }
 
-  /* On the mountain, a gold ring can land on sunlit snow and disappear into it.
-     The dark halo is what holds it there, boxed or not: chrome that stands on
-     the terrain under a halo rather than on a panel needs it more, not less. */
+  /* A gold ring can disappear into sunlit snow; the dark halo is what holds it there. */
   :where(.u-panel, .u-panel *, .u-halo, .u-halo *):focus-visible {
     box-shadow: 0 0 0 4px var(--color-shadow-deep);
   }
 
-  /* A panel keeps its own shadow as well, so a focused control inside one does
-     not also flatten onto the terrain. */
+  /* Keeps the panel's own shadow so a focused control inside one does not flatten out. */
   :where(.u-panel, .u-panel *):focus-visible {
     box-shadow:
       0 0 0 4px var(--color-shadow-deep),
       var(--shadow-panel);
   }
 
-  /* A finger is not a cursor. Grown here rather than in twenty class strings,
-     and only where the pointer really is coarse — a mouse keeps the dense rows
-     this product is for. */
+  /* Only where the pointer is coarse: a mouse keeps the dense rows this product is for. */
   @media (pointer: coarse) {
     :where(button, [type="search"], [type="date"], [type="range"]) {
       min-height: 2.75rem;
@@ -164,11 +125,6 @@
 }
 
 @layer components {
-  /* --- Cartographic width system -----------------------------------------
-     Archivo's wdth axis carries hierarchy that size alone would not. A map
-     sets a range name wide and open, a feature name at normal width, and a
-     dense readout narrow so it fits beside the thing it describes. */
-
   /* A massif label: the resort name over its terrain. */
   .u-massif {
     font-stretch: 125%;
@@ -194,11 +150,8 @@
     color: var(--color-rock);
   }
 
-  /* A surface that floats on the mountain.
-
-     Translucent, so the terrain reads through it and the panel stays chrome
-     rather than page. What dissolves against a lit snowfield is the edge and
-     not the text, so the hairline and the cast shadow are what carry it. */
+  /* A surface floating on the mountain. What dissolves against a lit snowfield is the
+     edge and not the text, so the hairline and the cast shadow are what carry it. */
   .u-panel {
     background-color: color-mix(in srgb, var(--color-surface) 85%, transparent);
     border: 1px solid var(--color-line);
@@ -207,16 +160,9 @@
     backdrop-filter: blur(6px);
   }
 
-  /* The veil chrome stands on at a frame edge.
-
-     A scrim is as tall as its own content, so a gradient that starts letting
-     go at half its height lets go under the last rows of type — which over a
-     sunlit snowfield is where `--color-rock` stops being readable at all. It
-     holds instead, and feathers only in the run-out past the last line. The
-     edge it is anchored to stays nearly solid; what keeps it a veil rather
-     than a panel is that it never closes on a border.
-
-     Add `u-scrim-up` to turn it for the bottom edge. */
+  /* The veil chrome stands on at a frame edge. It holds most of its height and feathers
+     only past the last line: one letting go at half height lets go under the last rows
+     of type. Add `u-scrim-up` to turn it for the bottom edge. */
   .u-scrim {
     --scrim-to: to bottom;
     background-image: linear-gradient(
@@ -232,12 +178,8 @@
     --scrim-to: to top;
   }
 
-  /* A veil for chrome that is not on a frame edge.
-
-     One anchored to an edge can be solid where it meets it, because the frame
-     is already a boundary there. One floating on the terrain has no such edge
-     and has to come out of nothing at both ends, or it draws its own horizon
-     across the mountain. */
+  /* Not anchored to a frame edge, so it comes out of nothing at both ends rather than
+     drawing its own horizon across the mountain. */
   .u-scrim-soft {
     background-image: linear-gradient(
       to bottom,
@@ -248,12 +190,8 @@
     );
   }
 
-  /* Type that stands on the mountain itself.
-
-     A cartographer halos a name rather than boxing it. The halo is what holds
-     a letterform over snow and over rock alike, and it costs the terrain
-     nothing — where a panel would take the mountain out from behind the words,
-     this leaves it there. */
+  /* Holds a letterform over snow and over rock without taking the mountain out from
+     behind the words, which is what boxing the name in a panel would do. */
   .u-halo {
     text-shadow:
       0 1px 2px var(--color-shadow-deep),
@@ -263,11 +201,7 @@
 }
 
 @layer components {
-  /* --- Masthead motion ----------------------------------------------------
-     The home page's figure draws its run once on load. Only the line moves:
-     the five facts beside it are the page's subject, and content that fades in
-     is content that is briefly missing. */
-
+  /* Only the line moves: content that fades in is content that is briefly missing. */
   @keyframes masthead-draw {
     from {
       stroke-dashoffset: 1;
@@ -277,14 +211,12 @@
     }
   }
 
-  /* Fill mode is `both`: with `forwards` alone a delayed draw sits fully
-     rendered until its delay elapses, then blanks and starts over. */
+  /* Fill mode `both`: with `forwards` a delayed draw renders, then blanks and restarts. */
   .masthead-trace {
     animation: masthead-draw 1.6s cubic-bezier(0.32, 0, 0.3, 1) 0.2s both;
   }
 
-  /* The base rule collapses animation *durations* but leaves delays intact,
-     which would still play the whole sequence out over two seconds. */
+  /* The base rule collapses durations but leaves delays, which still takes two seconds. */
   @media (prefers-reduced-motion: reduce) {
     .masthead-trace {
       animation-delay: 0s;

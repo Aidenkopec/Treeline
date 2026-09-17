@@ -92,12 +92,9 @@ describe("mergeResort", () => {
 });
 
 /**
- * The mesh scale the whole 3D scene hangs on.
- *
- * `metres_per_pixel` is the only manifest field the app cannot sanity-check for
- * itself — a wrong value renders a plausible-looking mountain at the wrong size
- * with the wrong apparent steepness. So the committed artifact is checked
- * against the tile math it was supposed to come from.
+ * The mesh scale the whole 3D scene hangs on. `metres_per_pixel` is the only manifest
+ * field the app cannot sanity-check for itself, because a wrong value renders a plausible
+ * mountain at the wrong size, so the committed artifact is checked against the tile math.
  */
 describe("the committed manifest", () => {
   it("carries a metres_per_pixel matching the tile math for each resort", async () => {
@@ -117,8 +114,7 @@ describe("the committed manifest", () => {
 
 describe("every resort's configured zone", () => {
   it("is one Intl recognises", () => {
-    // lib/format.ts carries a catch for a zone Intl rejects. That guard is for
-    // a name Open-Meteo chose; these six are ours and must never reach it.
+    // lib/format.ts catches a zone Intl rejects; these six are ours and must never reach it.
     for (const { slug, timezone } of plannedResorts()) {
       const format = () =>
         new Intl.DateTimeFormat("en-US", { timeZone: timezone }).format(new Date());

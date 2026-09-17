@@ -1,43 +1,13 @@
 /**
- * Esri's mosaic is a summer scene — green forest, bare rock — which reads as a
- * bike map on a ski site. This remaps it to a winter surface at bake time.
- *
- * Keyed on the source pixel's own colour and nothing else. Keying snow on slope
- * would shade the whole mountain by steepness, which SPEC §8 forbids, so the
- * heightmap is deliberately not a parameter here and must not become one.
- *
- * The first version of this recoloured the photograph and kept its detail, and
- * it read as a greyscale summer photograph — because a summer photograph's
- * detail is what says summer. Every tree crown and scree stipple survived.
- *
- * Snow blankets. It fills gullies, rounds edges and erases small detail, so an
- * open slope under snow is a smooth bright surface whose only variation is the
- * shape of the ground beneath it. That shape is the renderer's job, not this
- * one's: the mesh normals and the light already carry it, and the drape fighting
- * them with summer texture is what buried it.
- *
- * So there are two classes and not three. There is no rock term: a shadowed
- * cliff is already dark in the photograph, so it falls the forest side of the
- * split and takes the same cool dark tone, which is what a cliff band looks like
- * under snow anyway. A third class keyed on a *band* of brightness — which is
- * what this had — is a band-pass on the very quantity being remapped, and it
- * folds the transfer back on itself: brighter ground comes out darker, and the
- * fold draws a grey rim around every snow patch on the mountain. The transfer
- * below is monotonic, which is the property that keeps the rim away.
+ * Esri's summer mosaic remapped to a winter surface. Keyed on the source pixel's colour
+ * alone: keying snow on slope would shade the mountain by steepness (SPEC §8). Two classes,
+ * no rock term, because the transfer must stay monotonic or it rims every snow patch grey.
  */
 
 /**
- * Landcover tones. Answering to --color-shadow, --color-snow and --color-rock,
- * matched here as literals because the bake has no DOM to read them from.
- *
- * FOREST_* is the dark half of the mountain, which is conifer by area but also
- * takes every cliff face the sun was not on. It spans a wide band on purpose, and this is the one place the remap
- * wants more contrast rather than less. At ~3 m/texel a canopy is not resolved
- * into trees, so a narrow band averages it into flat grey and the treed half of
- * the massif reads as a smudge. Stretched, the crowns stay dark while the gaps
- * between them go bright, which is where the snow in a forest actually is.
- * Cool rather than green: green at this scale is the one thing that still says
- * summer.
+ * Landcover tones answering to --color-shadow, --color-snow and --color-rock, as literals
+ * because the bake has no DOM to read them from. FOREST_* spans a wide band on purpose: at
+ * ~3 m/texel a narrow band averages a canopy into flat grey. Cool rather than green.
  */
 const FOREST_DEEP = [50, 58, 64];
 const FOREST_OPEN = [136, 145, 152];
@@ -61,10 +31,9 @@ const FIELD_LOW = 100;
 const FIELD_HIGH = 250;
 
 /**
- * The two blur radii, in texels. Classification and canopy tone read the tighter
- * plane so a run corridor keeps its edges and a one-texel JPEG speck does not
- * become a tree; the snow tone reads the wider one so an open slope comes out
- * smooth.
+ * The two blur radii, in texels. Classification and canopy tone read the tighter plane so
+ * a run corridor keeps its edges and a one-texel JPEG speck does not become a tree; the
+ * snow tone reads the wider one so an open slope comes out smooth.
  */
 const CANOPY_SMOOTHING = 1;
 const FIELD_SMOOTHING = 3;
@@ -106,10 +75,8 @@ function blur(source: Float32Array, width: number, height: number, radius: numbe
 }
 
 /**
- * Remap a three-channel mosaic in place and hand it back.
- *
- * In place because Lake Louise's mosaic is 18.9 MB raw and sharp's buffer is
- * ours to write to. `stitchTiles` guarantees the three channels.
+ * Remap a three-channel mosaic in place and hand it back. In place because Lake Louise's
+ * mosaic is 18.9 MB raw and sharp's buffer is ours to write to.
  */
 export function winterize(rgb: Buffer, width: number, height: number): Buffer {
   const count = width * height;

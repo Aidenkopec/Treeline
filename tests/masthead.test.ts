@@ -8,11 +8,8 @@ import { runCells } from "@/lib/run-list";
 import type { Run, RunsFile } from "@/lib/types";
 
 /**
- * What the home page draws.
- *
- * The featured runs are held by way id, so the risk this file covers is a
- * re-bake that drops or reshapes one: without it the figure would blank and a
- * table cell would go quiet, and nothing would fail.
+ * What the home page draws. The featured runs are held by way id, so the risk here is a
+ * re-bake that drops or reshapes one: the figure would blank and nothing would fail.
  */
 
 function runs(slug: string): Run[] {
@@ -94,8 +91,7 @@ describe("the masthead run", () => {
   it("labels the axis the figure is drawn against", () => {
     const { topM, bottomM } = profileGeometry(run.profile, 1200, 300);
     expect([metres(topM), metres(bottomM)]).toEqual(["2452m", "1671m"]);
-    // The profile's own relief rounds a metre off the baked vertical, which is
-    // why the figcaption prints elevations and the facts print the vertical.
+    // The profile's own relief rounds a metre off the baked vertical.
     expect(Math.abs(topM - bottomM - run.vertical_m)).toBeLessThanOrEqual(1);
   });
 });
@@ -137,9 +133,7 @@ describe("silhouettes", () => {
 describe("the home page's own words", () => {
   const sources = ["app/page.tsx", "components/masthead-figure.tsx", "components/resort-index.tsx"];
 
-  // Scoped to the files this phase wrote on purpose. `site-footer.tsx` carries
-  // "safety decisions" in the SPEC §8 disclaimer, and this must never become a
-  // reason to reword that sentence.
+  // Scoped deliberately: `site-footer.tsx` carries "safety decisions" in the §8 disclaimer.
   it.each(sources)("recommends nothing in %s (SPEC §8)", (file) => {
     const source = readFileSync(path.join(process.cwd(), file), "utf8");
     expect(source).not.toMatch(/\b(safest|safely|recommend\w*|best run)\b/i);

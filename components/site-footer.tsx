@@ -1,19 +1,7 @@
 /**
- * Disclaimer, framing and attribution.
- *
- * SPEC §8 requires the disclaimer on *every* page, and the licences behind the
- * data (ODbL for OSM, attribution for Esri and AWS) require credit wherever it
- * is shown. Each page renders this itself rather than inheriting it from the
- * root layout: the resort screen is a window the mountain fills, with nothing
- * below the fold to put a footer under, so it carries this at the foot of the
- * run list and `components/map-attribution.tsx` in the corner of the map — the
- * copy that cannot be folded away. A page added later has to say which it is.
- *
- * Avalanche information appears here as a plain outbound link and in no other
- * form — no rating, no color, no icon, no summary.
- *
- * The source link sits here rather than in a nav bar: this renders on every
- * page, and the resort screen has no room for chrome that is not the map's.
+ * Disclaimer, framing and attribution. SPEC §8 requires the disclaimer on every page, and
+ * ODbL and Esri/AWS require credit wherever the data is shown, so each page renders this
+ * itself. Avalanche information appears as a plain outbound link and in no other form.
  */
 export function SiteFooter() {
   return (

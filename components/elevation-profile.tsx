@@ -6,13 +6,9 @@ const WIDTH = 600;
 const HEIGHT = 150;
 
 /**
- * A run's shape, drawn from the samples the pitch was measured over (SPEC §4).
- *
- * Inline SVG rather than a chart library — the shape is a polyline and a fill,
- * and a dependency would weigh more than the drawing (SPEC §5.2). The numbers
- * sit beside it as text, so the chart itself carries nothing a reader needs —
- * which is also why it is drawn short. It lives in a card between a masthead
- * and the sun clock, and height it does not take is height the card has.
+ * A run's shape, drawn from the samples its pitch was measured over (SPEC §4). Inline SVG
+ * rather than a chart library: the shape is a polyline and a fill, and a dependency would
+ * weigh more than the drawing (SPEC §5.2). Drawn short; the numbers sit beside it as text.
  */
 export function ElevationProfile({ profile }: { profile: ProfileSample[] }) {
   const { line, area, topM, bottomM } = profileGeometry(profile, WIDTH, HEIGHT);
@@ -26,10 +22,8 @@ export function ElevationProfile({ profile }: { profile: ProfileSample[] }) {
         preserveAspectRatio="none"
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       >
-        {/* The fill is the drawing's own ground. Nothing is boxed around this
-            any more, and a gold line crossing a sunlit snowfield needs
-            something dark under it — so the area carries the scrim a panel
-            used to, and the shadow above holds the stroke where it climbs out. */}
+        {/* The fill is the drawing's own ground: a gold line crossing a sunlit
+            snowfield needs something dark under it. */}
         <path d={area} fill="var(--color-shadow-deep)" opacity="0.6" />
         <path
           d={line}

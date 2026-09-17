@@ -4,27 +4,9 @@ import { type ReactNode, useCallback, useEffect, useRef } from "react";
 import type { Rect } from "@/lib/label-layout";
 
 /**
- * Where everything that is not the mountain stands.
- *
- * Two edges rather than four corners. A masthead veils the top, an instrument
- * strip veils the bottom, and the selected run's numbers hang under the
- * masthead in the same left column — so the middle of the window, which is the
- * mountain, carries nothing.
- *
- * Both veils bleed to the frame's edges because a scrim with a margin of
- * un-dimmed sky beside it is not one. Neither takes the pointer: the clusters
- * inside them opt in one at a time, so the gaps between the controls are still
- * mountain to drag. A full-width band that took the pointer would stop the
- * bottom of the window turning the terrain at all.
- *
- * The selection is its own box and not part of the masthead, though it reads as
- * one column with it. The masthead's measured height is `inset.top`, which the
- * scene composes the massif below: fold the card into it and the camera
- * re-projects every time a run is picked.
- *
- * It reports what it covers. The label pass places plates in screen space and
- * knows nothing of the DOM outside the canvas, so without this a lift name
- * lands under the sun clock, or across the resort's own facts, and is gone.
+ * Where everything that is not the mountain stands, and what it reports covering: the
+ * label pass places plates in screen space and knows nothing of the DOM, so without this
+ * a lift name lands under the sun clock. Neither veil takes the pointer; clusters opt in.
  */
 export function MapChrome({
   disclaimer,
@@ -49,8 +31,7 @@ export function MapChrome({
 }) {
   const frame = useRef<HTMLDivElement>(null);
 
-  // The canvas is the same box as this one, pinned at the same origin, so a
-  // client rect is already in the coordinates the label pass projects into.
+  // The canvas shares this box and origin, so a client rect is already in label-pass space.
   const read = useCallback(() => {
     const root = frame.current;
     if (root === null) return;
@@ -63,10 +44,7 @@ export function MapChrome({
     onMeasure(rects);
   }, [onMeasure]);
 
-  // A cluster changes shape on its own as well as with the window — the detail
-  // card arrives, the weather lands, the count goes from three digits to two —
-  // so every render is measured. It is a handful of rects, and `onMeasure`
-  // drops an answer it already has.
+  // A cluster changes shape on its own as well as with the window, so every render reads.
   useEffect(read);
 
   useEffect(() => {

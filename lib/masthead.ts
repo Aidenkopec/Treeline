@@ -3,14 +3,9 @@ import { plannedResorts, readManifest, readMountain, readRuns } from "./manifest
 import type { Resort, Run } from "./types";
 
 /**
- * The runs the home page draws.
- *
- * Held by OSM way id rather than chosen at build time. The rule that picked
- * them, the deepest named way whose profile descends throughout, is a
- * property of six committed artifacts, not of a function worth shipping, and
- * `tests/masthead.test.ts` fails if a re-bake drops or reshapes one. A rule
- * evaluated here would instead swap the figure for a different run and say
- * nothing.
+ * The runs the home page draws, held by OSM way id rather than chosen at build time.
+ * A rule evaluated here would silently swap the figure after a re-bake; these ids are
+ * pinned, and `tests/masthead.test.ts` fails if one is dropped or reshaped.
  */
 export const FEATURED: Record<string, string> = {
   fernie: "371431589",
@@ -58,11 +53,8 @@ export async function readResortFeatures(): Promise<ResortFeature[]> {
 }
 
 /**
- * One run's profile against the largest of the set.
- *
- * Deliberately carries no name: Niseko's featured run is `ホリデーコース` and
- * Archivo is loaded latin-subset, so a name that reached this page would render
- * as tofu.
+ * One run's profile against the largest of the set. Carries no name: Niseko's featured
+ * run is `ホリデーコース` and Archivo is loaded latin-subset, so it would render as tofu.
  */
 export interface Silhouette {
   slug: string;
@@ -73,13 +65,9 @@ export interface Silhouette {
 }
 
 /**
- * The featured runs drawn to one scale.
- *
- * `profileGeometry` normalises both axes into the box it is given, so six
- * profiles each filling their own cell would draw six near-identical diagonals.
- * Sizing each sub-box by the run's own baked `vertical_m` and `length_m`
- * against the largest of the six makes the column comparable: a short steep run
- * reads steep beside a long shallow one.
+ * The featured runs drawn to one scale. `profileGeometry` normalises both axes into the
+ * box it is given, so six profiles each filling their own cell would be six near-identical
+ * diagonals. Each sub-box is sized by the run's own `vertical_m` and `length_m` instead.
  */
 export function silhouettes(
   features: ResortFeature[],

@@ -126,8 +126,7 @@ describe("averagePitch", () => {
 
 describe("sustainedMaxPitch", () => {
   it("dilutes a single-cell spike instead of reporting it as a cliff", () => {
-    // Uniform 10° terrain with one DEM cell 5m out of place. Between adjacent
-    // samples that reads as a near-vertical wall; the window must not.
+    // Uniform 10° terrain with one DEM cell 5m out: adjacent samples read a wall, not this.
     const step = 25 / Math.cos(10 * (Math.PI / 180));
     const profile: ProfileSample[] = Array.from({ length: 40 }, (_, i) => ({
       d: i * step,

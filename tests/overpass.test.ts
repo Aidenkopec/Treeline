@@ -43,8 +43,7 @@ describe("inbounds downhill filter", () => {
   });
 
   it("rejects a way tagged downhill *and* skitour", () => {
-    // A dual-tagged way is still unpatrolled touring terrain. Accepting it
-    // because one of its tags says downhill is exactly the hole this closes.
+    // A dual-tagged way is still unpatrolled touring terrain (SPEC §8).
     const dual = ways.find((w) => w.id === 2004)!;
     expect(isInboundsDownhill(dual)).toBe(false);
   });
@@ -179,8 +178,7 @@ describe("overpass answer gate", () => {
   });
 
   it("rejects a runtime-error remark rather than baking a resort with nothing on it", () => {
-    // The dangerous shape: valid JSON, no exception anywhere, and a mountain
-    // with no runs and no lifts that looks entirely healthy on the page.
+    // The dangerous shape: valid JSON, no exception, and an empty mountain that looks fine.
     const remark = Buffer.from(
       JSON.stringify({ version: 0.6, elements: [], remark: "runtime error: Query timed out" }),
     );

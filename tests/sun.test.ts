@@ -39,12 +39,9 @@ const NISEKO = resort({ slug: "niseko", lat: 42.8608, lon: 140.6997, timezone: "
 const rad = (deg: number) => (deg * Math.PI) / 180;
 
 /**
- * Day length from the textbook hour-angle formula, hours.
- *
- * `cos H = (sin h₀ − sin φ sin δ) / (cos φ cos δ)`, and the day is `2H`. This is
- * the independent half of the gate below: it shares no code path with suncalc,
- * and at a solstice `δ` is the obliquity of the ecliptic, a constant rather than
- * another ephemeris lookup.
+ * Day length from the textbook hour-angle formula, hours: `cos H = (sin h₀ − sin φ sin δ) /
+ * (cos φ cos δ)`, the day being `2H`. The independent half of the gate below, sharing no
+ * code path with suncalc, and at a solstice `δ` is the obliquity of the ecliptic.
  */
 function dayLengthHours(latDeg: number, declinationDeg: number): number {
   const HORIZON_DEG = -0.833;
@@ -59,18 +56,9 @@ const solarDay = (iso: string) => new Date(`${iso}T12:00:00Z`);
 const hoursBetween = (from: Date, to: Date) => (to.getTime() - from.getTime()) / 3_600_000;
 
 /**
- * SPEC §11 phase 5: known sunrise and sunset for a fixed date and latitude.
- *
- * "Known" has to mean known independently, or this asserts the library's own
- * output as correct — the mistake `tests/winter.test.ts` was rewritten to stop
- * making. So the day lengths are derived here from the hour-angle formula with
- * the obliquity of the ecliptic as the solstice declination, and the noon
- * altitudes from `90° − φ ± ε`. Both are textbook identities that owe suncalc
- * nothing.
- *
- * The one pin that is a pin — the February clock times — exists to catch a
- * library upgrade moving an answer, and carries a two-minute tolerance because
- * a minute of it is the refraction model's to spend.
+ * SPEC §11 phase 5: known sunrise and sunset for a fixed date and latitude. "Known" means
+ * known independently, or this asserts the library's own output as correct, so day lengths
+ * come from the hour-angle formula and noon altitudes from `90° − φ ± ε`.
  */
 describe("the sun over Lake Louise", () => {
   it("rises and sets at the times the almanac prints", () => {
@@ -112,8 +100,7 @@ describe("the sun over Lake Louise", () => {
   });
 
   it("stands due south at solar noon, at the altitude the latitude allows", () => {
-    // 90° − φ ± ε. The half-degree tolerance covers refraction and the hours
-    // between the solstice instant and the noon this samples.
+    // 90° − φ ± ε, with half a degree for refraction and the hours either side of solstice.
     for (const [date, declination] of [
       ["2026-12-21", -OBLIQUITY_DEG],
       ["2026-06-21", OBLIQUITY_DEG],
@@ -128,9 +115,7 @@ describe("the sun over Lake Louise", () => {
   });
 
   it("reports the same horizon from getTimes and getPosition", () => {
-    // The sole cross-check between the two suncalc entry points. Sunrise is
-    // solved for a geometric −0.833°, and `altitudeDeg` is refraction-corrected,
-    // so the apparent altitude at the moment of sunrise is about −0.35°.
+    // Sunrise solves a geometric −0.833°, and `altitudeDeg` is refraction-corrected.
     for (const date of ["2026-02-14", "2026-06-21", "2026-12-21"]) {
       const { sunrise, sunset } = sunTimes(LAKE_LOUISE, solarDay(date));
       expect(sunPosition(LAKE_LOUISE, sunrise!).altitudeDeg).toBeCloseTo(-0.35, 2);
@@ -216,10 +201,7 @@ describe("the sun as a direction over an exaggerated mesh", () => {
   });
 
   it("puts the terminator exactly where the real mountain has it", () => {
-    // The whole reason the vertical component is scaled. Normalising the two
-    // vectors leaves a positive factor, and a positive factor cannot change a
-    // sign — so lit and shaded are decided by the true geometry, not by the
-    // exaggeration. The only disagreements are slopes the sun grazes exactly.
+    // Normalising leaves a positive factor, which cannot change the sign of `L·N`.
     const k = 1.8;
     const cases = everySlopeAndSun();
     let graze = 0;
@@ -232,14 +214,12 @@ describe("the sun as a direction over an exaggerated mesh", () => {
       }
       expect(Math.sign(rendered), `pitch ${pitch} aspect ${aspect}`).toBe(Math.sign(truth));
     }
-    // Slopes the sun lies exactly along, where the sign is the float noise's to
-    // decide and there is nothing to be right about.
+    // Slopes the sun lies exactly along, where the sign is float noise's to decide.
     expect(graze / cases.length).toBeLessThan(0.001);
   });
 
   it("shades one pitch's aspects in exactly the real proportions", () => {
-    // Within a pitch the rendered term is the true term times one constant, so
-    // "this face is twice as lit as that one" survives the exaggeration intact.
+    // Within a pitch the rendered term is the true one times a constant, so ratios survive.
     const k = 1.8;
     const sun = { altitudeDeg: 25, azimuthDeg: 210 };
     for (const pitch of [10, 25, 40]) {
@@ -285,11 +265,7 @@ describe("the mountain's clock", () => {
   });
 
   it("still answers for an hour the clock skips", () => {
-    // 2026-03-08, 02:00 MST becomes 03:00 MDT, so 02:30 is a reading that never
-    // occurs in Alberta. There is no correct instant, only a choice; this lands
-    // an hour early, at 01:30 MST. What matters is that it is a real instant on
-    // the right day rather than an Invalid Date, because the slider can be
-    // dragged across that hour.
+    // 02:30 never occurs in Alberta that day; what matters is a real instant, not NaN.
     expect(instantAt("2026-03-08T02:30", "America/Edmonton").toISOString()).toBe(
       "2026-03-08T08:30:00.000Z",
     );
@@ -338,8 +314,7 @@ describe("the mountain's clock", () => {
     expect(joinWallClock("2026-02-14", 870)).toBe("2026-02-14T14:30");
     expect(joinWallClock("2026-02-14", 0)).toBe("2026-02-14T00:00");
     expect(joinWallClock("2026-02-14", 1439)).toBe("2026-02-14T23:59");
-    // The slider cannot leave its own track, and a rounding error must not
-    // roll the readout onto the next day.
+    // A rounding error must not roll the readout onto the next day.
     expect(joinWallClock("2026-02-14", 1440)).toBe("2026-02-14T23:59");
     expect(joinWallClock("2026-02-14", -1)).toBe("2026-02-14T00:00");
   });
@@ -354,9 +329,7 @@ describe("the hour the page opens at", () => {
   });
 
   it("is solar noon of that same local day when the sun is down", () => {
-    // 06:00Z on 15 February is 11pm on the 14th in Alberta. The framing is
-    // midday on the 14th, not on the 15th — `getTimes` keys off the UTC solar
-    // day, which has already rolled over.
+    // 06:00Z on the 15th is 11pm on the 14th in Alberta, and `getTimes` keys off UTC.
     const opened = openingWallClock(LAKE_LOUISE, new Date("2026-02-15T06:00:00Z"));
     expect(opened.slice(0, 10)).toBe("2026-02-14");
     expect(opened).toBe("2026-02-14T12:58");

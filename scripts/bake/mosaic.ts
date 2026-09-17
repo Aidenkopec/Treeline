@@ -3,11 +3,9 @@ import { cachedFetch } from "./cache";
 import { mosaicSize, TILE_SIZE, tilesInRange, type TileRange } from "./tiles";
 
 /**
- * Downloading and stitching XYZ tiles.
- *
- * Terrarium elevation and Esri imagery are both 256px tiles on the same grid,
- * which is why one module serves both — see scripts/bake/tiles.ts. Build time
- * only: this is the slow part SPEC §5.1 exists to keep out of a request.
+ * Downloading and stitching XYZ tiles. Terrarium elevation and Esri imagery are both 256px
+ * tiles on one grid, which is why a single module serves both. Build time only: this is
+ * the slow part SPEC §5.1 exists to keep out of a request.
  */
 
 export interface Mosaic {
@@ -22,11 +20,9 @@ export type TileUrl = (x: number, y: number, z: number) => string;
 const CONCURRENCY = 6;
 
 /**
- * Composite already-downloaded tiles into one image.
- *
- * Takes buffers rather than URLs so the placement arithmetic — the part that
- * silently transposes a mosaic when it is wrong — is testable without a network.
- * `tiles` must be in `tilesInRange` order.
+ * Composite already-downloaded tiles into one image. Takes buffers rather than URLs so the
+ * placement arithmetic, which silently transposes a mosaic when it is wrong, is testable
+ * without a network. `tiles` must be in `tilesInRange` order.
  */
 export async function stitchTiles(range: TileRange, tiles: Buffer[]): Promise<Mosaic> {
   const { width, height } = mosaicSize(range);
@@ -40,9 +36,7 @@ export async function stitchTiles(range: TileRange, tiles: Buffer[]): Promise<Mo
     create: { width, height, channels: 3, background: { r: 0, g: 0, b: 0 } },
   })
     .composite(composite)
-    // PNG tiles carry an alpha channel, and compositing propagates it. Drop it
-    // here so `data` is always three bytes per pixel, which is what
-    // decodeHeightmap and the JPEG encoder both expect.
+    // Drop the PNG alpha so `data` is three bytes per pixel, which both consumers expect.
     .removeAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });

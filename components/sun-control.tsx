@@ -5,25 +5,9 @@ import { type WallClock, instantAt, joinWallClock, splitWallClock, sunTimes } fr
 import type { Resort } from "@/lib/types";
 
 /**
- * Which slopes are lit, at any hour of any day (SPEC §4).
- *
- * The mountain is the answer — nothing here attaches a sun state to a run, and
- * no slope is called good or bad for having one (SPEC §8).
- *
- * `value` is always a resolved hour, never "now": which hour "now" means is the
- * page's question, answered once by `openingWallClock`, and a control that
- * re-answered it on every render would slide out from under a reader.
- *
- * It sits on the mountain because the mountain is its readout. Dragging the
- * hour on one side of the window while the shadows move on the other is a
- * control you cannot watch yourself using. That is also why it is one row on an
- * edge rather than a panel: a panel deep enough to hold a second line of type
- * is a panel standing on the thing it is there to show.
- *
- * Sunrise and sunset are facts about the place rather than about the render, so
- * they come off the strip and are printed by `SunTimes` at the head of the run
- * list instead — which is rendered whether or not there is a GPU, and is what
- * keeps the readout saying something without one (SPEC §9).
+ * Which slopes are lit, at any hour of any day (SPEC §4). Nothing here attaches a sun
+ * state to a run and no slope is called good for having one (SPEC §8). `value` is always
+ * a resolved hour, never "now": re-answering that per render would slide under a reader.
  */
 
 /** Finer than the shadow it moves, and coarse enough to drag the whole day. */
@@ -52,10 +36,8 @@ export function SunControl({
 
   return (
     <fieldset className="flex flex-wrap items-center gap-2">
-      {/* The legend is the grouping a screen reader answers on; the visible
-          label beside it does the same job for the eye. Its width is the one
-          the grade and vertical labels keep, so the three line up as a column
-          wherever they stack. */}
+      {/* The legend is the grouping a screen reader answers on. Its width is the
+          one the grade and vertical labels keep, so the three stack as a column. */}
       <legend className="sr-only">Sun position at {resort.name}</legend>
       <span
         aria-hidden="true"
@@ -121,15 +103,11 @@ export function SunControl({
 }
 
 /**
- * Sunrise and sunset for the day the sun is drawn at.
- *
- * One zone, said once. Null is a real answer above the Arctic circle and not
- * one any of these six reaches.
+ * Sunrise and sunset for the day the sun is drawn at. Null is a real answer above the
+ * Arctic circle and not one any of these six resorts reaches.
  */
 export function SunTimes({ resort, value }: { resort: Resort; value: WallClock | null }) {
-  // Keyed off local midday rather than off `value`: `getTimes` answers for the
-  // UTC solar day its argument falls in, and at 11pm in Alberta that is already
-  // tomorrow's sunrise.
+  // Keyed off local midday: `getTimes` answers for the UTC solar day its argument is in.
   const day =
     value === null
       ? null

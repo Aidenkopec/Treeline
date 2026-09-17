@@ -58,9 +58,7 @@ describe("clusterPoints", () => {
   });
 
   it("moves the anchor without moving the membership", () => {
-    // The same three places stay one chain as the camera turns, but a
-    // different one becomes nearest the centre. Anything caching a mark on
-    // membership alone keeps drawing it on the building it left behind.
+    // The chain holds as the camera turns, but a different member becomes nearest the centre.
     const before = clusterPoints([point("a", 0, 0), point("b", 10, 0), point("c", 20, 0)], 30);
     const after = clusterPoints([point("a", 0, 0), point("b", 10, 0), point("c", -20, 0)], 30);
 
@@ -74,9 +72,7 @@ describe("clusterPoints", () => {
   });
 
   it("holds a pair's anchor still as the camera drifts", () => {
-    // Two members are always the same distance from their own centre, so the
-    // tie is all there is to go on and float noise in the centre would hand the
-    // mark to the other summit every pass.
+    // Two members are equidistant from their own centre, so the tie is all there is to go on.
     const anchors = new Set<string>();
     for (let frame = 0; frame < 200; frame++) {
       const drift = frame * 0.013;
@@ -139,8 +135,7 @@ describe("placePlates", () => {
   });
 
   it("slides a candidate along its line rather than dropping it", () => {
-    // Both places beside the cable's middle are taken, so the name moves up the
-    // cable instead of coming off the mountain.
+    // Both spots beside the cable's middle are taken, so the name moves up the cable.
     const slider: PlateCandidate = {
       id: "b",
       width: 100,

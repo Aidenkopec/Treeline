@@ -26,13 +26,9 @@ import {
 import fixture from "./fixtures/overpass-mountain.json" with { type: "json" };
 
 /**
- * Lifts and named places, which carry infrastructure facts and never terrain
- * ones. The §8 pin below is the point of this file: a lift that grew a pitch
- * field would be publishing the slope of unpatrolled ground through the side
- * door, and nothing in the type system stops that on its own.
- *
- * Synthetic terrain wired through a real TileRange, matching runs.test.ts, so
- * the lon/lat → pixel path under test is the one the bake actually uses.
+ * Lifts and named places, which carry infrastructure facts and never terrain ones. The §8
+ * pin below is the point of this file: a lift that grew a pitch field would publish the
+ * slope of unpatrolled ground, and nothing in the type system stops that on its own.
  */
 const BOUNDS = { west: -116.19, south: 51.43, east: -116.06, north: 51.48 };
 const ZOOM = 13;
@@ -54,12 +50,9 @@ function northRisingPlane(gradient: number): Grid {
 }
 
 /**
- * Ground that dips under a lift — a cable crossing a gully.
- *
- * A V in `y` whose vertex is put at a given latitude, so the dip is guaranteed
- * to fall *between* the lift's terminals rather than somewhere else on the
- * mosaic. That placement is the whole point: a gully outside the span proves
- * nothing about how vertical is measured across one.
+ * Ground that dips under a lift: a V in `y` whose vertex is put at a given latitude, so the
+ * dip falls between the lift's terminals. A gully outside the span would prove nothing
+ * about how vertical is measured across one.
  */
 function gullyPlaneUnder(lat: number): Grid {
   const { width, height } = mosaicSize(RANGE);
@@ -174,9 +167,7 @@ describe("places", () => {
   });
 
   it("drops a place off the mosaic, which is ground the bake never downloaded", () => {
-    // Fernie: the query is clipped to every landuse=winter_sports polygon
-    // within 8 km of the anchor, and one of them is a range away to the
-    // north-west that the mosaic was never built to cover.
+    // Fernie has a winter_sports polygon a range away that the mosaic never covered.
     const away: OverpassPlace = {
       type: "node",
       id: 5001,
@@ -190,8 +181,7 @@ describe("places", () => {
   it("reads a peak's height from OSM rather than off a DEM that resamples summits low", () => {
     const peak = derivePlace(byId(3003), northRisingPlane(GRADIENT), RANGE)!;
     expect(peak.ele_m).toBe(2637);
-    // The surface height is kept beside it rather than overwritten by it: one
-    // is where the marker sits, the other is what the mountain is called.
+    // Kept beside it, not overwritten: one is where the marker sits, the other the name.
     expect(peak.surface_m).not.toBe(peak.ele_m);
   });
 
@@ -246,20 +236,14 @@ describe("deriveLift", () => {
     const terminals = Math.abs(ground[ground.length - 1] - ground[0]);
 
     expect(lift.vertical_m).toBe(Math.round(terminals));
-    // What a run would have reported. The gap between the two is the bug this
-    // rule exists to avoid: the dip is descended and climbed, not risen.
+    // What a run would report. The gap is the bug: the dip is descended and climbed.
     expect(spread).toBeGreaterThan(terminals);
   });
 
   it("measures length along the ground, so the climb is added to the map distance", () => {
     const lift = deriveLift(northwardLift(1, 900, 4), northRisingPlane(GRADIENT), RANGE)!;
 
-    // 900m across the map up a 20° slope is 958m travelled. Sloped ground
-    // rather than flat because flat ground cannot tell this apart from the map
-    // distance. The other half of the rule — that the clearance can never reach
-    // this number — holds by construction and not by test: `cable_m` is
-    // `ground_m` plus one constant, so both lines rise identically over every
-    // segment and no terrain makes them differ.
+    // 900m across the map up a 20° slope is 958m travelled; flat ground could not tell.
     expect(lift.length_m).toBeGreaterThan(900);
     expect(lift.length_m).toBeCloseTo(900 / Math.cos(20 * (Math.PI / 180)), -1);
   });

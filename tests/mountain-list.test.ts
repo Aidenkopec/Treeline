@@ -4,11 +4,8 @@ import { liftCells, liftStyle, placeCells, placeStyle, UNNAMED_LIFT } from "@/li
 import type { Lift, MountainFile, Place } from "@/lib/types";
 
 /**
- * What the lift table and place list actually print.
- *
- * The cells are pre-formatted here rather than in the components so that "the
- * numbers on the page match the baked artifact" is a test rather than a
- * screenshot — the same split `lib/run-list.ts` is built on.
+ * What the lift table and place list actually print. The cells are pre-formatted here
+ * rather than in the components, so matching the baked artifact is a test, not a look.
  */
 
 function lift(over: Partial<Lift> = {}): Lift {
@@ -86,8 +83,7 @@ describe("place glyphs", () => {
       const { path } = placeStyle(kind);
       const corners = (path.match(/\d+(\.\d+)?\s+\d+(\.\d+)?/g) ?? []).length;
       const closed = path.trim().toUpperCase().endsWith("Z");
-      // Four corners joined up is a square or a diamond, and both of those
-      // already mean a grade. Four corners left open is a roof.
+      // Four corners joined up is a square or a diamond, and both already mean a grade.
       expect(closed && corners === 4, `${kind} closes on four corners`).toBe(false);
     }
   });
@@ -101,8 +97,7 @@ describe("place glyphs", () => {
   });
 
   it("gives the 3D marker and the list glyph the same outline, so they cannot drift", () => {
-    // One string, two renderers. The sprite texture in lift-overlay.tsx and the
-    // SVG in place-mark.tsx both read this.
+    // One string, two renderers: the sprite in lift-overlay.tsx and the SVG in place-mark.
     expect(placeStyle("peak").path).toBe(placeStyle("viewpoint").path);
     expect(placeStyle("peak").filled).not.toBe(placeStyle("viewpoint").filled);
   });

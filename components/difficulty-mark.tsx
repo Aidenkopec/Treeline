@@ -2,10 +2,8 @@ import { difficultyStyle } from "@/lib/difficulty";
 import type { Difficulty } from "@/lib/types";
 
 /**
- * The trail-map marker for a difficulty grade.
- *
- * Carries the grade by shape as well as color, so it holds up in the HTML
- * table, in print, and for anyone who cannot separate the hues (SPEC §9).
+ * The trail-map marker for a difficulty grade. Carries the grade by shape as well as
+ * color, so it holds up in the HTML table, in print, and without hue (SPEC §9).
  */
 export function DifficultyMark({
   difficulty,

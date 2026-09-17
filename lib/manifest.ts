@@ -4,11 +4,8 @@ import type { Manifest, MountainFile, Resort, RunsFile } from "./types";
 import resortsInput from "@/resorts.json";
 
 /**
- * Reading baked artifacts.
- *
- * These are plain files on disk, read at build time — there is no database
- * (SPEC §5). Before a resort has been baked it simply is not in the manifest,
- * and the UI says so rather than pretending it is loading.
+ * Reading baked artifacts: plain files on disk, read at build time, with no database
+ * (SPEC §5). A resort that has not been baked is simply absent from the manifest.
  */
 
 const PUBLIC_RESORTS = path.join(process.cwd(), "public", "resorts");

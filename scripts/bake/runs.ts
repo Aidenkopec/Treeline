@@ -5,10 +5,8 @@ import { lonLatToMosaicPixel, metresPerPixel, type TileRange } from "./tiles";
 import { isInboundsDownhill, type OverpassWay, readDifficulty } from "./overpass";
 
 /**
- * Turning an OSM way into the derived data of SPEC §6.
- *
- * This is the module that produces the numbers no trail map gives you, so it
- * is the one the golden tests point at.
+ * Turning an OSM way into the derived data of SPEC §6. This is the module that produces
+ * the numbers no trail map gives you, so it is the one the golden tests point at.
  */
 
 const DEG = 180 / Math.PI;
@@ -33,11 +31,9 @@ function pitchDeg(drop: number, distance3d: number): number {
 }
 
 /**
- * Mean compass bearing, averaged as unit vectors.
- *
- * 350° and 10° average to 0°; the arithmetic mean of those numbers is 180°,
- * the opposite answer. Returns null when the vectors cancel exactly, which
- * leaves the caller to decide what "no direction" means in its context.
+ * Mean compass bearing, averaged as unit vectors: 350° and 10° average to 0°, where the
+ * arithmetic mean of the numbers is 180°. Null when the vectors cancel exactly, leaving
+ * the caller to decide what "no direction" means in its context.
  */
 export function meanBearing(bearings: number[]): number | null {
   let east = 0;
@@ -46,19 +42,15 @@ export function meanBearing(bearings: number[]): number | null {
     east += Math.sin(b * RAD);
     north += Math.cos(b * RAD);
   }
-  // Not `=== 0`: sin(180°) is 1.2e-16, so opposing bearings leave a residue
-  // that atan2 happily turns into a confident right angle.
+  // Not `=== 0`: sin(180°) is 1.2e-16, so opposing bearings leave a residue atan2 trusts.
   if (Math.hypot(east, north) < 1e-9) return null;
   return (((Math.atan2(east, north) * DEG) % 360) + 360) % 360;
 }
 
 /**
- * Sample elevation along a way's polyline.
- *
- * Samples are resampled to a fixed ground interval rather than using the raw
- * OSM vertices: mappers place vertices where the trail bends, which has nothing
- * to do with where the slope changes, and an uneven sample spacing would skew
- * the mean pitch toward whichever stretch happened to be mapped in detail.
+ * Sample elevation along a way's polyline, resampled to a fixed ground interval rather
+ * than at the raw OSM vertices: mappers place vertices where the trail bends, and uneven
+ * spacing would skew the mean pitch toward whichever stretch was mapped in detail.
  */
 export function sampleProfile(
   way: OverpassWay,
@@ -76,8 +68,7 @@ export function sampleProfile(
     return elevationAt(grid, px, py);
   };
 
-  // `d` is documented as distance from the top, and OSM digitisation direction
-  // is arbitrary, so orient against the DEM before resampling.
+  // `d` is distance from the top and OSM direction is arbitrary, so orient against the DEM.
   const ordered =
     elevation(vertices[0]) < elevation(vertices[vertices.length - 1])
       ? [...vertices].reverse()
@@ -119,11 +110,9 @@ export function sampleProfile(
 }
 
 /**
- * The steepest *sustained* pitch, over a sliding window.
- *
- * Windowed because a single noisy DEM cell can report a cliff that is not
- * there, and "this run hits 60°" is exactly the kind of false claim that turns
- * a terrain fact into a dare (SPEC §6, §8).
+ * The steepest sustained pitch, over a sliding window. Windowed because a single noisy DEM
+ * cell can report a cliff that is not there, and "this run hits 60°" is the kind of false
+ * claim that turns a terrain fact into a dare (SPEC §6, §8).
  */
 export function sustainedMaxPitch(profile: ProfileSample[], windowM = 100): number {
   if (profile.length < 2) return 0;
@@ -138,10 +127,7 @@ export function sustainedMaxPitch(profile: ProfileSample[], windowM = 100): numb
     steepest = Math.max(steepest, pitchDeg(profile[start].e - profile[end].e, span));
   }
 
-  // The window walks over cumulative 3D distance rather than sample indices:
-  // samples are evenly spaced on the ground, so on a 30° pitch they sit 29m
-  // apart in 3D and counting indices would shorten the window exactly where
-  // the number matters most.
+  // Cumulative 3D distance, not sample indices: on a 30° pitch samples sit 29m apart in 3D.
   if (steepest === 0) return pitchDeg(profile[0].e - last.e, last.d);
   return steepest;
 }
@@ -160,27 +146,22 @@ export function averagePitch(profile: ProfileSample[]): number {
 }
 
 /**
- * The direction a run faces overall.
- *
- * Averaged as unit vectors, not as raw degrees: a run alternating between 350°
- * and 10° faces north, but the arithmetic mean of those numbers is 180° — due
- * south, the opposite answer.
+ * The direction a run faces overall, averaged as unit vectors rather than raw degrees: a
+ * run alternating between 350° and 10° faces north, where the arithmetic mean is due south.
  */
 export function meanAspect(profile: ProfileSample[], grid: Grid, range: TileRange): number {
   const bearings: number[] = [];
   for (const { lon, lat } of profile) {
     const { px, py } = lonLatToMosaicPixel(lon, lat, range);
     const deg = aspectDeg(grid, Math.round(px), Math.round(py));
-    // null is flat ground, where "which way does it face" has no answer.
-    // Counting it as 0 would bias the aspect rose north.
+    // null is flat ground; counting it as 0 would bias the aspect rose north.
     if (deg !== null) bearings.push(deg);
   }
 
   const mean = meanBearing(bearings);
   if (mean !== null) return mean;
 
-  // Every sample flat, or the aspects cancelled exactly. Run.aspect_deg is not
-  // nullable, so fall back to the bearing from the top of the run to the bottom.
+  // All flat, or the aspects cancelled. `aspect_deg` is not nullable, so use top-to-bottom.
   const first = profile[0];
   const last = profile[profile.length - 1];
   if (!first || !last) return 0;
@@ -190,11 +171,9 @@ export function meanAspect(profile: ProfileSample[], grid: Grid, range: TileRang
 }
 
 /**
- * What `--check` reports: enough to judge whether a resort is worth baking
- * before spending the download on it (SPEC §13).
- *
- * Lengths here are map distance, not the 3D length a baked run carries — this
- * runs before any elevation data has been fetched.
+ * What `--check` reports: enough to judge whether a resort is worth baking before spending
+ * the download on it (SPEC §13). Lengths here are map distance, not the 3D length a baked
+ * run carries, because this runs before any elevation data has been fetched.
  */
 export interface Coverage {
   ways: number;

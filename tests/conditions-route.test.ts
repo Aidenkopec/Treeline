@@ -3,12 +3,9 @@ import { GET } from "@/app/api/conditions/[slug]/route";
 import lakeLouise from "./fixtures/open-meteo-lake-louise.json" with { type: "json" };
 
 /**
- * SPEC §11 phase 4: "tests against recorded Open-Meteo fixtures, including an
- * API-down case". The mapping is tested against the fixtures in
- * tests/conditions.test.ts; what is left here is what the handler does when the
- * other end of the call does not behave — which is the half that cannot be
- * proved with a fixture alone, and the only place in this project that stubs
- * the network.
+ * SPEC §11 phase 4: "tests against recorded Open-Meteo fixtures, including an API-down
+ * case". The mapping is tested in tests/conditions.test.ts; what is left here is what the
+ * handler does when the other end misbehaves, and it is the only place stubbing network.
  */
 
 afterEach(() => vi.unstubAllGlobals());
@@ -50,8 +47,7 @@ describe("a resort Open-Meteo answers for", () => {
     const cacheControl = (await call("lake-louise")).headers.get("cache-control");
 
     expect(cacheControl).toBe("public, s-maxage=900, stale-while-revalidate=3600");
-    // Vercel honours neither stale-if-error nor proxy-revalidate, so a header
-    // carrying one would be describing behaviour this project does not get.
+    // Vercel honours neither stale-if-error nor proxy-revalidate, so neither may appear.
     expect(cacheControl).not.toContain("stale-if-error");
   });
 

@@ -3,13 +3,9 @@ import { aspectDeg, elevationAt, type Grid, slopeDeg } from "@/scripts/bake/terr
 import { aspectLabel } from "@/lib/aspect";
 
 /**
- * Horn's method on synthetic terrain whose true slope and aspect are known by
- * construction. A tilted plane has one correct answer everywhere on it, so any
- * disagreement is the implementation's, not the data's.
- *
- * Grid convention: x increases east, y increases south (image rows run
- * north to south). Getting this backwards silently mirrors every aspect in the
- * project, which is why it is asserted here rather than assumed.
+ * Horn's method on synthetic terrain whose slope and aspect are known by construction, so
+ * any disagreement is the implementation's and not the data's. Grid convention: x east, y
+ * south. Getting that backwards silently mirrors every aspect in the project.
  */
 function plane(options: {
   width: number;
@@ -97,10 +93,7 @@ describe("elevation sampling", () => {
   });
 
   it("flattens past the last cell rather than extrapolating off the mosaic", () => {
-    // The edge cell holds 1080. Sampling beyond it clamps to that value instead
-    // of continuing the plane to 1089 — a run whose polyline runs slightly off
-    // the baked box should flatten out, not invent terrain that was never
-    // downloaded.
+    // Sampling past the edge cell clamps rather than continuing the plane to 1089.
     const grid = plane({ width: 9, height: 9, cellSize: 30, dx: 10, dy: 0 });
     expect(elevationAt(grid, 8, 0)).toBeCloseTo(1080, 10);
     expect(elevationAt(grid, 8.9, 0)).toBeCloseTo(1080, 10);

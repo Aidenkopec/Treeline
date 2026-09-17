@@ -88,10 +88,8 @@ The test: delete it. If a competent reader still follows the code and wouldn't r
 the bug it warned about, it stays deleted.
 
 **The surrounding prose is not a licence.** §3 says match the surrounding style; it means
-naming, structure and idiom, never comment volume. Some comments in this repo are longer
-and more discursive than this section allows. Do not take them as the standard, do not
-write more like them, and do not rewrite them — leave them alone and hold new comments to
-the rules above.
+naming, structure and idiom, never comment volume. Every comment in the repo is inside the
+limits below, so the surrounding code is the standard. Hold anything new to it.
 
 Hard limits on anything you add:
 
@@ -109,8 +107,9 @@ Hard limits on anything you add:
 Formatting and hygiene are enforced by tooling, not by remembering:
 
 - `.claude/hooks/` — Prettier runs on every file an agent writes; edits to
-  `public/resorts/` are refused and edits to `SPEC.md` need confirmation; a turn that
-  touched TypeScript ends with `typecheck` and `test`.
+  `public/resorts/` are refused and edits to `SPEC.md` need confirmation; touching
+  `scripts/` warns that the committed artifacts are now stale; a turn that touched
+  TypeScript ends with `typecheck` and `test`.
 - `.husky/pre-commit` — `lint-staged` formats and lints staged files.
 - `.github/workflows/ci.yml` — format, lint, typecheck, test, build on every push and PR.
 

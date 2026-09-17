@@ -14,14 +14,12 @@ const names = directives.map((directive) => directive.split(/\s+/)[0]);
 
 describe("the policy as a header value", () => {
   it("is a single line", () => {
-    // A newline throws ERR_INVALID_CHAR at serve time and rides silently in the
-    // routes manifest until then.
+    // A newline throws ERR_INVALID_CHAR at serve time and rides the manifest until then.
     expect(CONTENT_SECURITY_POLICY).not.toMatch(/[\r\n]/);
   });
 
   it("names no directive twice", () => {
-    // A browser ignores a repeat rather than merging it, so a policy naming
-    // connect-src twice has no connect-src at all.
+    // A browser ignores a repeat rather than merging it, so a doubled name has none.
     expect(new Set(names).size).toBe(names.length);
   });
 });
@@ -37,9 +35,7 @@ describe("what the policy must refuse", () => {
   });
 
   it("upgrades no insecure request", () => {
-    // These headers apply in `next dev` too, where the directive exempts
-    // localhost but not a LAN IP — a phone on http://192.168.x.x:3000 would
-    // fail the navigation itself rather than report a violation.
+    // The directive exempts localhost but not the LAN IP a phone reaches `next dev` on.
     expect(CONTENT_SECURITY_POLICY).not.toContain("upgrade-insecure-requests");
   });
 });

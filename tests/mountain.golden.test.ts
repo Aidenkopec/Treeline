@@ -4,41 +4,9 @@ import { ASPECT_LABELS } from "@/lib/aspect";
 import type { Manifest, MountainFile } from "@/lib/types";
 
 /**
- * The committed Lake Louise lift and place artifact, asserted as shipped rather
- * than as recomputed. A bake change that quietly grew a field or resampled a
- * polyline would pass a derivation test and fail here, which is the point.
- *
- * **Independent verification.** Lift length is checked against physics rather
- * than against this pipeline's own output: OSM tags each lift's advertised ride
- * time, and baked length divided by that time has to come out at a speed real
- * cable actually runs at. Measured on the committed artifact:
- *
- *   Glacier Express            5.59 m/s   detachable
- *   Top of the World Express   4.94 m/s   detachable
- *   Juniper Express            4.94 m/s   detachable
- *   Richardson's Ridge Express 5.18 m/s   detachable
- *   Larch Express              4.45 m/s   detachable
- *   Summit                     2.40 m/s   fixed-grip
- *   Paradise                   2.38 m/s   fixed-grip
- *   Ptarmigan                  2.23 m/s   fixed-grip
- *
- * Detachable lifts run near 5 m/s and fixed-grip near 2.3–2.5; the split above
- * matches which lifts at Lake Louise are which, and the three slow ones are the
- * three fixed-grip ones. A length wrong by even fifteen percent would put
- * several of these outside what cable does. The band asserted below is wide on
- * purpose — it is there to catch a transposed axis or a broken projection, not
- * to claim the ride times are accurate to the second.
- *
- * Two things deliberately left open rather than asserted wrongly:
- *
- * - **Grizzly Express Gondola** rises 713m over 2862m, monotonically, from
- *   1657m to 2371m. That is a longer alignment than the operator's published
- *   figure for the gondola describes. The geometry is internally consistent and
- *   the rise is monotonic, so this is a question about what OSM has mapped, not
- *   about the arithmetic. It is not fudged to match a brochure.
- * - **Richardson's Ridge Express** carries 3 towers over 1739m. That is a
- *   sparse alignment for a lift still under construction, and it will redraw
- *   itself as OSM fills in.
+ * The committed Lake Louise lift and place artifact, asserted as shipped rather than as
+ * recomputed: a bake that quietly grew a field or resampled a polyline fails here. Lift
+ * length is checked against physics, not our own output; the speeds are in PHASES.md.
  */
 const mountain = JSON.parse(
   readFileSync(new URL("../public/resorts/lake-louise/mountain.json", import.meta.url), "utf8"),
@@ -52,12 +20,9 @@ const resort = manifest.resorts.find((r) => r.slug === "lake-louise")!;
 const relief = resort.elevation_max_m - resort.elevation_min_m;
 
 /**
- * The §8 pin, and the reason this file exists.
- *
- * Slope data attaches to marked runs. The ground under a cable is not a marked
- * run, so a lift that grew a pitch or an aspect would be publishing the angle
- * of unpatrolled terrain through an infrastructure feature. Asserted over the
- * artifact's own keys, so it holds whatever a future bake decides to add.
+ * The §8 pin, and the reason this file exists. The ground under a cable is not a marked
+ * run, so a lift that grew a pitch or an aspect would publish the angle of unpatrolled
+ * terrain. Asserted over the artifact's own keys, so it holds whatever a future bake adds.
  */
 describe("the committed Lake Louise mountain artifact", () => {
   it("attaches no pitch and no aspect to anything, which SPEC §8 gives to marked runs only", () => {
@@ -77,11 +42,9 @@ describe("the committed Lake Louise mountain artifact", () => {
   });
 
   it("names no aspect label anywhere in its values either, not just its keys", () => {
-    // Belt and braces: a label smuggled in as a value would read as terrain
-    // data on the page just as loudly as a field called `aspect_deg`.
+    // Belt and braces: a label smuggled in as a value reads as terrain data just as loudly.
     const serialised = JSON.stringify(mountain);
-    // Walked from `ASPECT_LABELS` rather than a copy of it, so a ninth aspect
-    // is covered here the day it is added.
+    // Walked from `ASPECT_LABELS`, so a ninth aspect is covered here the day it is added.
     for (const label of ASPECT_LABELS) expect(serialised).not.toContain(`"${label}"`);
   });
 });
@@ -97,8 +60,7 @@ describe("every baked Lake Louise lift", () => {
   });
 
   it("carries one tower per mapped OSM node rather than a resampled polyline", () => {
-    // Top of the World Express is mapped with 14 nodes, 12 of them tagged
-    // aerialway=pylon. A resampled line would land on a round number instead.
+    // Mapped with 14 nodes, 12 tagged aerialway=pylon; a resampled line lands on a round one.
     const lift = mountain.lifts.find((l) => l.name === "Top of the World Express")!;
     expect(lift.towers).toHaveLength(14);
   });
@@ -145,8 +107,7 @@ describe("every baked Lake Louise lift", () => {
 
     for (const lift of timed) {
       const speed = lift.length_m / (lift.duration_min! * 60);
-      // Slowest fixed-grip to fastest detachable, with room either side. A
-      // broken projection or a doubled length leaves this band immediately.
+      // Slowest fixed-grip to fastest detachable, with room either side.
       expect(speed, `${lift.name ?? lift.id} at ${speed.toFixed(2)} m/s`).toBeGreaterThan(1.5);
       expect(speed, `${lift.name ?? lift.id} at ${speed.toFixed(2)} m/s`).toBeLessThan(7);
     }
@@ -172,9 +133,7 @@ describe("every baked Lake Louise place", () => {
   });
 
   it("reads a sharp summit low off the DEM, which is why the surveyed height is kept", () => {
-    // Whitehorn Mountain is published at 2637m and this 30m model resamples it
-    // to about 2597. That gap is the documented reason `ele_m` exists, and a
-    // bake that started overwriting one with the other would close it.
+    // Whitehorn is published at 2637m and this 30m model resamples it to about 2597.
     const peak = mountain.places.find((p) => p.name === "Whitehorn Mountain")!;
     expect(peak.ele_m).toBe(2637);
     expect(peak.surface_m).toBeLessThan(peak.ele_m!);
