@@ -173,6 +173,20 @@ describe("places", () => {
     expect(derivePlace(byId(4001), northRisingPlane(GRADIENT), RANGE)).toBeNull();
   });
 
+  it("drops a place off the mosaic, which is ground the bake never downloaded", () => {
+    // Fernie: the query is clipped to every landuse=winter_sports polygon
+    // within 8 km of the anchor, and one of them is a range away to the
+    // north-west that the mosaic was never built to cover.
+    const away: OverpassPlace = {
+      type: "node",
+      id: 5001,
+      lat: BOUNDS.north + 0.2,
+      lon: BOUNDS.west - 0.2,
+      tags: { natural: "peak", name: "Somewhere Else" },
+    };
+    expect(derivePlace(away, northRisingPlane(GRADIENT), RANGE)).toBeNull();
+  });
+
   it("reads a peak's height from OSM rather than off a DEM that resamples summits low", () => {
     const peak = derivePlace(byId(3003), northRisingPlane(GRADIENT), RANGE)!;
     expect(peak.ele_m).toBe(2637);
@@ -254,6 +268,19 @@ describe("deriveLift", () => {
     expect(deriveLift(byId(2002), northRisingPlane(GRADIENT), RANGE)).toBeNull();
   });
 
+  it("drops a lift with no tower on the mosaic, rather than hanging a cable off the sky", () => {
+    const away: OverpassWay = {
+      type: "way",
+      id: 5002,
+      tags: { aerialway: "chair_lift", name: "Somewhere Else Chair" },
+      geometry: [
+        { lat: BOUNDS.north + 0.2, lon: BOUNDS.west - 0.2 },
+        { lat: BOUNDS.north + 0.21, lon: BOUNDS.west - 0.21 },
+      ],
+    };
+    expect(deriveLift(away, northRisingPlane(GRADIENT), RANGE)).toBeNull();
+  });
+
   it("carries no pitch and no aspect, which SPEC §8 attaches to marked runs only", () => {
     const lift = deriveLift(northwardLift(1, 900, 6), northRisingPlane(GRADIENT), RANGE)!;
     const keys = [...Object.keys(lift), ...lift.towers.flatMap((t) => Object.keys(t))];
@@ -263,13 +290,26 @@ describe("deriveLift", () => {
 
 describe("summariseMountain", () => {
   it("splits lifts into the ones that hang from a cable and the ones that run on the snow", () => {
-    const coverage = summariseMountain(elements);
+    const coverage = summariseMountain(elements, RANGE);
     expect(coverage.aerial).toBe(4);
     expect(coverage.surface).toBe(1);
   });
 
+  it("leaves a place off the mosaic out of the count, so --check reports what a bake keeps", () => {
+    const away: OverpassPlace = {
+      type: "node",
+      id: 5003,
+      lat: BOUNDS.north + 0.2,
+      lon: BOUNDS.west - 0.2,
+      tags: { natural: "peak", name: "Somewhere Else" },
+    };
+    expect(summariseMountain([...elements, away], RANGE).places).toBe(
+      summariseMountain(elements, RANGE).places,
+    );
+  });
+
   it("counts only the places that would actually be baked", () => {
-    const coverage = summariseMountain(elements);
+    const coverage = summariseMountain(elements, RANGE);
     expect(coverage.places).toBe(4);
     expect(coverage.byPlaceKind).toEqual({ lodge: 2, peak: 1, viewpoint: 1 });
   });
