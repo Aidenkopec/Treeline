@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from "next";
+import { SITE_URL } from "@/lib/site";
 import { archivo } from "./fonts";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://treeline.aidenkopec.com"),
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "Treeline — ski terrain in 3D",
     template: "%s — Treeline",
