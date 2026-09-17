@@ -73,6 +73,26 @@ describe("clusterPoints", () => {
     expect(groups.map((group) => group.anchorId)).toEqual(["far", "a"]);
   });
 
+  it("holds a pair's anchor still as the camera drifts", () => {
+    // Two members are always the same distance from their own centre, so the
+    // tie is all there is to go on and float noise in the centre would hand the
+    // mark to the other summit every pass.
+    const anchors = new Set<string>();
+    for (let frame = 0; frame < 200; frame++) {
+      const drift = frame * 0.013;
+      anchors.add(
+        clusterPoints(
+          [
+            point("a", 431.37 + drift, 248.91 + drift * 0.37),
+            point("b", 449.82 + drift * 0.997, 261.44 + drift * 0.361),
+          ],
+          34,
+        )[0].anchorId,
+      );
+    }
+    expect([...anchors]).toEqual(["a"]);
+  });
+
   it("returns nothing for nothing", () => {
     expect(clusterPoints([], 30)).toEqual([]);
   });
