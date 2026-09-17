@@ -3,7 +3,7 @@
 Progress tracker for [SPEC.md](./SPEC.md) §11. Each phase ends working, committed and
 deployable, and runs in its own session with its own verification gate.
 
-**Status: phases 0–5.10 done. All six resorts baked. 407 tests green.** The ⛳ stopping point
+**Status: phases 0–5.11 done. All six resorts baked. 422 tests green.** The ⛳ stopping point
 (three resorts) is passed. Everything past it is addition, not completion.
 
 > **Next action:** phase 6, or phase 9's deploy. Nothing is blocking either.
@@ -683,6 +683,63 @@ Desktop re-measured at 1280, 1440 and 1920 against a pre-change capture: unchang
 screenshot; `env(safe-area-inset-*)` on real notched hardware, since a desktop Chrome resolves
 every inset to 0px; and VoiceOver on the folded row, whose `<th>` now reads the name and the
 three folded numbers as one cell.
+
+---
+
+## Phase 5.11 — Response headers ✅ done
+
+A security review of the site as deployed found no vulnerability in the code, and no
+platform-level hardening at all: the config was empty, so nothing was served with a CSP,
+`nosniff`, a referrer policy or a framing rule.
+
+- [x] `next.config.ts` — `headers()` over `/(.*)`, which Next applies ahead of the filesystem,
+      so `public/` and `/_next/static` carry it too. `CONTENT_SECURITY_POLICY` and
+      `SECURITY_HEADERS` are exported for the test
+- [x] `tests/security-headers.test.ts` — 11 tests, weighted to what the policy must refuse
+- [x] `app/api/og/[slug]/[run]/route.tsx` — the 501 placeholder no longer echoes its path params
+- [x] `.github/workflows/ci.yml` — `permissions: contents: read`, actions pinned to SHAs, and an
+      `npm audit --audit-level=high` step
+- [x] `app/error.tsx` — a client throw now lands on a page carrying the disclaimer (SPEC §8)
+
+**Constraints this leaves behind:**
+
+`script-src` carries `'unsafe-inline'` and therefore mitigates no XSS. Every prerendered page
+emits the RSC flight payload in nonce-less inline scripts; a nonce needs per-request HTML from
+middleware, which is the prerender phases 3 and 4 were built to keep. What the policy does buy
+is a bound on a compromised dependency — `connect-src 'self'` leaves it nowhere to send.
+
+`style-src 'unsafe-inline'` is for Next's own prerendered `_global-error.html`, not for the
+`<noscript>` block in `resort-identity.tsx` and not for R3F: drei writes `el.style.cssText`,
+which is CSSOM and CSP-exempt.
+
+`Strict-Transport-Security` is set here because Vercel's own differs by host: `.vercel.app` gets
+`includeSubDomains; preload`, the custom domain gets a bare `max-age`. No `preload` in ours —
+that is a commitment the apex owns, not this subdomain.
+
+No `upgrade-insecure-requests`: `headers()` applies in `next dev`, where it exempts localhost
+but not a LAN IP, so a phone on `http://192.168.x.x:3000` would fail the navigation itself.
+
+`script-src` picks up `'unsafe-eval'` under `next dev` and nowhere else. `headers()` applies in
+dev too, and React reconstructs server-side error stacks there with `eval`, so a policy without
+it costs the stack trace on every dev error. The shipped value is what the test pins.
+
+`worker-src 'none'` is a tripwire. drei's `<Text>` spawns a worker from a blob URL, so moving
+the labels in `mountain-labels.tsx` to SDF text would need `worker-src blob:`, and the failure
+would be a blank label layer rather than an error.
+
+**Verified at runtime:** production build served on :3100 — headers present on a page, on
+`public/resorts/lake-louise/heightmap.png` and on a `_next` chunk; zero CSP violations on `/`,
+a resort page and a 404; terrain, overlays, drei labels, filters, sun control and the
+`/api/conditions` fetch all working. At 390×844 the disclaimer is on screen without opening the
+facts fold.
+
+`treeline.aidenkopec.com` is attached and serving: a CNAME at GoDaddy to the project's
+`vercel-dns` target, cert issued. `lib/site.ts` now holds the origin that `metadataBase`,
+`app/robots.ts` and `app/sitemap.ts` all read, so the three cannot drift. The sitemap is built
+from the manifest rather than `resorts.json` — a planned-but-unbaked resort has no page — and
+dated from `baked_at` so an unchanged bake produces an unchanged sitemap.
+
+**Still open:** the WAF rate limit on `/api/conditions/[slug]` is staged, not published.
 
 ---
 
