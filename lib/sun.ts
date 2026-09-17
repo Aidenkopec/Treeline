@@ -2,15 +2,9 @@ import { getPosition, getTimes } from "suncalc";
 import type { Resort } from "./types";
 
 /**
- * Where the sun stands over a resort, and what time it is there.
- *
- * The one place this project reads `suncalc`, because the library's conventions
- * are the whole risk: `suncalc@2` answers in **degrees** with azimuth measured
- * **clockwise from north**, which is the opposite of the radians-from-south
- * convention every older example uses. `tests/sun.test.ts` pins it.
- *
- * A sun is illumination, not a terrain derivative. Nothing here attaches a
- * number to a run, and nothing shades open ground by steepness (SPEC §8).
+ * Where the sun stands over a resort. Illumination only, never a terrain derivative
+ * (SPEC §8). The one place this project reads `suncalc`, whose conventions are the risk:
+ * v2 answers in degrees with azimuth clockwise from north. `tests/sun.test.ts` pins it.
  */
 
 export interface SunPosition {
@@ -26,10 +20,8 @@ export function sunPosition(resort: Resort, at: Date): SunPosition {
 }
 
 /**
- * Sunrise and sunset for the solar day `at` falls in.
- *
- * Null rather than a date when the sun never crosses the horizon — a real
- * answer above the Arctic circle, and not one any of the six resorts reaches.
+ * Sunrise and sunset for the solar day `at` falls in. Null when the sun never crosses the
+ * horizon, a real answer above the Arctic circle and not one these six resorts reach.
  */
 export function sunTimes(
   resort: Resort,
@@ -40,23 +32,9 @@ export function sunTimes(
 }
 
 /**
- * The unit vector towards the sun, in the terrain mesh's own axes.
- *
- * X east, Z south, Y up — the same frame `lonLatToMesh` builds and
- * `aspectNormal` reads bearings in.
- *
- * The vertical component is multiplied by the exaggeration, and that is the
- * load-bearing line. Mesh positions are the real terrain under the non-uniform
- * scale `diag(1, k, 1)`; a direction between two points scales the same way,
- * while a normal scales by the inverse transpose `diag(1, 1/k, 1)`, so the two
- * `k`s cancel in `L·N` before either vector is normalised. Normalising leaves
- * one positive factor per pitch, which is a contrast trim: it cannot move the
- * terminator, and among slopes of a single pitch the shading is the real
- * mountain's to the last digit.
- *
- * Pass the raw sun vector instead and the sun sits `k` times too low over the
- * terrain. Measured over 67,000 slope-and-sun combinations at k = 1.8, 6.3% of
- * them come out on the wrong side of lit.
+ * The unit vector towards the sun, in the mesh's own axes: X east, Z south, Y up. The
+ * vertical component is multiplied by the exaggeration because the mesh is, so the two
+ * cancel in `L·N`. Pass the raw vector and 6.3% of slopes land on the wrong side of lit.
  */
 export function sunDirection(
   { altitudeDeg, azimuthDeg }: SunPosition,
@@ -75,11 +53,8 @@ export function sunDirection(
 }
 
 /**
- * A time on the mountain's clock, `YYYY-MM-DDTHH:mm`.
- *
- * Deliberately not an instant: what a reader picks is "2pm at Lake Louise", and
- * which instant that names depends on the zone and on the time of year. The
- * same string is what travels in the URL.
+ * A time on the mountain's clock, `YYYY-MM-DDTHH:mm`. Not an instant: a reader picks "2pm
+ * at Lake Louise", and which instant that names depends on the zone and the time of year.
  */
 export type WallClock = string;
 
@@ -115,8 +90,7 @@ function asIfUtc(instant: number, timeZone: string): number {
   }).formatToParts(new Date(instant));
 
   const field = (type: string) => Number(parts.find((part) => part.type === type)?.value);
-  // en-US with hour12 false prints midnight as 24, which Date.UTC rolls into
-  // the next day — correct for a duration, wrong for the clock it is reading.
+  // en-US with hour12 false prints midnight as 24, which Date.UTC rolls into the next day.
   return Date.UTC(
     field("year"),
     field("month") - 1,
@@ -128,13 +102,9 @@ function asIfUtc(instant: number, timeZone: string): number {
 }
 
 /**
- * The UTC instant a wall clock names in a zone.
- *
- * `Intl` only goes the other way, so this solves for it: read the clock as if
- * it were UTC, ask what offset the zone was on around then, and correct. The
- * second pass is what gets the changeover right — the offset near the answer is
- * not always the offset near the guess. Inside the hour that spring-forward
- * skips there is no such instant at all, and this returns the shifted one.
+ * The UTC instant a wall clock names in a zone. `Intl` only goes the other way, so this
+ * reads the clock as UTC and corrects twice, because the offset near the answer is not
+ * always the offset near the guess. In the hour spring-forward skips, returns the shift.
  */
 export function instantAt(wall: WallClock, timeZone: string): Date {
   const wanted = Date.parse(`${wall}:00Z`);
@@ -162,17 +132,9 @@ export function joinWallClock(date: string, minutes: number): WallClock {
 }
 
 /**
- * The hour the page opens at: now on the mountain, unless the sun is down.
- *
- * A visitor arriving at 11pm would otherwise meet a black massif, which says
- * nothing about the terrain the rest of the page is about — the same kind of
- * framing decision `openingFraming` makes about where to stand. Nothing is
- * hidden by it: the readout states the hour it is drawing, and the slider is
- * sitting on it.
- *
- * Solar noon is resolved from the *local* midday rather than from `now`,
- * because `getTimes` keys off the UTC solar day its argument falls in and at
- * 11pm in Alberta that is already tomorrow.
+ * The hour the page opens at: now on the mountain, unless the sun is down, since a black
+ * massif says nothing about the terrain. Solar noon is resolved from the local midday,
+ * because `getTimes` keys off the UTC solar day and at 11pm in Alberta that is tomorrow.
  */
 export function openingWallClock(resort: Resort, now: Date = new Date()): WallClock {
   const wall = wallClockNow(resort.timezone, now);

@@ -16,8 +16,7 @@ describe("terrarium elevation decoding", () => {
   });
 
   it("decodes a known summit elevation", () => {
-    // Lake Louise's top station sits near 2600m: 2600 + 32768 = 35368
-    // 35368 = 138 * 256 + 40, so R=138, G=40, B=0.
+    // Lake Louise's top station: 2600 + 32768 = 35368 = 138 * 256 + 40.
     expect(decodeElevation(138, 40, 0)).toBe(2600);
   });
 
@@ -48,13 +47,9 @@ describe("terrarium elevation decoding", () => {
 });
 
 /**
- * SPEC §11 phase 1: "fixture tile decodes to known elevations". The synthetic
- * buffers above prove the arithmetic; this proves the arithmetic is pointed at
- * the right bytes of a real file.
- *
- * tests/fixtures/terrarium-13-1452-2726.png is
- * https://s3.amazonaws.com/elevation-tiles-prod/terrarium/13/1452/2726.png
- * fetched 2026-09-15. It is the tile containing the Lake Louise base area.
+ * SPEC §11 phase 1: "fixture tile decodes to known elevations". The synthetic buffers above
+ * prove the arithmetic; this proves it is pointed at the right bytes of a real file. The
+ * fixture is terrarium/13/1452/2726.png, fetched 2026-09-15: the Lake Louise base area.
  */
 describe("a real terrarium tile", () => {
   async function decodeFixture() {
@@ -80,14 +75,7 @@ describe("a real terrarium tile", () => {
   });
 
   it("puts the resort base at its published elevation", async () => {
-    // 51.4419, -116.1622 lands at pixel (170, 113) of this tile — the Lake
-    // Louise base area, published at 1646m. Checked against the resort rather
-    // than against this pipeline's own output, which is the point of a fixture.
-    //
-    // ±20m, not ±5m: terrarium at z13 is resampled from ~30m source data, and a
-    // published "base elevation" is one surveyed point rather than the mean of
-    // a 12m cell. The tile reads 1652m. Asserting tighter would be claiming
-    // precision the DEM does not have (SPEC §6).
+    // ±20m against the resort's published 1646m, not our own output: 30m source (SPEC §6).
     const { elevations } = await decodeFixture();
     expect(Math.abs(elevations[113 * 256 + 170] - 1646)).toBeLessThan(20);
   });

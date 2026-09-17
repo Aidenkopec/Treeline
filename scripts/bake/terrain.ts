@@ -1,12 +1,7 @@
 /**
- * Slope and aspect from a heightmap.
- *
- * Horn's method — a 3×3 weighted gradient, the standard implementation used by
- * GDAL and ArcGIS (SPEC §6). Choosing the same method as the reference tools is
- * what makes the golden values checkable against something other than itself.
- *
- * Pure math over a Float32Array: no I/O, fully testable, and the part of the
- * project that most needs to be right.
+ * Slope and aspect from a heightmap by Horn's method: a 3×3 weighted gradient, the
+ * standard implementation GDAL and ArcGIS use (SPEC §6). Choosing the reference tools'
+ * method is what makes the golden values checkable against something other than themselves.
  */
 
 export interface Grid {
@@ -67,17 +62,15 @@ export function slopeDeg(grid: Grid, x: number, y: number): number {
 }
 
 /**
- * Aspect at a cell: the compass bearing the slope faces, 0–360, north = 0.
- *
- * Returns null on flat ground, where "which way does it face" has no answer.
- * A flat cell reported as facing north would quietly bias the aspect rose.
+ * Aspect at a cell: the compass bearing the slope faces, 0–360, north = 0. Null on flat
+ * ground, where the question has no answer; a flat cell reported as facing north would
+ * quietly bias the aspect rose.
  */
 export function aspectDeg(grid: Grid, x: number, y: number): number | null {
   const { dzdx, dzdy } = horn(grid, x, y);
   if (dzdx === 0 && dzdy === 0) return null;
 
-  // atan2 here yields the downslope direction in map space; converted to a
-  // compass bearing measured clockwise from north.
+  // atan2 gives the downslope direction in map space; this converts to a compass bearing.
   const rad = Math.atan2(dzdy, -dzdx);
   let deg = (rad * 180) / Math.PI;
   deg = 90 - deg;

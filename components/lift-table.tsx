@@ -4,18 +4,9 @@ import { liftCells } from "@/lib/mountain";
 import type { Lift } from "@/lib/types";
 
 /**
- * The lifts, as a table.
- *
- * Unsorted on purpose. `RunTable` sorts because a resort's runs run into the
- * hundreds and are unreadable otherwise; its lifts are a dozen or so and are
- * not, and the bake already emits them biggest first. Headers here are plain `th` with no buttons and no `aria-sort`
- * — announcing "none" on a table that does not sort tells a screen reader
- * sorting exists and then withholds it.
- *
- * Rows carry no button either. Nothing selects a lift: a cable is drawn where
- * it runs and is legible from the opening framing, so flying the camera to one
- * would be motion without information, and the run selection is the only thing
- * that owns the camera. Hover lights the matching cable and stops there.
+ * The lifts, as a table. Unsorted on purpose: a dozen rows, already emitted biggest first.
+ * Headers are plain `th` with no `aria-sort`, which would tell a screen reader sorting
+ * exists and then withhold it. No row is a button either; nothing selects a lift.
  */
 export function LiftTable({
   lifts,

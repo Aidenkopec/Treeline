@@ -3,10 +3,8 @@
 import { SiteFooter } from "@/components/site-footer";
 
 /**
- * SPEC §8 wants the disclaimer on every page, including the one a client throw
- * lands on. `SiteFooter` is a server component with no dependencies, which is
- * what lets it render inside this boundary — a server-only import there breaks
- * the build pointing here.
+ * SPEC §8 wants the disclaimer here too. `SiteFooter` renders inside this client
+ * boundary only while it stays a server component with no server-only imports.
  */
 export default function Error({
   retry,

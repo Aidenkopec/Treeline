@@ -35,11 +35,9 @@ describe("the request", () => {
 });
 
 /**
- * The conversions in parseConditions are only correct while Open-Meteo keeps
- * sending what it sent when they were written, and a unit change upstream would
- * be invisible: metres published as centimetres is a plausible-looking number,
- * not a crash. So the fixtures are asserted against their own declared units —
- * if a re-recording ever disagrees, this fails before the arithmetic does.
+ * The conversions hold only while Open-Meteo sends what it sent when they were written,
+ * and a unit change upstream is invisible: metres published as centimetres is a plausible
+ * number, not a crash. So the fixtures are asserted against their own declared units.
  */
 describe("the units the readings arrive in", () => {
   for (const [name, fixture] of [
@@ -80,10 +78,9 @@ describe("a complete reading", () => {
 });
 
 /**
- * The Lake Louise fixture is all zeros on a North American clock, and each of
- * those hides a mistake: a unit conversion and a sum can both be wrong in every
- * way and still produce 0, and an off-by-one timezone still lands on the right
- * calendar day. Mount Cook is in late winter across the date line, so it cannot.
+ * The Lake Louise fixture is all zeros on a North American clock, and each zero hides a
+ * mistake: a conversion and a sum can both be wrong and still produce 0, and an off-by-one
+ * zone still lands on the right day. Mount Cook is late winter across the date line.
  */
 describe("a reading with snow in it, on the other side of the world", () => {
   const conditions = parseConditions("mount-cook", deepSnow)!;
@@ -134,10 +131,9 @@ describe("a reading with variables the model does not carry", () => {
 });
 
 /**
- * A model that carries snowfall but has no value for an hour sends a null for
- * that hour rather than dropping the key, so the absence survives into an array
- * that is present and the right length. Summing it as if the nulls were zeros
- * is how an outage gets published as "0cm".
+ * A model carrying snowfall with no value for an hour sends a null rather than dropping
+ * the key, so the absence survives into an array that is present and the right length.
+ * Summing those nulls as zeros is how an outage gets published as "0cm".
  */
 describe("a reading whose hourly snowfall is present but unpopulated", () => {
   function snowfall(hourly: (number | null)[]): number | null {

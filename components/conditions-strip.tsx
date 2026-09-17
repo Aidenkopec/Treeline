@@ -5,12 +5,9 @@ import { celsius, centimetres, observedAt, wind } from "@/lib/format";
 import type { Conditions } from "@/lib/types";
 
 /**
- * Today's snow, temperature and wind (SPEC §4).
- *
- * A client component because awaiting a runtime fetch in a server component
- * would turn the prerendered resort route dynamic and take the run table out of
- * the served HTML. Fetching after hydration leaves the page static; before it,
- * and without JavaScript, the strip reads as dashes.
+ * Today's snow, temperature and wind (SPEC §4). A client component because awaiting a
+ * runtime fetch in a server component would turn the prerendered resort route dynamic and
+ * take the run table out of the served HTML. Without JavaScript the strip reads as dashes.
  */
 export function ConditionsStrip({ slug }: { slug: string }) {
   const [conditions, setConditions] = useState<Conditions | null>(null);
@@ -35,8 +32,7 @@ export function ConditionsStrip({ slug }: { slug: string }) {
   ] as const;
 
   return (
-    // The heading leads the row: it is what tells these readings from the
-    // terrain facts above, now that no rule is drawn between them.
+    // The heading leads the row: it is what tells these readings from the facts above.
     <section className="mt-2.5 flex flex-wrap items-baseline gap-x-4 gap-y-1">
       <h2 className="u-data">Conditions</h2>
 

@@ -29,23 +29,17 @@ export default async function ResortPage(props: PageProps<"/resorts/[slug]">) {
   const runs = await readRuns(slug);
   const mountain = await readMountain(slug);
 
-  // Facts rather than a description: what this is, where it came from and when.
-  // Formatted here so they are plain HTML served with the document rather than
-  // anything the scene produces (SPEC §9), and folded away on the page because
-  // the top of the massif is not somewhere to spend six permanent columns.
+  // Plain HTML served with the document rather than anything the scene produces (SPEC §9).
   const facts: Fact[] = [
     { label: "Country", value: resort.country },
     {
       label: "Elevation",
       value: `${metres(resort.elevation_min_m)}–${metres(resort.elevation_max_m)}`,
     },
-    // A dash, not a zero: readRuns returns null for a missing or malformed
-    // artifact as well as for a resort with no runs, and only the last of those
-    // is a fact about the mountain.
+    // A dash, not a zero: readRuns also returns null for a missing or malformed artifact.
     { label: "Marked runs", value: runs ? `${runs.runs.length}` : "—" },
     { label: "Lifts", value: mountain ? `${mountain.lifts.length}` : "—" },
-    // The view is stretched vertically to read as a mountain; the numbers are
-    // not. Saying which is which is the honest half of that trade.
+    // The view is stretched vertically; the numbers are not, so the factor is stated.
     { label: "Vertical scale", value: `×${resort.vertical_exaggeration}` },
     { label: "Measured", value: resort.baked_at },
   ];

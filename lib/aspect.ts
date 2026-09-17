@@ -12,11 +12,9 @@ export const ASPECT_LABELS: readonly AspectLabel[] = [
 ] as const;
 
 /**
- * Bucket a compass bearing into one of eight aspects.
- *
- * Buckets are centred on their label, so N spans 337.5°–22.5° rather than
- * 0°–45°. Shared by the bake and the UI so a run can never be filtered into
- * one bucket and labelled another.
+ * Bucket a compass bearing into one of eight aspects. Buckets are centred on their
+ * label, so N spans 337.5°–22.5° rather than 0°–45°. Shared by the bake and the UI
+ * so a run cannot be filtered into one bucket and labelled another.
  */
 export function aspectLabel(deg: number): AspectLabel {
   const normalized = ((deg % 360) + 360) % 360;

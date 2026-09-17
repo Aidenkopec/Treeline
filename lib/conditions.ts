@@ -1,13 +1,9 @@
 import type { Conditions } from "./types";
 
 /**
- * Open-Meteo's forecast response, mapped to this project's `Conditions` shape.
- *
- * Kept out of the route handler so node can test it, the same split as
- * `lib/run-list.ts`: the mapping is where the mistakes are. Snow depth arrives
- * in metres, a variable the model does not carry is an absent key rather than a
- * null, and an error body is valid JSON that parses happily into something with
- * no reading in it at all. The handler is fetch and headers (SPEC §5).
+ * Open-Meteo's forecast response, mapped to this project's `Conditions` shape. Out of
+ * the route handler so node can test it: an error body is valid JSON that parses into
+ * something with no reading in it, and an absent variable is a missing key, not a null.
  */
 
 export const OPEN_METEO_FORECAST = "https://api.open-meteo.com/v1/forecast";
@@ -33,16 +29,11 @@ export function conditionsUrl(lat: number, lon: number): string {
     latitude: String(lat),
     longitude: String(lon),
     current: "temperature_2m,snow_depth,wind_speed_10m,wind_direction_10m",
-    // A rolling 24 hours, summed below. `daily=snowfall_sum` would answer a
-    // different question — how much has fallen since midnight — and at 9am that
-    // is not what "snow in the last 24 hours" means.
+    // A rolling 24 hours: `daily=snowfall_sum` answers since midnight, a different thing.
     hourly: "snowfall",
     past_hours: "24",
     forecast_hours: "0",
-    // Resolved from the coordinates, so `current.time` comes back on the
-    // resort's own clock and `utc_offset_seconds` turns it back into an
-    // instant. Asking for UTC instead would mean this project deciding what
-    // timezone six resorts on two continents are in.
+    // `auto` so `current.time` is the resort's own clock, resolved upstream and not here.
     timezone: "auto",
     wind_speed_unit: "kmh",
   }).toString();
@@ -77,10 +68,9 @@ export function parseConditions(slug: string, payload: unknown): Conditions | nu
 }
 
 /**
- * Open-Meteo prints its timestamp with no zone on it — "2026-09-15T15:00" is
- * the resort's wall clock, and only `utc_offset_seconds` says which instant
- * that was. Reading the wall clock as if it were UTC and then subtracting the
- * offset is what turns the two of them back into one.
+ * Open-Meteo prints its timestamp with no zone: "2026-09-15T15:00" is the resort's wall
+ * clock, and only `utc_offset_seconds` says which instant that was. Parsing it as UTC
+ * and subtracting the offset turns the two back into one.
  */
 function toInstant(wallClock: string, offsetSeconds: number): string | null {
   const asIfUtc = Date.parse(`${wallClock}Z`);

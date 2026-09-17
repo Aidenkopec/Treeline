@@ -6,14 +6,9 @@ const WIDTH = 1200;
 const HEIGHT = 300;
 
 /**
- * The home page's figure: one real run, drawn from the samples its pitch was
- * measured over.
- *
- * The same `profileGeometry` the run detail card draws with, at masthead scale,
- * so the shape a visitor meets here is the shape they find on the mountain.
- * `preserveAspectRatio="none"` fills the header at any width and shears every
- * glyph with it, which is why the elevations are HTML beside the frame rather
- * than `<text>` inside it.
+ * The home page's figure: one real run at masthead scale, through the same
+ * `profileGeometry` the detail card draws with. `preserveAspectRatio="none"` fills the
+ * header at any width and shears every glyph with it, so the elevations are HTML beside it.
  */
 export function MastheadFigure({
   profile,

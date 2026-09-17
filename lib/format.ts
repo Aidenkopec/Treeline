@@ -1,10 +1,7 @@
 /**
- * Number formatting.
- *
- * Metric only in v1 — an imperial toggle is deferred (SPEC §16). Precision is
- * capped at what a 30m elevation model can actually support: whole degrees and
- * whole metres. Printing a decimal place would claim accuracy the DEM does not
- * have (SPEC §6).
+ * Number formatting. Metric only in v1; an imperial toggle is deferred (SPEC §16).
+ * Precision is capped at whole degrees and whole metres, because a decimal place would
+ * claim accuracy a 30m elevation model does not have (SPEC §6).
  */
 
 import { aspectLabel } from "./aspect";
@@ -30,10 +27,8 @@ export function centimetres(value: number | null): string {
 }
 
 /**
- * Wind speed with the direction it blows *from*, which is what the reading
- * means and not how a bare compass point would be read. One function because
- * the fields fail independently: a speed without a direction is still a
- * reading, a direction without a speed is not.
+ * Wind speed with the direction it blows *from*. One function because the fields fail
+ * independently: a speed without a direction is still a reading, the reverse is not.
  */
 export function wind(kph: number | null, directionDeg: number | null): string {
   if (kph === null) return "—";
@@ -42,11 +37,9 @@ export function wind(kph: number | null, directionDeg: number | null): string {
 }
 
 /**
- * When a reading was taken, on the clock at the mountain — "3:00 PM MDT", not
- * "21:00 UTC" and not the reader's own zone. An IANA name rather than a fixed
- * abbreviation, so `Intl` follows the changeover: Alberta is MDT for most of a
- * ski season and MST for the rest. `en-US` rather than the reader's locale
- * keeps the readout identical for everyone.
+ * When a reading was taken, on the clock at the mountain. An IANA name rather than a
+ * fixed abbreviation, so `Intl` follows the MST/MDT changeover, and `en-US` rather than
+ * the reader's locale so the readout is identical for everyone.
  */
 function onTheMountain(at: Date, timeZone: string | null, nameTheZone: boolean): string {
   if (Number.isNaN(at.getTime())) return "—";
@@ -61,8 +54,7 @@ function onTheMountain(at: Date, timeZone: string | null, nameTheZone: boolean):
   try {
     return new Intl.DateTimeFormat("en-US", options).format(at);
   } catch {
-    // Intl throws on a zone it does not recognise rather than falling back, and
-    // this one was named by someone else's API.
+    // Intl throws on an unrecognised zone, and this one was named by someone else's API.
     return new Intl.DateTimeFormat("en-US", { ...options, timeZone: "UTC" }).format(at);
   }
 }
@@ -71,10 +63,7 @@ export function observedAt(iso: string, timeZone: string | null): string {
   return onTheMountain(new Date(iso), timeZone, true);
 }
 
-/**
- * The same clock with the zone left unsaid, for times printed in a set that
- * plainly shares one. "Sunrise 7:59 AM MST · Sunset 5:58 PM MST" says it twice.
- */
+/** The same clock with the zone left unsaid, for times printed in a set that shares one. */
 export function clockTime(at: Date, timeZone: string): string {
   return onTheMountain(at, timeZone, false);
 }

@@ -1,15 +1,9 @@
 import type { Difficulty } from "./types";
 
 /**
- * How a difficulty grade is drawn.
- *
- * The marker shape is the real trail-map vocabulary — circle, square, diamond,
- * two diamonds — which means the grade survives being read without color, on a
- * bad monitor, or by someone who cannot separate green from red. Color alone
- * would fail SPEC §9, and green/red is the worst pair to lean on.
- *
- * Advanced and expert share a color deliberately: on a mountain both are
- * "black", and the count of diamonds is what separates them.
+ * How a difficulty grade is drawn. Shape is the real trail-map vocabulary, so a grade
+ * survives being read without color (SPEC §9). Advanced and expert share a color
+ * deliberately: both are "black" on a mountain, and the diamond count separates them.
  */
 export interface DifficultyStyle {
   /** What a skier calls it. */

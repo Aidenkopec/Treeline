@@ -3,16 +3,9 @@ import type { Bounds, Difficulty, LiftKind, PlaceKind } from "@/lib/types";
 import { cachedFetch } from "./cache";
 
 /**
- * Overpass queries for resort bounds and marked runs.
- *
- * The `piste:type=downhill` filter is a safety rule, not a scoping preference
- * (SPEC §8). OSM also carries `backcountry` and `skitour` ways, which are
- * unpatrolled terrain; baking those would put unpatrolled runs into a site that
- * states it covers inbounds terrain. The filter is enforced twice on purpose —
- * in the query below and again in `isInboundsDownhill` — so a hand-edited
- * query or a cached response can never widen it silently.
- *
- * Overpass is slow and rate-limited. It is only ever called at bake time.
+ * Overpass queries for resort bounds and marked runs. The `piste:type=downhill` filter is
+ * a safety rule, not a scoping preference (SPEC §8): `backcountry` and `skitour` are
+ * unpatrolled. Enforced twice, here and in `isInboundsDownhill`, so neither can widen it.
  */
 
 export const OVERPASS_ENDPOINT = "https://overpass-api.de/api/interpreter";
@@ -30,11 +23,8 @@ const GRADE_ALIASES: Record<string, string> = { novice: "easy" };
 const RESORT_RADIUS_M = 8000;
 
 /**
- * The ways and relations that make up the resort itself.
- *
- * Shared so the runs mosaic and the lift clip below cannot come to disagree
- * about what "the resort" is — two copies of this would drift the first time
- * anyone touched the radius.
+ * The ways and relations that make up the resort itself. Shared so the runs mosaic and the
+ * lift clip below cannot come to disagree about what "the resort" is.
  */
 function resortAreas(lat: number, lon: number, radiusM: number): string {
   return `  way(around:${radiusM},${lat},${lon})["landuse"="winter_sports"];
@@ -61,22 +51,9 @@ out geom;`;
 }
 
 /**
- * Query for the resort's lifts and named places.
- *
- * Clipped to the `landuse=winter_sports` polygon through `map_to_area`, not to
- * the mosaic rectangle: the mosaic is cut to whole tiles and reaches down into
- * the valley, where a village's restaurants and hotels are. At Lake Louise it is
- * what keeps the Post Hotel, the railway station and the pizza place out of a
- * list of lodges on the hill.
- *
- * Two `out` statements over named sets, which is load-bearing. A single
- * `out tags center` answers with a centre point and *no* `geometry`, so the
- * pylon polyline — the whole reason the lifts are worth drawing — never
- * arrives. Lifts need `geom`; places only need a point, and `center` is what
- * gives one to a lodge mapped as a building outline.
- *
- * Separate from `downhillRunsQuery` on purpose. The downhill filter is a safety
- * rule (§8), and a query with no `piste:type` clause in it cannot widen one.
+ * Query for the resort's lifts and named places, clipped to the `landuse=winter_sports`
+ * polygon rather than the mosaic, which is cut to whole tiles and reaches into the valley.
+ * Two `out` statements: a single `out tags center` answers with no `geometry`, so no pylons.
  */
 export function mountainQuery(lat: number, lon: number, radiusM = RESORT_RADIUS_M): string {
   return `[out:json][timeout:180];
@@ -118,11 +95,8 @@ export interface OverpassArea {
 }
 
 /**
- * The enforcement half of the downhill-only rule.
- *
- * Rejects anything whose `piste:type` is not exactly `downhill`, including ways
- * carrying several piste types at once — a way tagged both downhill and
- * skitour is still a skitour route and does not belong here.
+ * The enforcement half of the downhill-only rule. Rejects anything whose `piste:type` is
+ * not exactly `downhill`: a way tagged both downhill and skitour is still a skitour route.
  */
 export function isInboundsDownhill(way: OverpassWay): boolean {
   const type = way.tags?.["piste:type"];
@@ -142,17 +116,9 @@ export function isInboundsDownhill(way: OverpassWay): boolean {
 const LIFT_KINDS = new Set<string>(Object.keys(LIFT_STYLES));
 
 /**
- * Read a lift kind from OSM tags, or null when this is not a lift to draw.
- *
- * Reads the plain `aerialway` tag and nothing else. A mapper who writes
- * `aerialway=chair_lift` is saying a chairlift is there now; `proposed:aerialway`
- * and `construction:aerialway` beside it describe a *future* lift on the same
- * line and are not this one — Juniper Express carries a stale `proposed:aerialway`
- * and has been running for years. `proposed=yes` is different: it says the thing
- * itself is not built, and it is the reason the Prunepicker platter is not drawn.
- *
- * Also rejects what the `["aerialway"]` filter sweeps up but nobody rides: the
- * stations and pylons that carry the tag, and a zip line, which is not a ski lift.
+ * Read a lift kind from OSM tags, or null when this is not a lift to draw. The plain
+ * `aerialway` tag only: `proposed:aerialway` beside it describes a future lift and can be
+ * stale, while `proposed=yes` says the thing itself is not built. Stations and pylons out.
  */
 export function readLiftKind(el: { tags?: Record<string, string> }): LiftKind | null {
   const kind = el.tags?.aerialway;
@@ -161,12 +127,9 @@ export function readLiftKind(el: { tags?: Record<string, string> }): LiftKind | 
 }
 
 /**
- * Ride time in minutes, or null when OSM does not say it readably.
- *
- * `aerialway:duration` is decimal minutes, but it is typed by hand and arrives
- * that way: this data carries `"5,5"` for five and a half. `parseFloat` reads
- * that as `5` without complaint, which is a ten percent error that looks
- * entirely plausible on screen. Null beats a believable wrong number.
+ * Ride time in minutes, or null when OSM does not say it readably. `aerialway:duration` is
+ * typed by hand and this data carries `"5,5"` for five and a half, which `parseFloat` reads
+ * as `5`: a ten percent error that looks plausible on screen. Null beats a wrong number.
  */
 export function readDurationMin(el: { tags?: Record<string, string> }): number | null {
   const raw = el.tags?.["aerialway:duration"]?.replace(",", ".");
@@ -192,10 +155,8 @@ export interface OverpassPlace {
 }
 
 /**
- * Where a place is, whether OSM mapped it as a point or as a building.
- *
- * This is the only seam that knows the difference: past it, a lodge drawn as a
- * footprint and a lodge dropped as a node are the same thing.
+ * Where a place is, whether OSM mapped it as a point or as a building. The only seam that
+ * knows the difference: past it, a footprint and a node are the same thing.
  */
 export function placePoint(el: OverpassPlace): OverpassPoint | null {
   if (el.lat !== undefined && el.lon !== undefined) return { lat: el.lat, lon: el.lon };
@@ -203,11 +164,8 @@ export function placePoint(el: OverpassPlace): OverpassPoint | null {
 }
 
 /**
- * What kind of place this is, or null when it is none of them.
- *
- * Ordered, because the tags co-occur: a café on a summit is tagged both, and a
- * summit is the more useful thing to call it — the elevation is why it is on
- * the map. Read top to bottom, first match wins.
+ * What kind of place this is, or null when it is none of them. Ordered because the tags
+ * co-occur: a café on a summit is tagged both, and the summit is the more useful name.
  */
 export function readPlaceKind(el: OverpassPlace): PlaceKind | null {
   const tags = el.tags ?? {};
@@ -219,11 +177,8 @@ export function readPlaceKind(el: OverpassPlace): PlaceKind | null {
 }
 
 /**
- * A place's id, namespaced by element type.
- *
- * Runs get away with a bare way id because they are all ways. Places are nodes
- * and ways at once, and the two id spaces overlap, so an unprefixed id would
- * let one place quietly stand in for another.
+ * A place's id, namespaced by element type. Places are nodes and ways at once and the two
+ * id spaces overlap, so an unprefixed id would let one place stand in for another.
  */
 export function placeId(el: OverpassPlace): string {
   return `${el.type[0]}${el.id}`;
@@ -274,12 +229,9 @@ export function unionBounds(bounds: Bounds, points: OverpassPoint[]): Bounds {
 }
 
 /**
- * The resort's bounding box, from the `landuse=winter_sports` areas around it.
- *
- * An 8km search can pick up a neighbouring ski area, so prefer polygons that
- * actually contain the search anchor and take the largest of those. Falling
- * back to the union of everything is better than returning nothing, but it is
- * a sign the anchor in resorts.json is off.
+ * The resort's bounding box, from the `landuse=winter_sports` areas around it. An 8km
+ * search can pick up a neighbouring ski area, so prefer polygons containing the anchor and
+ * take the largest. The union fallback works, but means the anchor in resorts.json is off.
  */
 export function boundsFromElements(
   elements: OverpassArea[],
@@ -304,13 +256,9 @@ export function boundsFromElements(
 }
 
 /**
- * Whether an Overpass body is an answer at all.
- *
- * A busy Overpass replies 200 with an error rather than a status code, in two
- * shapes: an HTML page, and — worse — valid JSON carrying a `remark` and an
- * empty `elements`. The second one does not throw anywhere; it bakes a resort
- * with no runs and no lifts and looks fine doing it. An empty `elements` with
- * no remark is left alone, because an empty answer is a real answer.
+ * Whether an Overpass body is an answer at all. A busy server replies 200 with an error in
+ * two shapes: an HTML page, and valid JSON carrying a `remark` and empty `elements`, which
+ * throws nowhere and bakes an empty resort. An empty `elements` with no remark is real.
  */
 export function isUsableAnswer(body: Buffer): boolean {
   try {

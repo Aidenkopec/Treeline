@@ -9,24 +9,9 @@ export interface Fact {
 }
 
 /**
- * What mountain this is, over the terrain and deliberately not in its way.
- *
- * Only the link is clickable, so a drag anywhere else still turns the mountain.
- *
- * The scrim is a veil rather than a panel (`.u-scrim`), and what actually holds
- * the letterforms is the halo on them — the way a map halos a name instead of
- * boxing it, so a ridge can come up behind the words without taking them with
- * it.
- *
- * Every fact reads on one line with its label beside it rather than above it.
- * Stacked, six facts and four readings stood three hundred pixels tall, and
- * that height is `inset.top`: the camera composes the massif below it, so the
- * masthead was costing the mountain a quarter of the window.
- *
- * The facts are here in full rather than behind a disclosure. SPEC §8 requires
- * provenance and age visible, which is what `Vertical scale` and `Baked` are,
- * and they are also the whole of the page without WebGL — so they stay plain
- * HTML served with the document (SPEC §9).
+ * What mountain this is, over the terrain and not in its way: only the link is clickable,
+ * so a drag anywhere else still turns it. Facts read on one line because their height is
+ * `inset.top`, and stay plain HTML in full for provenance (SPEC §8) and no-WebGL (§9).
  */
 export function ResortIdentity({
   collapsible,
@@ -95,9 +80,7 @@ export function ResortIdentity({
         <div className={factsShown ? "" : "handheld:hidden"} id="resort-facts">
           <dl className="mt-3.5 flex flex-wrap items-baseline gap-x-4 gap-y-1">
             {facts.map((fact) => (
-              // The interpunct is the separator a map legend uses. Drawn by the
-              // pseudo-element so it is a flex item in the same gap as the pairs
-              // and never lands alone at the end of a wrapped row.
+              // Drawn by the pseudo-element so it is a flex item, never alone on a wrap.
               <div
                 className="flex items-baseline gap-1.5 after:text-rock-dim after:content-['·'] last:after:content-none"
                 key={fact.label}
@@ -108,10 +91,8 @@ export function ResortIdentity({
             ))}
           </dl>
 
-          {/* Separate from the facts above on purpose: those are terrain,
-              measured once and dated; these are somebody else's model, read a
-              moment ago. Merging them into one list would blur which is
-              which. */}
+          {/* Separate from the facts above: those are terrain, measured once and
+              dated; these are somebody else's model, read a moment ago. */}
           <ConditionsStrip slug={resort.slug} />
         </div>
       </div>

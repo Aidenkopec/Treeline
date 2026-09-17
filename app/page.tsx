@@ -137,9 +137,9 @@ export default async function Home() {
           )}
         </div>
 
-        {/* In flow under the text rather than behind it: the run is 1200 units
-              wide and the block above is taller than any scrim holds, so type
-              laid over it would sit in the veil's run-out. */}
+        {/* In flow under the text rather than behind it: the run is 1200 units wide and
+            the block above is taller than any scrim holds, so type laid over it would sit
+            in the veil's run-out. */}
         {hero?.run && (
           <MastheadFigure
             className="mx-auto max-w-5xl px-6 pb-10 [&>svg]:aspect-[5/1] [&>svg]:min-h-32"

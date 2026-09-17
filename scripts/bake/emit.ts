@@ -5,12 +5,9 @@ import type { Manifest, MountainFile, Resort, RunsFile } from "@/lib/types";
 import type { Grid } from "./terrain";
 
 /**
- * Writing the baked artifacts.
- *
- * Output lands in public/resorts/ and is committed to the repo: these files are
- * the product, and a monthly GitHub Action re-bakes and commits the diff
- * (SPEC §12). Keeping them in git is also what makes a bad bake reviewable
- * before it ships.
+ * Writing the baked artifacts. Output lands in public/resorts/ and is committed to the
+ * repo: these files are the product, and a monthly GitHub Action re-bakes and commits the
+ * diff (SPEC §12). Keeping them in git is what makes a bad bake reviewable before it ships.
  */
 
 export const OUTPUT_ROOT = "public/resorts";
@@ -37,11 +34,8 @@ async function writeArtifact(slug: string, name: string, body: Buffer | string):
 
 /**
  * Elevation packed into RGB exactly as the terrarium source encodes it, so
- * `decodeElevation` reads our own artifact and the upstream tiles alike.
- *
- * The blue channel is zeroed: it would carry sub-metre detail that 30m source
- * data cannot support, and as near-random noise it would cost more in PNG size
- * than the whole rest of the image.
+ * `decodeElevation` reads our artifact and the upstream tiles alike. The blue channel is
+ * zeroed: 30m data cannot support sub-metre detail, and as noise it costs more PNG size.
  */
 export function encodeHeightmap(grid: Grid): { pixels: Buffer } & HeightmapMeta {
   const pixels = Buffer.alloc(grid.width * grid.height * 3);

@@ -3,13 +3,8 @@
 import type { ReactNode } from "react";
 
 /**
- * A filter toggle, and a labelled group of them.
- *
- * Shared because the same selection has to look like itself wherever it is
- * made: grade and aspect stand side by side in the drawer, and grade also goes
- * out on the mountain. `GlyphChip` below is this chip with its label moved into
- * its accessible name — same ring, same pressed state — so the two still read
- * as one control.
+ * A filter toggle, and a labelled group of them. Shared because the same selection has to
+ * look like itself wherever it is made: grade and aspect in the drawer, grade on the map.
  */
 export function Chip({
   active,
@@ -37,16 +32,9 @@ export function Chip({
 }
 
 /**
- * A chip whose mark is its label.
- *
- * Difficulty is carried by shape (SPEC §9), so on the mountain the words are
- * redundant and the row is five glyphs wide rather than five phrases. Off is
- * drawn by dimming rather than by hollowing the mark: hollow already means
- * untagged, and two meanings on one treatment is one too many.
- *
- * The name a screen reader answers on is `label`. The mark inside is hidden
- * from it because `DifficultyMark` carries its own `role="img"`, which would
- * otherwise say the grade twice.
+ * A chip whose mark is its label. Off is drawn by dimming rather than hollowing, because
+ * hollow already means untagged. The accessible name is `label`, and the mark inside is
+ * hidden from screen readers because `DifficultyMark` carries its own `role="img"`.
  */
 export function GlyphChip({
   active,

@@ -32,26 +32,18 @@ import {
 import type { Resort } from "@/lib/types";
 
 /**
- * The baked artifacts, rendered.
- *
- * Nothing here computes a run statistic or shades the mountain by steepness
- * (SPEC §8): this draws the ground the bake measured, with the winter surface
- * the bake remapped Esri's imagery into, and stops. The key light stands where
- * `suncalc` puts the sun and casts the shadows that position throws; the
- * palette it is coloured from is the Imhof convention — warm where the sun
- * lands, cool blue in shadow.
+ * The baked artifacts, rendered. Nothing here computes a run statistic or shades the
+ * mountain by steepness (SPEC §8). The key light stands where `suncalc` puts the sun, and
+ * the palette is the Imhof convention: warm where the sun lands, cool blue in shadow.
  */
 
 interface Terrain {
   geometry: THREE.BufferGeometry;
   texture: THREE.Texture;
   /**
-   * The same vertices the geometry holds, read as a grid.
-   *
-   * The labels ask it whether a ridge stands between the camera and the thing
-   * they name. A raycast would answer from the same triangles, but there are
-   * hundreds of thousands of them with nothing indexing them, and the question
-   * is asked for every label every time the camera moves.
+   * The same vertices the geometry holds, read as a grid. The labels ask it whether a
+   * ridge stands between the camera and the thing they name. A raycast would answer from
+   * the same triangles, but nothing indexes them and the question is asked every move.
    */
   field: Heightfield;
   groundWidth: number;
@@ -75,8 +67,7 @@ function loadTerrain(resort: Resort): Promise<Terrain> {
   let pending = loading.get(resort.slug);
   if (!pending) {
     pending = buildTerrain(resort);
-    // A rejected load must not stay in the cache, or every later visit in this
-    // session re-throws the first failure instead of trying the fetch again.
+    // A rejected load must not stay cached, or every later visit re-throws that failure.
     pending.catch(() => loading.delete(resort.slug));
     loading.set(resort.slug, pending);
   }
@@ -91,8 +82,7 @@ async function buildTerrain(resort: Resort): Promise<Terrain> {
   ]);
 
   texture.colorSpace = THREE.SRGBColorSpace;
-  // Clamped to whatever the GPU supports; the terrain is viewed at a raking
-  // angle almost all the time, which is exactly where anisotropy earns itself.
+  // Clamped to what the GPU supports; the terrain is viewed at a raking angle almost always.
   texture.anisotropy = 16;
 
   const { positions, uvs, indices, ...extent } = terrainGeometry(elevations, resort);
@@ -107,24 +97,18 @@ async function buildTerrain(resort: Resort): Promise<Terrain> {
 
 async function loadElevations(url: string, width: number, height: number): Promise<Float32Array> {
   const response = await fetch(url);
-  // Without this an error page decodes as an image-shaped nothing and surfaces
-  // much later as impossible elevations.
+  // Without this an error page decodes as image-shaped nothing and surfaces as elevations.
   if (!response.ok) {
     throw new Error(`Could not read the heightmap: ${url} returned ${response.status}.`);
   }
 
-  // colorSpaceConversion "none" is load-bearing: by default the browser may
-  // apply a colour profile to the PNG, which would quietly rewrite every
-  // elevation in it. These pixels are measurements, not a picture.
+  // `colorSpaceConversion: "none"` is load-bearing: a colour profile rewrites elevations.
   const bitmap = await createImageBitmap(await response.blob(), {
     colorSpaceConversion: "none",
     premultiplyAlpha: "none",
   });
 
-  // A detached canvas rather than an OffscreenCanvas: this runs on the main
-  // thread either way, and OffscreenCanvas landed in Safari four versions after
-  // WebGL2 did, so reaching for it would crash browsers that pass the gate in
-  // terrain-viewer.tsx.
+  // Not OffscreenCanvas: it landed in Safari four versions after WebGL2, which gates this.
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -145,13 +129,9 @@ function paletteColor(name: string): THREE.Color {
 }
 
 /**
- * A palette token as a light colour, pulled most of the way back to white.
- *
- * At full strength these are interface colours. A light multiplies the drape
- * by its colour, and gold at full saturation turns snow into sand — the hue has
- * to read as a lean, not as a filter. The leans are wider than they look like
- * they should be because the drape is near-neutral: these two are the only
- * colour in the scene, where over a photograph they were only a tilt on one.
+ * A palette token as a light colour, pulled most of the way back to white. At full
+ * strength these are interface colours, and a light multiplies the drape by its colour,
+ * so gold at full saturation turns snow into sand. The hue is a lean, not a filter.
  */
 function lightColor(name: string, tint: number): THREE.Color {
   return new THREE.Color(0xffffff).lerp(paletteColor(name), tint);
@@ -180,13 +160,9 @@ const FILL_NIGHT = 0.55;
 const DUSK_DEG = 12;
 
 /**
- * How much of the key survives at a given sun altitude, 0 to 1.
- *
- * This is extinction and nothing else — how much light the atmosphere leaves at
- * a low sun. The geometry of a slope turning away is already the material's
- * job, and folding it in here would count it twice. Smoothstep so the last
- * minutes before sunset are a fade rather than a switch, and so the mountain is
- * not still fully lit one frame before it goes dark.
+ * How much of the key survives at a given sun altitude, 0 to 1. Extinction only: a slope
+ * turning away is already the material's job, and folding it in here would count it
+ * twice. Smoothstep, so the last minutes before sunset are a fade rather than a switch.
  */
 function keyStrength(altitudeDeg: number): number {
   const t = Math.min(1, Math.max(0, altitudeDeg / DUSK_DEG));
@@ -194,11 +170,8 @@ function keyStrength(altitudeDeg: number): number {
 }
 
 /**
- * How long the camera takes to reach a run it has been asked to look at.
- *
- * The flight is most of what the move is for: arriving somewhere new says which
- * run it is, but watching the mountain turn under you is what says where on it.
- * Cut this much shorter and it reads as a cut rather than a move.
+ * How long the camera takes to reach a run it has been asked to look at. Watching the
+ * mountain turn is what says where the run is; much shorter and it reads as a cut.
  */
 const FLIGHT_MS = 900;
 
@@ -233,9 +206,7 @@ export default function TerrainScene({
   resort: Resort;
   sunAt: Date | null;
 }) {
-  // Suspending out here rather than inside <Canvas> is deliberate: R3F renders
-  // canvas children through its own reconciler, so a failed load thrown in
-  // there would not reach the error boundary in terrain-viewer.tsx.
+  // Suspending outside <Canvas>: R3F's own reconciler would keep a throw from the boundary.
   return (
     <Suspense fallback={<div className="h-full w-full bg-shadow-deep" />}>
       <LoadedScene
@@ -283,21 +254,11 @@ function LoadedScene({
   return (
     <Canvas
       camera={{ far: 200000, fov: FOV, near: 10 }}
-      // Capped lower on a handheld: a 3x phone screen is nine times the pixels
-      // of a 1x one, and the massif is read by its shading rather than by an
-      // edge a third of a pixel wide.
+      // Capped lower on a handheld: a 3x screen is nine times the pixels of a 1x one.
       dpr={handheld ? [1, 1.5] : [1, 2]}
-      // Lambert divides by pi, so the lights below are exposed for the
-      // mid-tones — the drape's forest — rather than for its brightest snow,
-      // which is left free to blow out on a slope facing the sun the way a
-      // snowfield does. A film curve would pull that back and would flatten the
-      // warm/cool split, which is the only colour a near-neutral snow has.
+      // Exposed for the mid-tones, letting sunlit snow blow out; a film curve flattens it.
       gl={{ alpha: true, toneMapping: THREE.NoToneMapping }}
-      // The terrain is the only caster and it never moves, so the map is
-      // re-rendered when the sun moves and at no other time — see the effect in
-      // Massif. Steady-state cost is one pass, the same as before phase 5.
-      // `percentage` is PCFShadowMap; bare `shadows` asks for PCFSoftShadowMap,
-      // which three removed in r186 and silently downgrades to this anyway.
+      // `percentage` is PCFShadowMap; bare `shadows` asks for one three removed in r186.
       shadows="percentage"
     >
       <Massif
@@ -336,18 +297,14 @@ function Massif({
   const { geometry, texture, field, ...extent } = terrain;
   // The mosaic's own diagonal, which is what the haze below is measured in.
   const reach = Math.hypot(extent.groundWidth, extent.groundDepth);
-  // Narrowed because the flight fits a run to the frame, and the frame's shape
-  // is the camera's own aspect. Reading it here rather than from `state.size`
-  // keeps a resize out of the flight's dependencies: R3F keeps this in step.
+  // Read here rather than from `state.size`, which keeps a resize out of the flight's deps.
   const camera = useThree((state) => state.camera) as THREE.PerspectiveCamera;
   const store = useStore();
   const size = useThree((state) => state.size);
   const [idle, setIdle] = useState(true);
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
   const flight = useRef<Flight | null>(null);
-  // True while the camera is standing somewhere the app put it and nobody has
-  // since taken hold. It is what lets clearing a run give back the flight and
-  // nothing else: an orbit the viewer made themselves is theirs to keep.
+  // True while the camera stands where the app put it: an orbit the viewer made is theirs.
   const movedByApp = useRef(false);
 
   const reducedMotion = useMemo(
@@ -355,8 +312,7 @@ function Massif({
     [],
   );
 
-  // Where the sun stands, and how much of it is left. Null only across the
-  // hydration pass, and the opening framing is an afternoon either way.
+  // Null only across the hydration pass, and the opening framing is an afternoon anyway.
   const sun = useMemo(() => {
     if (sunAt === null) return null;
     const position = sunPosition(resort, sunAt);
@@ -366,30 +322,17 @@ function Massif({
     };
   }, [resort, sunAt]);
 
-  // The shadow map is rendered on demand rather than every frame: the terrain
-  // is the only caster and it never moves, so the only thing that can change it
-  // is the sun. `autoUpdate` is turned off once and the map is asked for again
-  // whenever this effect re-runs, which includes the first mount.
+  // On demand, not per frame: the terrain is the only caster and only the sun moves it.
   useEffect(() => {
     const { shadowMap } = store.getState().gl;
     shadowMap.autoUpdate = false;
     shadowMap.needsUpdate = true;
   }, [store, sun]);
 
-  // Frozen at first render. R3F withholds canvas children until it has measured,
-  // so this aspect is the real one — and keeping it still is what stops a resize
-  // recomputing the orbit clamps and dragging the camera back off wherever the
-  // viewer had got to.
-  //
-  // Framed on the runs, not on the mosaic. The mosaic is cut to whole tiles and
-  // reaches well past the pistes, so fitting it spends most of the canvas on
-  // ground with nothing drawn on it. `overlay.runs` is the unfiltered list: the
-  // opening is frozen, and freezing a filtered framing would bake in whatever
-  // filter happened to be set at mount.
+  // Frozen at first render, on the unfiltered runs: a resize or a filter must not reframe.
   const [opening] = useState(() => {
     const aspect = size.width / size.height;
-    // Zooming out is still measured against the whole mountain — tying it to
-    // the closer framing would stop the pull-back short of the massif.
+    // Zooming out is measured against the whole mountain, not the closer framing.
     const whole = openingFraming(extent, aspect);
     return {
       ...openingFraming(extent, aspect, runExtent(overlay.runs, resort)),
@@ -408,9 +351,7 @@ function Massif({
    * Re-applied on every resize: R3F rewrites `camera.aspect` from the canvas.
    */
   useLayoutEffect(() => {
-    // Through the store rather than the hook's value, the way the shadow map
-    // above is: `aspect` is a plain field, and assigning to one the renderer
-    // handed back is what the compiler's immutability rule is watching for.
+    // Through the store: assigning to a field the renderer handed back trips immutability.
     const lens = store.getState().camera as THREE.PerspectiveCamera;
     const covered = inset.top > 0 || inset.right > 0 || inset.bottom > 0;
 
@@ -458,8 +399,7 @@ function Massif({
     [camera, reducedMotion],
   );
 
-  // Selection only. Hover moves nothing: the list is 168 rows long and a camera
-  // that answered every one of them on the way past would be a strobe.
+  // Selection only. Hover moves nothing: 168 rows answering on the way past is a strobe.
   const { runs, selectedId } = overlay;
 
   useEffect(() => {
@@ -467,11 +407,7 @@ function Massif({
     if (orbit === null) return;
 
     if (selectedId === null) {
-      // Clearing hands back the flight, and only the flight. Having orbited
-      // since, the viewer is somewhere they chose, and a pull-back nobody asked
-      // for would throw that away. This also covers a filter hiding the run
-      // that was picked, which is a clearing the reader did not press a button
-      // for and the one most likely to leave them parked on empty hillside.
+      // Clearing hands back the flight and only that: an orbit since is the viewer's own.
       if (!movedByApp.current) return;
       movedByApp.current = false;
       flyTo(opening);
@@ -483,8 +419,7 @@ function Massif({
     const box = runExtent([run], resort);
     if (box === null) return;
 
-    // `orbit` is passed for its clamps, which are the ones it will hold the
-    // camera to the moment the flight lands.
+    // `orbit` is passed for its clamps, which hold the camera the moment the flight lands.
     const framing = focusFraming(
       box,
       run.aspect_deg,
@@ -500,24 +435,18 @@ function Massif({
     flyTo(framing);
   }, [camera, flyTo, opening, resort, runs, selectedId]);
 
-  // A counter rather than a flag: pressing reset twice has to fly twice, and
-  // there is no "arrived" for the button to wait on. Compared against the last
-  // value seen rather than against zero, so the flight belongs to the press and
-  // not to whatever else may one day put this effect through another run.
+  // A counter rather than a flag: pressing reset twice has to fly twice, with no arrival.
   const lastReset = useRef(resetSignal);
 
   useEffect(() => {
     if (lastReset.current === resetSignal) return;
     lastReset.current = resetSignal;
-    // Home is now where the viewer put the camera, so clearing a run after this
-    // must not move it again.
+    // Home is where the viewer put it, so clearing a run after this must not move it again.
     movedByApp.current = false;
     flyTo(opening);
   }, [flyTo, opening, resetSignal]);
 
-  // Ahead of the controls' own update, which drei runs at -1: the camera is
-  // moved first and the controls read it once, rather than the two taking turns
-  // damping each other in the same frame.
+  // Ahead of drei's own update at -1, so the two do not take turns damping in one frame.
   useFrame(() => {
     const moving = flight.current;
     const orbit = controls.current;
@@ -532,20 +461,14 @@ function Massif({
 
   const direction = sun?.direction ?? SUN_BEFORE_HYDRATION;
   const strength = sun?.strength ?? 1;
-  // Every mesh vertex lies within this of the origin — half the mosaic's
-  // diagonal across, its relief up — so an orthographic frustum this wide
-  // contains the whole massif at every sun angle, low ones included. At Lake
-  // Louise that is 5.8 m per texel against an 11.9 m heightmap pixel, so the
-  // shadow map is not what limits the shadow.
+  // Half the mosaic's diagonal and its relief: an ortho frustum this wide holds every sun.
   const shadowReach = Math.hypot(reach / 2, extent.relief);
 
   return (
     <>
-      {/* Aerial perspective, measured against the mosaic rather than against the
-          camera: the far side of a massif should sit back from the near side by
-          the same amount however close the viewer has flown. Linear, because
-          what is wanted is a legible depth cue over a known span and not a
-          physical scattering model. */}
+      {/* Aerial perspective, measured against the mosaic rather than the camera:
+          the far side of a massif sits back from the near side by the same amount
+          however close the viewer has flown. Linear, for a cue over a known span. */}
       <fog args={[palette.haze, reach * 0.55, reach * 1.6]} attach="fog" />
       {/* Sky and bounce carry the whole scene once the sun is down, so this
           rises as the key falls — a blue mountain at night rather than a black
@@ -553,10 +476,8 @@ function Massif({
       <hemisphereLight
         args={[palette.shade, palette.fill, FILL_NIGHT + (FILL_DAY - FILL_NIGHT) * strength]}
       />
-      {/* A direction, scaled out to the mosaic's own diagonal so the light
-          clears the terrain whatever the sun is doing. The colour leans further
-          into the gold as the sun drops, which is what the atmosphere does to
-          it; `lightColor` keeps that a lean rather than a filter. */}
+      {/* A direction, scaled out to the mosaic's own diagonal so the light clears
+          the terrain whatever the sun is doing. The colour leans gold as it drops. */}
       <directionalLight
         castShadow
         color={lightColor("--color-sun", 0.5 + 0.35 * (1 - strength))}
@@ -565,12 +486,9 @@ function Massif({
         shadow-mapSize={[SHADOW_TEXELS, SHADOW_TEXELS]}
         shadow-normalBias={(2 * shadowReach) / SHADOW_TEXELS}
       >
-        {/* Built rather than assigned field by field. Setting
-            `shadow-camera-near` and its neighbours leaves the projection matrix
-            on the ten-unit box the default shadow camera was constructed with,
-            and a frustum that covers ten metres of a ten-kilometre massif
-            reports the whole mountain as shadowed — which is a black mountain,
-            not a missing shadow. */}
+        {/* Built rather than assigned field by field: setting `shadow-camera-near`
+            and its neighbours leaves the projection matrix on the default ten-unit
+            box, and that frustum reports a ten-kilometre massif wholly shadowed. */}
         <orthographicCamera
           args={[
             -shadowReach,
@@ -601,11 +519,7 @@ function Massif({
       <RunOverlay resort={resort} state={overlay} />
 
       <OrbitControls
-        // Cinematic until touched, then it is yours (SPEC §4). Narrowing the
-        // list or picking a run counts as touching it: the mountain now sits
-        // beside the list rather than above it, and one that keeps turning
-        // while a run is being read is a fidget. Every run still standing and
-        // none picked out is the only state nobody has engaged with yet.
+        // Cinematic until touched (SPEC §4); filtering or picking a run counts as touching.
         autoRotate={
           idle &&
           !reducedMotion &&
@@ -619,9 +533,7 @@ function Massif({
         maxPolarAngle={1.45}
         minDistance={opening.distance * 0.12}
         onStart={() => {
-          // Taking hold of the mountain ends the flight where it has got to,
-          // rather than the camera finishing a move you have overruled — and
-          // from here the view is yours, so clearing the run leaves it alone.
+          // Taking hold ends the flight where it got to, and the view is then the viewer's.
           flight.current = null;
           movedByApp.current = false;
           setIdle(false);

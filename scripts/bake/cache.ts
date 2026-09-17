@@ -3,11 +3,9 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 /**
- * On-disk cache for bake-time downloads.
- *
- * A bake is ~100 tiles plus a rate-limited Overpass query, and tuning the
- * pipeline means running it repeatedly against the same free, keyless services
- * SPEC §7 depends on. The cache is as much politeness as speed.
+ * On-disk cache for bake-time downloads. A bake is ~100 tiles plus a rate-limited Overpass
+ * query, and tuning the pipeline means running it repeatedly against the free, keyless
+ * services SPEC §7 depends on. The cache is as much politeness as speed.
  */
 
 const CACHE_ROOT = path.join(process.cwd(), ".bake-cache");
@@ -33,8 +31,7 @@ async function download(url: string, init?: RequestInit): Promise<Buffer> {
     const response = await fetch(url, {
       ...init,
       headers: {
-        // overpass-api.de answers 406 Not Acceptable without one of these, and
-        // the tile services ask for it in their terms.
+        // overpass-api.de answers 406 without one, and the tile services ask for it.
         "User-Agent": "treeline-bake (+https://treeline.aidenkopec.com)",
         ...init?.headers,
       },
@@ -52,18 +49,9 @@ async function download(url: string, init?: RequestInit): Promise<Buffer> {
 }
 
 /**
- * Fetch a URL, reading from and writing to the on-disk cache.
- *
- * `accept` guards what is allowed to *be* a cache entry. Overpass answers a
- * busy server with 200 and an error body — sometimes HTML, sometimes JSON
- * carrying a `remark` and no elements — so status alone cannot tell a bad
- * answer from a good one, and this cache has no TTL and no eviction. Without
- * the guard one busy minute poisons a key until `.bake-cache` is deleted by
- * hand, and the JSON variant is worse than the HTML one: it bakes a resort with
- * nothing in it rather than throwing.
- *
- * It runs on the read as well as the write, so a cache already holding a bad
- * answer heals itself on the next bake instead of needing to be cleared.
+ * Fetch a URL, reading from and writing to the on-disk cache. `accept` guards what may
+ * become an entry: Overpass answers a busy server with 200 and an error body, and this
+ * cache has no TTL. It runs on the read too, so a bad entry heals on the next bake.
  */
 export async function cachedFetch(
   url: string,

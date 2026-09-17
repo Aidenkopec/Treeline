@@ -37,7 +37,9 @@ session.** If a task seems to require breaking one, stop and raise it.
   `isInboundsDownhill` — and asserted in `tests/overpass.test.ts`.
 - **No recommending language.** Never "safe", "open", "recommended", "best run today",
   or any imperative to ski anything. The site presents numbers; readers draw conclusions.
-- **Disclaimer on every page**, rendered globally by `components/site-footer.tsx`.
+- **Disclaimer on every page**, from `components/site-footer.tsx`. It is not in the root
+  layout: every page renders it itself, so a new page has to carry it. The resort screen
+  fills the window, so it also carries `components/map-attribution.tsx` on the map.
 - **Not monetized.** No ads, no subscriptions — this keeps the project inside
   Open-Meteo's non-commercial terms.
 

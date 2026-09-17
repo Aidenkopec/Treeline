@@ -2,9 +2,8 @@ import Link from "next/link";
 import { SiteFooter } from "@/components/site-footer";
 
 /**
- * Explicit because the footer is no longer in the root layout, and SPEC §8
- * wants the disclaimer on every page — including the one a stale resort link
- * lands on.
+ * Renders the footer itself: SPEC §8 wants the disclaimer on every page, and a
+ * stale resort link lands here.
  */
 export default function NotFound() {
   return (

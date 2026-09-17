@@ -1,11 +1,7 @@
 /**
- * The contract between build time and runtime.
- *
- * The bake pipeline emits exactly these shapes; the app reads them and renders.
- * Nothing in the app may compute a run statistic — if a number is missing here,
- * it gets added to the bake and its test, not derived in a component. That is
- * the split SPEC §5 is built on: numerical work gets automated verification,
- * visual work gets human review.
+ * The contract between build time and runtime (SPEC §5). The bake emits exactly these
+ * shapes and the app renders them; nothing in the app may compute a run statistic. A
+ * missing number gets added to the bake and its test, not derived in a component.
  */
 
 /** Compass bucket a slope faces. Aspect governs sun and snow preservation. */
@@ -31,10 +27,8 @@ export interface ProfileSample {
 }
 
 /**
- * A marked downhill run with its terrain derived from the DEM (SPEC §6).
- *
- * Every number here is computed, not transcribed from a trail map — that is
- * the entire point of the project.
+ * A marked downhill run with its terrain derived from the DEM (SPEC §6). Every number
+ * here is computed rather than transcribed from a trail map.
  */
 export interface Run {
   /** Stable id, derived from the OSM way id. */
@@ -58,12 +52,9 @@ export interface Run {
 }
 
 /**
- * How a lift carries its riders, from OSM `aerialway`.
- *
- * The split is not cosmetic: an aerial kind hangs from a cable and is drawn
- * held above the ground on its pylons, a surface kind is draped on the snow. A
- * magic carpet drawn twelve metres up would be a lie. Which is which is
- * `LIFT_STYLES` in `lib/mountain.ts`, not the order of this union.
+ * How a lift carries its riders, from OSM `aerialway`. The split is not cosmetic: an
+ * aerial kind is drawn above the ground on its pylons and a surface kind on the snow.
+ * Which is which is `LIFT_STYLES` in `lib/mountain.ts`, not the order of this union.
  */
 export type LiftKind =
   | "gondola"
@@ -90,11 +81,8 @@ export interface LiftTower {
 }
 
 /**
- * A lift, as infrastructure.
- *
- * **No pitch, no aspect, ever (SPEC §8.)** Slope data attaches to marked runs;
- * the ground under a cable is not one, and reporting its steepness would
- * publish the angle of unpatrolled terrain through an infrastructure feature.
+ * A lift, as infrastructure. **No pitch, no aspect, ever (SPEC §8.)** The ground under a
+ * cable is not a marked run, so its steepness is not ours to publish, and
  * `tests/mountain.golden.test.ts` fails on any key here matching /pitch|aspect/i.
  */
 export interface Lift {
@@ -111,11 +99,9 @@ export interface Lift {
   /** 3D length along the ground beneath the towers, metres. */
   length_m: number;
   /**
-   * OSM's advertised ride time, minutes, or null when it does not say.
-   *
-   * Baked, never published (SPEC §4) — it is line speed, not the ride anyone
-   * gets. Kept because `tests/mountain.golden.test.ts` divides `length_m` by it
-   * to check the cable against the speed one of its kind really runs at.
+   * OSM's advertised ride time, minutes, or null when it does not say. Baked, never
+   * published (SPEC §4): it is line speed, not the ride anyone gets. Kept because
+   * `tests/mountain.golden.test.ts` divides `length_m` by it to check the cable.
    */
   duration_min: number | null;
   /** Riders per carrier — the quad-or-six-pack question. Null when untagged. */
@@ -147,12 +133,9 @@ export interface Place {
   /** DEM elevation here, metres — where the marker sits on the rendered surface. */
   surface_m: number;
   /**
-   * OSM's surveyed height, peaks only, null when untagged.
-   *
-   * The one number in this project that is read rather than derived. A 30m DEM
-   * resamples a sharp summit low — measurably so, see the phase 1 notes in
-   * PHASES.md — so the mountain's own published height is the better fact, and
-   * `surface_m` stays beside it rather than being overwritten by it.
+   * OSM's surveyed height, peaks only, null when untagged. The one number here that is
+   * read rather than derived: a 30m DEM resamples a sharp summit low, so the mountain's
+   * published height is the better fact and `surface_m` stays beside it.
    */
   ele_m: number | null;
 }
@@ -176,11 +159,9 @@ export interface Resort {
   lat: number;
   lon: number;
   /**
-   * IANA zone of the resort, so the sun slider reads a wall clock on the
-   * mountain rather than on the visitor. Configured in `resorts.json` and baked
-   * rather than resolved at runtime: the page is prerendered, and
-   * `Conditions.timezone` — the same zone, as Open-Meteo resolved it from the
-   * coordinates — only arrives after hydration and is null when that call fails.
+   * IANA zone of the resort, so the sun slider reads a wall clock on the mountain rather
+   * than on the visitor. Baked rather than resolved at runtime: the page is prerendered,
+   * and `Conditions.timezone` only arrives after hydration and is null when that fails.
    */
   timezone: string;
   /** Elevation range across the baked heightmap, metres. */
@@ -190,10 +171,9 @@ export interface Resort {
   width: number;
   height: number;
   /**
-   * Ground size of one heightmap pixel, metres. Web Mercator, so this is exact
-   * at the resort's latitude and stretches by under half a percent across the
-   * box. The app scales the terrain mesh by it — without it there is no way to
-   * put the heightmap in real space, and `vertical_exaggeration` means nothing.
+   * Ground size of one heightmap pixel, metres. Web Mercator, so it is exact at the
+   * resort's latitude and stretches by under half a percent across the box. The terrain
+   * mesh scales by it; without it there is no way to put the heightmap in real space.
    */
   metres_per_pixel: number;
   /**
@@ -229,23 +209,18 @@ export interface MountainFile {
 }
 
 /**
- * Live conditions from Open-Meteo, the only outbound call at runtime.
- *
- * The readings are nullable because Open-Meteo omits a variable its model does
- * not carry at a location, and a missing reading must never be published as a
- * zero: at a ski resort "no reading" and "no snow" are opposite facts. An
- * upstream that is *down* is not represented here at all — the route answers
- * 502 rather than dressing an outage up as a reading (SPEC §11, phase 4).
+ * Live conditions from Open-Meteo, the only outbound call at runtime. The readings are
+ * nullable because a missing one must never be published as a zero: at a ski resort "no
+ * reading" and "no snow" are opposite facts. An upstream that is down answers 502.
  */
 export interface Conditions {
   slug: string;
   /** The instant the reading is for, UTC. */
   observed_at: string;
   /**
-   * IANA zone of the resort, as Open-Meteo resolved it from the coordinates —
-   * the reading is printed on the mountain's clock, not the reader's and not
-   * UTC. Carried as the zone rather than as an offset so the abbreviation
-   * follows daylight saving: Lake Louise is MDT in October and MST in January.
+   * IANA zone of the resort, as Open-Meteo resolved it, so a reading prints on the
+   * mountain's clock. Carried as a zone rather than an offset so the abbreviation follows
+   * daylight saving: Lake Louise is MDT in October and MST in January.
    */
   timezone: string | null;
   temperature_c: number | null;

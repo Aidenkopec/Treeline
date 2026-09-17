@@ -5,11 +5,8 @@ import { placeCells } from "@/lib/mountain";
 import type { Place } from "@/lib/types";
 
 /**
- * The named places, as a list.
- *
- * A list rather than a third table: two facts each, and a handful of them.
- * Renders nothing at all where OSM has named nothing, which is an ordinary
- * case rather than a failure to report.
+ * The named places, as a list rather than a third table: two facts each, and a handful of
+ * them. Renders nothing where OSM named nothing, an ordinary case rather than a failure.
  */
 export function PlaceList({
   places,

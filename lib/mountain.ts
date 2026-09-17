@@ -2,20 +2,16 @@ import { kilometres, metres } from "./format";
 import type { Lift, LiftKind, Place, PlaceKind } from "./types";
 
 /**
- * How lifts and named places are labelled and drawn.
- *
- * The sibling of `lib/difficulty.ts`, and built the same way: a record keyed by
- * the union, holding the label and the one drawing fact each kind needs, so the
+ * How lifts and named places are labelled and drawn. The sibling of `lib/difficulty.ts`:
+ * a record keyed by the union, holding the one drawing fact each kind needs, so the
  * components below it decide nothing.
  */
 
 export interface LiftStyle {
   label: string;
   /**
-   * Whether this kind hangs from a cable. It decides how the lift is drawn —
-   * held up on its pylons, or laid on the snow — so it lives beside the label
-   * rather than as a set somewhere in the scene. A magic carpet drawn twelve
-   * metres up would be a lie about the mountain.
+   * Whether this kind hangs from a cable, which decides whether it is drawn on pylons or
+   * laid on the snow. A magic carpet twelve metres up would be a lie about the mountain.
    */
   aerial: boolean;
 }
@@ -39,20 +35,9 @@ export function liftStyle(kind: LiftKind): LiftStyle {
 export interface PlaceStyle {
   label: string;
   /**
-   * The mark's outline in a 10x10 box, drawn beside the name in the list and
-   * again beside the name on the terrain. One string, so the two can never
-   * drift into meaning different things.
-   *
-   * These are survey marks rather than pictograms, which is the difference
-   * between a map and a sticker: a summit is the spot-height triangle every
-   * topographic map uses, and a lodge is the small pitched roof Swisstopo puts
-   * on a Berghütte. Drawn as fine outlines at nine pixels, they read as
-   * cartography; drawn as fat filled silhouettes at eighteen, they read as
-   * clip art, which is what they were.
-   *
-   * All three stay clear of the circle, square and diamond that carry run
-   * difficulty — a place must never be mistakeable for a grade (SPEC §9 puts
-   * that meaning on shape).
+   * The mark's outline in a 10x10 box, drawn beside the name in the list and again on the
+   * terrain, so the two cannot drift. Survey marks rather than pictograms, and all three
+   * stay clear of the circle, square and diamond that carry difficulty (SPEC §9).
    */
   path: string;
   /** Peaks are solid, the way a spot height is. The rest are outlines. */
@@ -82,10 +67,8 @@ export interface LiftCells {
 }
 
 /**
- * A lift's row, pre-formatted.
- *
- * Mirrors `runCells`: the table renders strings and formats nothing, so what a
- * reader sees is testable against the artifact without a DOM.
+ * A lift's row, pre-formatted. Mirrors `runCells`: the table renders strings and formats
+ * nothing, so what a reader sees is testable against the artifact without a DOM.
  */
 export function liftCells(lift: Lift): LiftCells {
   const style = liftStyle(lift.kind);

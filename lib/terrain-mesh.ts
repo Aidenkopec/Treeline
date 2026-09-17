@@ -1,16 +1,9 @@
 import type { ProfileSample, Resort, Run } from "./types";
 
 /**
- * The heightmap as a mesh, in metres.
- *
- * World units are real metres so that the sun position and the first-person
- * camera (SPEC §5.2) work in the same space the terrain was measured in. X runs
- * east, Z runs south — heightmap row 0 is the north edge of the mosaic — and Y
- * is elevation above the resort's floor, stretched by `vertical_exaggeration`.
- *
- * Pure array math, kept out of the scene component so it can be tested: a wrong
- * scale here renders a plausible mountain at the wrong size, which is exactly
- * the kind of mistake a screenshot does not catch.
+ * The heightmap as a mesh, in real metres, so the sun and the first-person camera work in
+ * the space the terrain was measured in (SPEC §5.2). X east, Z south (heightmap row 0 is
+ * the north edge), Y elevation above the floor, stretched by `vertical_exaggeration`.
  */
 export interface TerrainGeometry {
   /** Vertex positions, 3 per heightmap pixel. */
@@ -42,11 +35,7 @@ export function terrainGeometry(elevations: Float32Array, resort: Resort): Terra
       positions[v * 3 + 1] = (elevations[v] - floor) * exaggeration;
       positions[v * 3 + 2] = (j - (height - 1) / 2) * mpp;
 
-      // A vertex sits at a heightmap *pixel centre*, and the satellite imagery
-      // is an exact 4x subdivision of the same tiles, so its pixel centres line
-      // up with these. Sampling at i/(width-1) instead would stretch the
-      // texture by half a pixel at each edge — invisible on the imagery, but
-      // phase 3 drapes run polylines onto this surface through the same map.
+      // Pixel centres, not corners: `i / (width - 1)` stretches the texture half a pixel.
       uvs[v * 2] = (i + 0.5) / width;
       uvs[v * 2 + 1] = 1 - (j + 0.5) / height;
     }
@@ -80,13 +69,9 @@ export function terrainGeometry(elevations: Float32Array, resort: Resort): Terra
 }
 
 /**
- * Metres of clearance between a draped polyline and the surface it follows,
- * in exaggerated space.
- *
- * The bake sampled a run's elevation bilinearly across a heightmap cell; the
- * mesh spans the same cell with two flat triangles. Inside a cell the two
- * disagree by a little, and a line laid exactly on the sampled elevation
- * submerges wherever the triangles fall below it. Tuned by eye.
+ * Metres of clearance between a draped polyline and the surface, in exaggerated space.
+ * The bake sampled elevation bilinearly across a cell; the mesh spans that cell with two
+ * flat triangles, so a line laid on the sample submerges where the triangles fall below.
  */
 export const DRAPE_OFFSET_M = 8;
 
@@ -96,15 +81,9 @@ function mercatorY(latDeg: number): number {
 }
 
 /**
- * A geographic point as a point in the terrain mesh's metres.
- *
- * `resort.bounds` is the mosaic rectangle, so it lies on the *outer edges* of
- * the border pixels while `terrainGeometry` puts vertices at pixel *centres*.
- * The half-pixel that separates them cancels against the recentring — hence
- * `width / 2` here where the mesh uses `(width - 1) / 2`.
- *
- * `elevationM` is the bake's own sample, not a reading off the heightmap: the
- * app renders the terrain it was given and does not measure it (SPEC §5).
+ * A geographic point in the terrain mesh's metres. `resort.bounds` lies on the outer edges
+ * of the border pixels while `terrainGeometry` puts vertices at pixel centres; the half
+ * pixel cancels against the recentring, hence `width / 2` where the mesh uses `(w - 1) / 2`.
  */
 export function lonLatToMesh(
   lon: number,
@@ -139,11 +118,8 @@ export function runMeshPoints(profile: ProfileSample[], resort: Resort): Float32
 }
 
 /**
- * The mesh surface as something that can be asked a question.
- *
- * Reads the vertex buffer `terrainGeometry` already built, with stride 3 — no
- * copy, and no second expression for the same elevation that could drift from
- * the first one.
+ * The mesh surface as something that can be asked a question. Reads the vertex buffer
+ * `terrainGeometry` built, stride 3, so there is no second expression for an elevation.
  */
 export interface Heightfield {
   /** `TerrainGeometry.positions`: mesh XYZ per heightmap pixel, row-major. */
@@ -182,34 +158,23 @@ export function surfaceHeightAt(field: Heightfield, x: number, z: number): numbe
 }
 
 /**
- * How many points along the ray are tested against the ground.
- *
- * Forty-eight across a nine kilometre massif is a reading every 190m against a
- * 30m model, so a knife-edge arête can still be stepped over. That is the right
- * trade for what this decides: a label that survives one frame it should have
- * been hidden in costs nothing, and a per-pixel answer costs a depth readback.
+ * How many points along the ray are tested against the ground. Forty-eight across a nine
+ * kilometre massif is a reading every 190m against a 30m model, so a knife-edge arête can
+ * be stepped over. A label surviving one frame it should not costs less than a readback.
  */
 const LINE_OF_SIGHT_SAMPLES = 48;
 
 /**
- * Ground this far above the ray still counts as clear, in exaggerated metres.
- *
- * A label anchors `DRAPE_OFFSET_M` above the surface, and the ray is tested
- * against `surfaceHeightAt`, which samples half a pixel off where the bake
- * sampled — the bake reads an edge-based pixel coordinate as a centre one.
- * Both gaps are small and both are in play at the far end of the ray, where it
- * has come down to meet the ground. Without the slack, every label on an
- * unobstructed slope would occlude itself on its own last few samples.
+ * Ground this far above the ray still counts as clear, in exaggerated metres. A label
+ * anchors `DRAPE_OFFSET_M` up and `surfaceHeightAt` samples half a pixel off where the
+ * bake did; without the slack every label on clear ground occludes itself at the far end.
  */
 const LINE_OF_SIGHT_CLEARANCE = 12;
 
 /**
- * Whether the ground leaves `to` in view from `from`, both in mesh metres.
- *
- * A heightfield walk rather than a raycast: the mosaic is hundreds of thousands
- * of triangles with no acceleration structure over it, and this runs for every
- * label on every camera move. Walking the grid is the same answer for a
- * thousandth of the work, and unlike a raycast it can be tested without a GPU.
+ * Whether the ground leaves `to` in view from `from`, both in mesh metres. A heightfield
+ * walk rather than a raycast: the mosaic has no acceleration structure over it and this
+ * runs for every label on every camera move. Same answer, and testable without a GPU.
  */
 export function isVisibleFrom(
   field: Heightfield,
@@ -246,15 +211,9 @@ export interface FocusExtent {
 }
 
 /**
- * The box the marked runs occupy, or null when there are none to frame.
- *
- * The mosaic is cut to whole tiles and runs a long way past the pistes — at Lake
- * Louise the runs cover about a third of it, sitting west of its middle — so
- * framing the mosaic spends most of the canvas on ground with nothing drawn on
- * it. Built through `lonLatToMesh` so the box is where the lines actually land.
- *
- * This measures the drawing, not the mountain: no run statistic is computed here
- * or anywhere else in the app (SPEC §5).
+ * The box the marked runs occupy, or null when there are none to frame. The mosaic is cut
+ * to whole tiles and runs a long way past the pistes, so framing it spends most of the
+ * canvas on empty ground. This measures the drawing, not the mountain (SPEC §5).
  */
 export function runExtent(runs: Run[], resort: Resort): FocusExtent | null {
   let minX = Infinity;
@@ -297,18 +256,9 @@ export interface Framing {
 const SOUTH: readonly [number, number, number] = [0, 0, 1];
 
 /**
- * How far back a box has to be seen from to fill the frame.
- *
- * `h` is the unit horizontal direction from the box towards the camera, and it
- * is what makes this more than a bounding sphere: the box is axis-aligned, so
- * which of its sides lands across the screen and which recedes into it depends
- * on where the camera is standing. From the south, width is across and depth
- * recedes; from the east the two swap. Seen from above the horizon the box is
- * a plate rather than a sphere — what recedes foreshortens by `sin`, and only
- * the relief stands up at `cos` — so fitting a sphere would back the camera off
- * to roughly twice the distance it needs.
- *
- * `canvasAspect` is width / height of the canvas. The 1.3 is margin.
+ * How far back a box has to be seen from to fill the frame. `h` is the unit horizontal
+ * direction from box to camera: the box is axis-aligned, so which side lands across the
+ * screen depends on where the camera stands. `canvasAspect` is width / height; 1.3 is margin.
  */
 function fitDistance(
   box: FocusExtent,
@@ -325,13 +275,9 @@ function fitDistance(
 }
 
 /**
- * Where the camera starts, from the terrain's own size rather than tuned numbers.
- *
- * `aspect` is width / height of the canvas. `focus` is the box to fit; without
- * one the whole mosaic is framed, aimed low so the massif sits in the frame
- * rather than the sky above it. The caller is expected to freeze the result at
- * first render — recomputing it on resize moves the orbit clamps out from under
- * a viewer who has already zoomed.
+ * Where the camera starts, from the terrain's own size rather than tuned numbers. Without
+ * a `focus` box the whole mosaic is framed, aimed low. Freeze the result at first render:
+ * recomputing on resize moves the orbit clamps out from under a viewer who has zoomed.
  */
 export function openingFraming(
   extent: TerrainExtent,
@@ -349,8 +295,7 @@ export function openingFraming(
 
   return {
     distance,
-    // Offset from the target, not from the origin: a box that is not centred on
-    // the mosaic has to be looked at from beside itself, not from beside 0,0.
+    // Offset from the target, not the origin: an off-centre box is viewed from beside itself.
     position: [
       box.centre[0],
       box.centre[1] + distance * Math.sin(ELEVATION_ANGLE),
@@ -385,22 +330,9 @@ function aspectNormal(aspectDeg: number): readonly [number, number, number] {
 }
 
 /**
- * Where to stand to look at one run, given where the viewer is already standing.
- *
- * Two things make a marked run hard to find among a hundred others, and only one
- * of them is how the line is drawn. The other is that the run overlay is depth
- * tested against the terrain, so a run on a slope tilted away from the camera is
- * foreshortened to almost nothing and then partly eaten by its own ridge. No
- * amount of line weight fixes a line that is not drawn.
- *
- * So the azimuth is kept — a viewer who has orbited somewhere keeps their view,
- * and being moved only closer is the gentler move — *unless* the camera is
- * behind the slope, which is the case the styling cannot reach. Then it swings
- * round to the face, which the bake already measured and stored as `aspect_deg`.
- *
- * The elevation angle is always the viewer's own, clamped to what the controls
- * allow. Distance fits the box and is clamped the same way, so a sixty-metre
- * connector re-aims the camera instead of flying it into the ground.
+ * Where to stand to look at one run. The azimuth is kept, so a viewer who has orbited
+ * keeps their view, unless the camera is behind the slope: the overlay is depth tested,
+ * so a face tilted away is foreshortened and eaten by its own ridge. Then it swings round.
  */
 export function focusFraming(
   box: FocusExtent,
@@ -413,14 +345,12 @@ export function focusFraming(
   const reach = Math.hypot(offset[0], offset[1], offset[2]);
   const flat = Math.hypot(offset[0], offset[2]);
 
-  // Straight down, or a camera sitting on its own target: there is no current
-  // azimuth to read, so fall back to the one the opening shot uses.
+  // Straight down, or a camera on its own target: no azimuth to read, so use the opening's.
   let h: readonly [number, number, number] =
     flat > 0 ? [offset[0] / flat, 0, offset[2] / flat] : SOUTH;
 
   const facing = aspectNormal(aspectDeg);
-  // Negative means the camera is behind the slope, looking at ground that tilts
-  // away from it — which from the opening shot is the whole north-west side.
+  // Negative means the camera is behind the slope, looking at ground that tilts away.
   if (h[0] * facing[0] + h[2] * facing[2] <= 0) h = facing;
 
   const elevation = clamp(

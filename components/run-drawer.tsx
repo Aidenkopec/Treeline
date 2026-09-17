@@ -3,30 +3,18 @@
 import type { ReactNode, Ref } from "react";
 
 /**
- * Written as `transform` rather than as a `translate-y-*` utility, which sets a
- * custom property registered `syntax: "*"` and so holds its start value for the
- * length of the transition instead of interpolating. The dock above `xl` still
- * moves on the utility and still does not animate.
+ * Written as `transform` rather than a `translate-y-*` utility, which sets a custom
+ * property registered `syntax: "*"` and so holds its start value for the length of the
+ * transition instead of interpolating. The dock above `xl` still moves on the utility.
  */
 const PEEK_HANDHELD =
   "handheld:[transform:translateY(calc(62svh-8.5rem-env(safe-area-inset-bottom)))] squat:[transform:translateY(calc(92svh-2.75rem))]";
 const PEEK = `[transform:translateY(calc(62svh-8.5rem))] ${PEEK_HANDHELD}`;
 
 /**
- * The run list, docked beside the mountain or drawn up over it.
- *
- * Opaque, unlike the chrome that floats on the terrain: this is a reading
- * surface for a hundred and sixty-eight rows of numerals, and a backdrop filter
- * over a live canvas across a quarter of the window is the cheapest way to lose
- * the frame rate SPEC §10 budgets for.
- *
- * Hidden, never unmounted. Without WebGL this table is the site, so the rows
- * have to stay in the document for it to be (SPEC §9) — which is also why it
- * opens by default and why `open` is what the prerendered HTML carries.
- *
- * One boolean, two idioms: on a wide window `open` docks or retracts a panel at
- * the right edge; on a narrow one it raises or lowers a sheet from the bottom,
- * which never drops below its own head.
+ * The run list, docked beside the mountain or drawn up over it. Opaque because a backdrop
+ * filter over a live canvas costs the frame rate SPEC §10 budgets for. Hidden, never
+ * unmounted: without WebGL this table is the site, so the rows stay in the document (§9).
  */
 export function RunDrawer({
   children,
@@ -67,10 +55,8 @@ export function RunDrawer({
     >
       {collapsible && (
         <>
-          {/* The sheet's own grab bar, and the only way back to the map on a
-              phone. Wide and labelled rather than a bare glyph: it is the
-              control a reader reaches for first and has least room to hunt
-              for. */}
+          {/* The sheet's own grab bar, and the only way back to the map on a phone.
+              Wide and labelled: it is reached for first and has least room to hunt in. */}
           <button
             aria-controls="run-list"
             aria-expanded={open}

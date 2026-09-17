@@ -1,10 +1,7 @@
 /**
- * What the page's own chrome is standing on, so the scene can compose around it.
- *
- * The camera is told this in canvas pixels and answers by moving its
- * projection, not itself — see the view offset in `components/terrain-scene.tsx`.
- * Deciding it is pure, so which edge is covered in which layout is settled by
- * `npm test` rather than by dragging a window to the breakpoint.
+ * What the page's own chrome stands on, so the scene can compose around it. The camera
+ * is told this in canvas pixels and answers by moving its projection rather than itself
+ * (the view offset in `components/terrain-scene.tsx`).
  */
 export interface Inset {
   /** Canvas pixels covered along the top edge. */
@@ -18,16 +15,9 @@ export interface Inset {
 export const NO_INSET: Inset = { top: 0, right: 0, bottom: 0 };
 
 /**
- * Two sources, on three edges.
- *
- * The masthead is always across the top. The drawer is a full-height panel at
- * the right edge when it is docked and a sheet along the bottom when it is not
- * — but only once raised: peeked, it is a head at the very edge of the frame
- * and there is nothing behind it worth composing for.
- *
- * Both are given their own measured box, which holds still. Position does not:
- * the drawer slides for the length of its transition, and an inset read from
- * that would drag the mountain along with it a frame at a time.
+ * The masthead across the top; the drawer at the right edge when docked and along the
+ * bottom when not, but only once raised. Both read from their measured box rather than
+ * their position, which slides for the length of the drawer's transition.
  */
 export function chromeInset({
   docked,
@@ -52,11 +42,9 @@ export function chromeInset({
 }
 
 /**
- * Whether the list is out, before and after anyone has said.
- *
- * Without a GPU the list is the site and there is nothing to fold it over. On a
- * phone the sheet is most of the window, so it starts peeked: raised, the page
- * would open on a table with the mountain entirely behind it.
+ * Whether the list is out before anyone has said. Without a GPU the list is the site
+ * (SPEC §9). On a phone the sheet is most of the window, so raised by default would
+ * open the page on a table with the mountain behind it.
  */
 export function drawerOpen({
   choice,

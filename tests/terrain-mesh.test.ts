@@ -101,12 +101,9 @@ describe("terrainGeometry", () => {
 });
 
 /**
- * The build-time↔runtime contract, end to end.
- *
- * The bake encodes elevation into RGB and the app decodes it back out of a PNG
- * the browser hands over as RGBA. These are the only two halves of that, and
- * they live in different halves of the project (SPEC §5), so the round trip is
- * asserted rather than assumed.
+ * The build-time↔runtime contract, end to end. The bake encodes elevation into RGB and the
+ * app decodes it back out of a PNG the browser hands over as RGBA. The two halves live
+ * either side of SPEC §5, so the round trip is asserted rather than assumed.
  */
 describe("a baked heightmap read back as a mesh", () => {
   it("reproduces the source elevations to within a metre", async () => {
@@ -147,14 +144,9 @@ describe("a baked heightmap read back as a mesh", () => {
 });
 
 /**
- * Putting a run where it belongs on the mountain.
- *
- * The bake maps lon/lat to a mosaic pixel through `scripts/bake/tiles.ts`; the
- * app has to reach the same place from `bounds` and `width`/`height` alone,
- * because the manifest carries no tile range. Two implementations of one
- * projection is a drift risk, so the agreement is asserted rather than assumed
- * — and asserted on the real Lake Louise range, where a transposed axis or a
- * latitude treated as linear would show up.
+ * Putting a run where it belongs on the mountain. The bake maps lon/lat through
+ * `scripts/bake/tiles.ts`; the app reaches the same place from `bounds` and the mesh size
+ * alone. Two implementations of one projection drift, so the agreement is asserted.
  */
 describe("lonLatToMesh", () => {
   const lakeLouise = resort({
@@ -204,8 +196,7 @@ describe("lonLatToMesh", () => {
   });
 
   it("bows away from a latitude read as linear", () => {
-    // Mid-box is where Mercator and a straight interpolation differ most. The
-    // gap is small at this size, but it is the sign the projection is real.
+    // Mid-box is where Mercator and a straight interpolation differ most.
     const { bounds } = lakeLouise;
     const midLat = (bounds.north + bounds.south) / 2;
     const [, , z] = lonLatToMesh(bounds.west, midLat, 0, lakeLouise);
@@ -223,11 +214,9 @@ describe("lonLatToMesh", () => {
 });
 
 /**
- * Every baked run, drawn on the mesh it was baked against.
- *
- * `runs.golden.test.ts` already asserts each profile point falls inside
- * `bounds`. This is the same claim one step further on: that the projection
- * turns those points into somewhere the terrain actually is.
+ * Every baked run, drawn on the mesh it was baked against. `runs.golden.test.ts` asserts
+ * each profile point falls inside `bounds`; this is that claim one step on, that the
+ * projection turns those points into somewhere the terrain actually is.
  */
 describe("the committed Lake Louise runs on the mesh", () => {
   const file: RunsFile = JSON.parse(
@@ -259,16 +248,13 @@ const EXTENT = { groundWidth: 4000, groundDepth: 3000, relief: 1000 };
 
 describe("openingFraming", () => {
   it("frames a known massif at a known distance", () => {
-    // Pinned because the alternative is a screenshot, and a screenshot of a
-    // mountain at the wrong distance still looks like a mountain.
+    // Pinned because a screenshot of a mountain at the wrong distance still looks right.
     expect(openingFraming(EXTENT, 2).distance).toBeCloseTo(3595.69, 1);
   });
 
   it("puts the camera on the elevation-angle ray, looking at the lower third", () => {
     const { distance, position, target } = openingFraming(EXTENT, 2);
-    // Measured from the target, not from the origin. Without a focus box the
-    // two sit on the same vertical, but the ray has always been the one the
-    // camera looks along, and a focus box moves the target off centre.
+    // Measured from the target, not the origin: a focus box moves the target off centre.
     const [x, y, z] = [0, 1, 2].map((i) => position[i] - target[i]);
 
     expect(position[0]).toBe(0);
@@ -334,8 +320,7 @@ describe("runExtent", () => {
     ];
     const extent = runExtent(runs, box)!;
 
-    // Pinned to lonLatToMesh rather than to transcribed numbers, so a second
-    // implementation of the projection cannot hide in here.
+    // Pinned to lonLatToMesh, so a second implementation cannot hide in transcribed numbers.
     const [westX, lowY, northZ] = lonLatToMesh(0.2, 0.8, 10, box);
     const [eastX, highY, southZ] = lonLatToMesh(0.8, 0.2, 90, box);
 
@@ -442,15 +427,13 @@ describe("focusFraming", () => {
   }
 
   it("keeps the viewer's azimuth when the run already faces them", () => {
-    // A south-facing run seen from the south, and from the south-east: both are
-    // in front of the slope, so the gentler move is to come closer and no more.
+    // Both are in front of the slope, so the gentler move is to come closer and no more.
     expect(bearing(focusFraming(BOX, 180, standing(180), CANVAS, LIMITS))).toBeCloseTo(180, 6);
     expect(bearing(focusFraming(BOX, 180, standing(135), CANVAS, LIMITS))).toBeCloseTo(135, 6);
   });
 
   it("swings round to the face when the camera is behind the slope", () => {
-    // Marmot's aspect. From the opening shot, south of the massif, this run is
-    // over the back — foreshortened and partly behind its own ridge.
+    // Marmot's aspect: from the opening shot this run is over the back, behind its ridge.
     const framing = focusFraming(BOX, 325, standing(180), CANVAS, LIMITS);
 
     expect(bearing(framing)).toBeCloseTo(325, 6);
@@ -572,11 +555,9 @@ describe("focusFraming on Marmot, the run that started this", () => {
 });
 
 /**
- * A flat plain at 1000m with a wall across the middle of it.
- *
- * Twenty-one columns ten metres apart, so mesh X runs -100 to +100 and the wall
- * stands at X = 0. Three rows, so Z = 0 is the middle one and a ray along it
- * never leaves the grid.
+ * A flat plain at 1000m with a wall across the middle. Twenty-one columns ten metres apart,
+ * so mesh X runs -100 to +100 and the wall stands at X = 0; three rows, so Z = 0 is the
+ * middle one and a ray along it never leaves the grid.
  */
 function ridge(crestM: number): { field: ReturnType<typeof heightfield>; at: Resort } {
   const at = resort({ width: 21, height: 3, metres_per_pixel: 10, elevation_min_m: 1000 });
@@ -621,8 +602,7 @@ describe("isVisibleFrom", () => {
   });
 
   it("sees a point on the ground under it, which is every label at the summit", () => {
-    // The drape clearance has to leave a point sitting on the surface visible,
-    // or nothing on an unobstructed slope would ever be labelled.
+    // The drape clearance must leave a point on the surface visible, or nothing is labelled.
     const { field } = ridge(1200);
     expect(isVisibleFrom(field, [0, 4000, 0], [0, 208, 0])).toBe(true);
   });

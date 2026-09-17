@@ -8,11 +8,8 @@ import { runMeshPoints } from "@/lib/terrain-mesh";
 import type { Resort, Run } from "@/lib/types";
 
 /**
- * The marked runs, drawn where they are.
- *
- * Only runs. The mountain around them is never shaded by steepness — a named,
- * patrolled run with a measured pitch is a fact about that run, and a slope
- * ramp over open terrain is an avalanche terrain product (SPEC §8).
+ * The marked runs, drawn where they are. Only runs: the mountain around them is never
+ * shaded by steepness, which would be an avalanche terrain product (SPEC §8).
  */
 
 export interface RunOverlayState {
@@ -31,60 +28,35 @@ const HOVER_WIDTH = 3;
 const SELECTED_WIDTH = 5;
 
 /**
- * Dark line either side of the coloured core.
- *
- * Advanced and expert are near-white by design — correct on a dark panel, and
- * invisible drawn over snow, which is most of this imagery. Casing a line in
- * the ground colour is how a map keeps a road legible over any background, and
- * it does the same here without touching the palette.
+ * Dark line either side of the coloured core. Advanced and expert are near-white, which is
+ * invisible over snow; casing a line in the ground colour is how a map keeps it legible.
  */
 const CASING_EXTRA = 2.5;
 
 /**
- * The band either side of the casing on the one run that has been picked.
- *
- * Width and recession together still lose a run to its background: 105 of Lake
- * Louise's 168 are the same near-white, which disappears over snow, and a green
- * run over the treed north-west side disappears the other way. Gold is outside
- * the difficulty palette entirely, so it cannot be misread as a grade, and it
- * separates from both — warm against blue-white snow, bright against dark trees.
- * It is also the palette's own word for lit (`--color-sun`), which is what a
- * picked run is.
+ * The band either side of the casing on the one picked run. Width alone still loses a run
+ * to its background: 105 of Lake Louise's 168 are the same near-white. Gold is outside the
+ * difficulty palette, so it separates from both and cannot be misread as a grade.
  */
 const HALO_EXTRA = 8;
 
 /**
- * The picked run traced through whatever is standing in front of it.
- *
- * The overlay is depth tested against the terrain, so a run on a slope tilted
- * away from the camera is partly eaten by its own ridge — and a line that is not
- * drawn cannot be found, however it is styled. The camera swings round to the
- * face for exactly this reason, but a long run still dips behind a roll, and a
- * thin trace over the top says it carries on rather than ends there.
+ * The picked run traced through whatever stands in front of it. The overlay is depth
+ * tested, so a run on a slope tilted away is partly eaten by its own ridge, and a line
+ * that is not drawn cannot be found. A thin trace says it carries on rather than ends.
  */
 const GHOST_WIDTH = 1.5;
 
 /**
- * Draw order, lowest first, per run.
- *
- * A run being looked at draws after every other run, so it reads whole across
- * the lines it crosses rather than in the gaps between them. The picked run
- * draws after the hovered one for the same reason.
+ * Draw order, lowest first, per run. A run being looked at draws after every other, so it
+ * reads whole across the lines it crosses rather than in the gaps between them.
  */
 const LAYER = { receded: 1, hovered: 3, selected: 5 };
 
 /**
- * How far a receded run is pulled towards the ground colour. Tuned by eye.
- *
- * Mixed into the colour rather than applied as opacity: `Line2` draws a
- * polyline as one quad per segment, and consecutive quads overlap at the joins.
- * Blended, every join composites twice and the line beads along its length —
- * the phase-3 artefact, back by another route. Opaque lines overdraw instead,
- * which is the same pixel twice.
- *
- * What recedes is decided by what the reader has pointed at, and by nothing
- * else. Fading runs by pitch instead would shade the mountain by steepness with
- * extra steps, which is the thing SPEC §8 forbids.
+ * How far a receded run is pulled towards the ground colour. Mixed into the colour rather
+ * than applied as opacity: `Line2` overlaps quads at the joins, so a blended line beads
+ * along its length. What recedes is what the reader pointed at, never pitch (SPEC §8).
  */
 const RECEDED_MIX = 0.62;
 
@@ -97,10 +69,7 @@ export function RunOverlay({ resort, state }: { resort: Resort; state: RunOverla
   const { runs, visibleIds, selectedId, hoveredId, onSelect, onHover } = state;
 
   const casing = useMemo(() => paletteColor("--color-shadow-deep"), []);
-  // Where a receded run is mixed to, which is not where the casing is. Mixing a
-  // line toward the ground colour over snow roughly doubles its contrast — it
-  // promotes the run instead of receding it. Rock sits between the two
-  // backgrounds the drape now has, so it steps back over both.
+  // Not the casing's colour: mixing toward the ground over snow doubles contrast instead.
   const receded = useMemo(() => paletteColor("--color-rock"), []);
   const halo = useMemo(() => paletteColor("--color-sun-bright"), []);
   const ghost = useMemo(() => paletteColor("--color-sun"), []);
@@ -122,9 +91,7 @@ export function RunOverlay({ resort, state }: { resort: Resort; state: RunOverla
     [runs, resort],
   );
 
-  // Width alone cannot answer "which of these is mine" — 105 of Lake Louise's
-  // 168 runs are the same near-white, and two extra pixels among them is not a
-  // signal. Once one run is picked out the rest step back instead.
+  // Width alone cannot answer "which is mine" when 105 of 168 runs are the same white.
   const picked = selectedId !== null || hoveredId !== null;
 
   return (
@@ -137,14 +104,9 @@ export function RunOverlay({ resort, state }: { resort: Resort; state: RunOverla
         const width = isSelected ? SELECTED_WIDTH : id === hoveredId ? HOVER_WIDTH : CORE_WIDTH;
         const layer = isSelected ? LAYER.selected : lit ? LAYER.hovered : LAYER.receded;
 
-        // No line writes depth. The terrain already has, so a run still hides
-        // behind a ridge; what this avoids is one run's depth rejecting
-        // another's where the two cross, which is a real risk now that the run
-        // being looked at deliberately draws after all the others.
+        // No line writes depth, so one run's cannot reject another's where the two cross.
         if (picked && !lit) {
-          // A receded run drops its casing as well as its colour. The casing is
-          // most of what makes a line read boldly over snow, so losing it is
-          // half the step back.
+          // A receded run drops its casing too: the casing is most of what reads over snow.
           return (
             <Line
               color={color.clone().lerp(receded, RECEDED_MIX)}
@@ -165,10 +127,8 @@ export function RunOverlay({ resort, state }: { resort: Resort; state: RunOverla
 
         return (
           <group key={id}>
-            {/* Drawn through the terrain rather than against it, so the stretch
-                of a run hidden behind a roll still reads as the same run
-                carrying on. Under everything else the picked run draws, so
-                where the run *is* visible this is simply overdrawn. */}
+            {/* Drawn through the terrain rather than against it, so a run hidden
+                behind a roll still reads as carrying on. Overdrawn where visible. */}
             {isSelected && (
               <Line
                 color={ghost}
@@ -191,16 +151,11 @@ export function RunOverlay({ resort, state }: { resort: Resort; state: RunOverla
                 renderOrder={layer + 1}
               />
             )}
-            {/* A wide line and a narrow one on identical geometry z-fight, and
-                the casing wins in patches, which beads the colour away. The
-                casing is drawn first and writes no depth, so the core always
-                lands on top of it. When a run is being looked at both of its
-                lines draw after every other run's, so it reads whole across
-                the lines it crosses rather than in the gaps between them. */}
-            {/* The casing carries the pointer: it is the wider of the two, and a
-                two-pixel core is a hard thing to hit on a mountain. R3F only
-                fires click when the pointer moved two pixels or less, so a drag
-                that happens to end on a run still turns the camera instead. */}
+            {/* A wide line and a narrow one on identical geometry z-fight, and the
+                casing wins in patches, which beads the colour away. The casing is
+                drawn first and writes no depth, so the core always lands on top. */}
+            {/* The casing carries the pointer, being the wider of the two. R3F fires
+                click only within two pixels, so a drag ending on a run still turns. */}
             <Line
               color={casing}
               depthWrite={false}
@@ -208,8 +163,7 @@ export function RunOverlay({ resort, state }: { resort: Resort; state: RunOverla
               onClick={() => onSelect(id)}
               onPointerOut={() => onHover(null)}
               onPointerOver={(event) => {
-                // Without this every line under the pointer reports a hover and
-                // the last one drawn wins, not the one in front.
+                // Without this every line under the pointer reports, and the last drawn wins.
                 event.stopPropagation();
                 onHover(id);
               }}

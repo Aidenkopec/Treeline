@@ -3,30 +3,9 @@
 import { useState } from "react";
 
 /**
- * The disclaimer and the credits, on the map and never scrolled to.
- *
- * SPEC §8 requires the disclaimer on every page and the licences behind the
- * data require credit wherever it is shown. In a window the mountain fills
- * there is nothing below the fold to put it under, so it is here, on the map,
- * and it stays there while the drawer comes and goes.
- *
- * Two obligations, two treatments. The safety line is out at all times, in the
- * words that carry the warning; the credits fold behind the button, which is
- * what the OSMF attribution guidelines allow for a map that cannot spare the
- * room and what every slippy map does. Folded, the bar is a corner pill rather
- * than a band across the window — a band of type is the brightest thing on the
- * page competing with the mountain the page is about.
- *
- * Abbreviating the visible line is what the button pays for: the §8 sentence in
- * full is one press away, and `components/site-footer.tsx` says it and the
- * credits again at the foot of the list. Neither is ever the only copy.
- *
- * A snowfield is the brightest thing on this page and it is exactly what the
- * bottom edge is full of, so the line is set over a scrim rather than trusted
- * to the terrain behind it. Only the link and the button take the pointer: the
- * rest of the bar is still mountain to drag.
- *
- * Avalanche information appears as a plain outbound link and in no other form.
+ * The SPEC §8 disclaimer and the credits on the map, where a window the mountain fills has
+ * no fold to put them under. The safety line is out at all times and only the credits
+ * fold, which the OSMF guidelines allow. Only the link and the button take the pointer.
  */
 
 const LINK =
@@ -38,8 +17,7 @@ export function MapAttribution() {
   return (
     <div className="relative w-fit max-w-full">
       {open && (
-        // Opaque, unlike the chrome around it: the only room above the line is
-        // the sun panel's, and two translucent surfaces stacked read as neither.
+        // Opaque, unlike the chrome around it: two translucent surfaces stacked read as one.
         <div
           className="u-panel pointer-events-auto absolute bottom-full mb-2 flex w-84 max-w-[calc(100vw-2.5rem)] flex-col gap-2 bg-surface p-3 text-xs leading-relaxed text-rock"
           id="map-credits"

@@ -6,15 +6,9 @@ const FRAME_W = 220;
 const FRAME_H = 56;
 
 /**
- * The six mountains, and the shape of a run at each.
- *
- * A table because the rows are compared down their columns, the same reason
- * `components/run-table.tsx` is one. The profiles are drawn to a single scale
- * (`silhouettes`), so the column reads as six runs beside each other rather
- * than six cells each normalised to itself.
- *
- * No run name appears here. The drawing is `aria-hidden` and the cell's
- * readable content is the vertical beside it.
+ * The six mountains, and the shape of a run at each. A table because the rows are compared
+ * down their columns. The profiles are drawn to a single scale (`silhouettes`), so the
+ * column reads as six runs beside each other rather than six cells normalised to itself.
  */
 export function ResortIndex({
   features,

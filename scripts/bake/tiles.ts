@@ -1,15 +1,9 @@
 import type { Bounds } from "@/lib/types";
 
 /**
- * Web Mercator (slippy) tile math.
- *
- * Isolated in one module with its own tests because SPEC §13 names this as the
- * known-hard part of the pipeline. Everything here is pure: no network, no
- * filesystem, so it can be tested exhaustively against known reference values.
- *
- * Both tile sources this project uses — AWS terrarium elevation and Esri World
- * Imagery — are 256px XYZ tiles on the same grid, which is why one module
- * serves both.
+ * Web Mercator (slippy) tile math, isolated with its own tests because SPEC §13 names it
+ * the known-hard part of the pipeline. Pure: no network, no filesystem, so it can be
+ * tested against known reference values. Both tile sources are 256px XYZ on this grid.
  */
 
 export const TILE_SIZE = 256;
@@ -91,11 +85,8 @@ export function mosaicSize(range: TileRange): { width: number; height: number } 
 }
 
 /**
- * Longitude/latitude to a pixel position inside a stitched mosaic.
- *
- * This is the function that puts a run polyline in the right place on the
- * heightmap, so it is the one to suspect first when runs land in a valley they
- * do not belong to.
+ * Longitude/latitude to a pixel position inside a stitched mosaic. The function that puts
+ * a run polyline on the heightmap, so suspect it first when runs land in the wrong valley.
  */
 export function lonLatToMosaicPixel(
   lon: number,
@@ -110,13 +101,9 @@ export function lonLatToMosaicPixel(
 }
 
 /**
- * The lon/lat rectangle a stitched mosaic actually covers.
- *
- * A tile range snaps outward to whole tiles, so this is always a little larger
- * than the bounds it was built from. `Resort.bounds` must be this rectangle and
- * not the OSM polygon: the app maps lon/lat onto the heightmap plane through
- * it, and a mismatch puts every run in the wrong place while looking like a
- * renderer bug.
+ * The lon/lat rectangle a stitched mosaic actually covers. A tile range snaps outward to
+ * whole tiles, so this is larger than the bounds it was built from. `Resort.bounds` must
+ * be this rectangle, not the OSM polygon, or every run lands wrong and looks like a bug.
  */
 export function mosaicBounds(range: TileRange): Bounds {
   const nw = tileToLonLat(range.minX, range.minY, range.z);
@@ -125,10 +112,8 @@ export function mosaicBounds(range: TileRange): Bounds {
 }
 
 /**
- * The same rectangle as `range`, expressed in tiles `levels` zoom steps deeper.
- *
- * Tile (x,y,z) is exactly tiles x·2ᵏ … x·2ᵏ+2ᵏ−1 at z+k, so imagery baked this
- * way aligns with the heightmap by arithmetic rather than by cropping.
+ * The same rectangle as `range`, expressed in tiles `levels` zoom steps deeper. Tile
+ * (x,y,z) is exactly x·2ᵏ … x·2ᵏ+2ᵏ−1 at z+k, so imagery aligns by arithmetic, not a crop.
  */
 export function zoomedRange(range: TileRange, levels: number): TileRange {
   const factor = 2 ** levels;

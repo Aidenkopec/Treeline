@@ -1,12 +1,9 @@
 import type { ProfileSample } from "./types";
 
 /**
- * A run's sampled elevations as SVG path data.
- *
- * Straight segments between samples, not a smoothed curve: this is drawing
- * 25m measurements, and the corners are the data. Kept out of the component so
- * the shape can be asserted; a chart that renders a plausible slope from the
- * wrong axis still looks like a chart.
+ * A run's sampled elevations as SVG path data. Straight segments rather than a smoothed
+ * curve: these are 25m measurements and the corners are the data. Out of the component
+ * so the shape can be asserted; a chart drawn off the wrong axis still looks like one.
  */
 
 export interface ProfileGeometry {
@@ -39,8 +36,7 @@ export function profileGeometry(
   const bottomM = Math.min(...elevations);
   const lengthM = profile[profile.length - 1].d;
 
-  // A run with no drop and a run of no length both flatten the denominator.
-  // Draw them along the middle rather than dividing by zero.
+  // No drop and no length each flatten a denominator; draw down the middle instead.
   const relief = topM - bottomM;
   const y = (e: number) => (relief === 0 ? height / 2 : ((topM - e) / relief) * height);
   const x = (d: number) => (lengthM === 0 ? 0 : (d / lengthM) * width);

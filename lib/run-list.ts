@@ -4,12 +4,9 @@ import { degrees, kilometres, metres } from "./format";
 import type { AspectLabel, Difficulty, Run } from "./types";
 
 /**
- * Choosing and ordering runs, and turning one into table cells.
- *
- * Kept out of the components so it can be tested: `vitest` runs in node with no
- * DOM, and a filter that silently drops a grade or a sort that reorders equal
- * rows is exactly the kind of mistake a screenshot does not catch. Nothing here
- * computes a statistic — every number is read off the baked `Run` (SPEC §5).
+ * Choosing and ordering runs, and turning one into table cells. Out of the components so
+ * `vitest` can test it in node without a DOM. Nothing here computes a statistic; every
+ * number is read off the baked `Run` (SPEC §5).
  */
 
 export interface RunFilter {
@@ -47,8 +44,7 @@ export function matchesFilter(run: Run, filter: RunFilter): boolean {
   if (run.vertical_m < filter.minVerticalM) return false;
 
   const query = normalise(filter.query.trim());
-  // Matched against the string the table prints, so searching "unnamed" finds
-  // the ways that have no name rather than nothing at all.
+  // Matched against the string the table prints, so "unnamed" finds the unnamed ways.
   return query === "" || normalise(run.name ?? UNNAMED_RUN).includes(query);
 }
 
@@ -104,8 +100,7 @@ function rank(run: Run, key: SortKey): number | string | null {
       const index = DIFFICULTY_ORDER.indexOf(run.difficulty);
       return run.difficulty === null ? null : index;
     }
-    // Not aspect_deg: bucketed on its label, 350° is north and belongs at the
-    // top of the compass, not after west.
+    // Not aspect_deg: on its label 350° is north, at the top of the compass, not after west.
     case "aspect":
       return ASPECT_LABELS.indexOf(run.aspect_label);
     default:
@@ -148,12 +143,9 @@ export interface RunCells {
 export const UNNAMED_RUN = "Unnamed run";
 
 /**
- * A run as the strings the table prints.
- *
- * Here rather than in the component so the phase gate — "stats in UI match
- * runs.json" — is a test. Pitch loses its decimal on the way through
- * `degrees()`, which is `lib/format.ts`'s standing judgement about what 30m
- * data supports, not a rounding accident.
+ * A run as the strings the table prints. Here rather than in the component so "stats in
+ * UI match runs.json" is a test. Pitch loses its decimal through `degrees()`, which is a
+ * standing judgement about what 30m data supports rather than a rounding accident.
  */
 export function runCells(run: Run): RunCells {
   return {
