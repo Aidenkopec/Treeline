@@ -215,6 +215,7 @@ function easeInOutCubic(t: number): number {
 }
 
 export default function TerrainScene({
+  handheld,
   mountain,
   inset,
   overlay,
@@ -222,6 +223,8 @@ export default function TerrainScene({
   resort,
   sunAt,
 }: {
+  /** A phone's GPU fills a 3x screen at a cost its battery notices. */
+  handheld: boolean;
   /** What the drawer is standing on, in canvas pixels. */
   inset: Inset;
   mountain: MountainOverlayState;
@@ -236,6 +239,7 @@ export default function TerrainScene({
   return (
     <Suspense fallback={<div className="h-full w-full bg-shadow-deep" />}>
       <LoadedScene
+        handheld={handheld}
         inset={inset}
         mountain={mountain}
         overlay={overlay}
@@ -248,6 +252,7 @@ export default function TerrainScene({
 }
 
 function LoadedScene({
+  handheld,
   inset,
   mountain,
   overlay,
@@ -255,6 +260,7 @@ function LoadedScene({
   resort,
   sunAt,
 }: {
+  handheld: boolean;
   inset: Inset;
   mountain: MountainOverlayState;
   overlay: RunOverlayState;
@@ -277,7 +283,10 @@ function LoadedScene({
   return (
     <Canvas
       camera={{ far: 200000, fov: FOV, near: 10 }}
-      dpr={[1, 2]}
+      // Capped lower on a handheld: a 3x phone screen is nine times the pixels
+      // of a 1x one, and the massif is read by its shading rather than by an
+      // edge a third of a pixel wide.
+      dpr={handheld ? [1, 1.5] : [1, 2]}
       // Lambert divides by pi, so the lights below are exposed for the
       // mid-tones — the drape's forest — rather than for its brightest snow,
       // which is left free to blow out on a slope facing the sun the way a

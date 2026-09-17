@@ -30,7 +30,7 @@ export function LiftTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[26rem] border-collapse text-sm">
+      <table className="w-full min-w-[26rem] border-collapse text-sm handheld:min-w-0">
         <caption className="sr-only">
           Lifts, with vertical rise and length measured from the elevation model along their mapped
           towers. The run filters above do not apply to this table.
@@ -40,7 +40,7 @@ export function LiftTable({
             <th className="u-data px-2 py-2.5 pl-0 text-left" scope="col">
               Lift
             </th>
-            <th className="u-data px-2 py-2.5 text-left" scope="col">
+            <th className="u-data px-2 py-2.5 text-left handheld:hidden" scope="col">
               Type
             </th>
             <th className="u-data px-2 py-2.5 text-right" scope="col">
@@ -76,8 +76,11 @@ export function LiftTable({
                   >
                     {cells.name}
                   </span>
+
+                  {/* The column a handheld folds, kept as a line under the name. */}
+                  <span className="u-data hidden truncate handheld:block">{cells.type}</span>
                 </th>
-                <td className="px-2 py-2 text-rock">
+                <td className="px-2 py-2 text-rock handheld:hidden">
                   <span className="whitespace-nowrap">{cells.type}</span>
                 </td>
                 <td className="px-2 py-2 text-right whitespace-nowrap text-snow">

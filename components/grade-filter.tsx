@@ -40,7 +40,7 @@ export function GradeFilter({
   const shown = shownDifficulties(value);
 
   return (
-    <ChipGroup label="Grade">
+    <ChipGroup compact={compact} label="Grade">
       {DIFFICULTY_ORDER.map((difficulty) => {
         const style = difficultyStyle(difficulty);
         const active = shown.includes(difficulty);

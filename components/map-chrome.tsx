@@ -100,10 +100,15 @@ export function MapChrome({
       {/* Raised, the sheet is most of a narrow window and this strip is behind
           it. Rendering it there would be chrome nobody can reach, and the
           disclaimer it carries is at the foot of the sheet's own scroll. */}
-      <div className={`pb-38 xl:pb-0 ${listOpen ? "max-xl:hidden" : ""}`}>
+      <div
+        className={`pb-38 xl:pb-0 handheld:pb-34 squat:pb-11 ${listOpen ? "max-xl:hidden" : ""}`}
+      >
         {/* The gradient is on the content box rather than on the clearance
             above the sheet, so its dark end lands under the type it is for. */}
-        <div className="u-scrim u-scrim-up flex flex-col gap-2.5 px-5 pt-8 pb-4" data-chrome>
+        <div
+          className="u-scrim u-scrim-up flex flex-col gap-2.5 px-5 pt-8 pb-4 handheld:pt-5 handheld:pr-[max(1.25rem,env(safe-area-inset-right))] handheld:pl-[max(1.25rem,env(safe-area-inset-left))]"
+          data-chrome
+        >
           {instruments}
           {disclaimer}
         </div>

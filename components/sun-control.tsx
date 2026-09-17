@@ -32,11 +32,14 @@ const STEP_MINUTES = 10;
 const MINUTES_IN_DAY = 24 * 60;
 
 export function SunControl({
+  compact,
   onChange,
   pinned,
   resort,
   value,
 }: {
+  /** On the map, where a handheld has no room for a word column. */
+  compact?: boolean;
   /** Null hands the hour back to the mountain's own clock. */
   onChange: (next: WallClock | null) => void;
   /** Whether this hour was chosen, rather than being the one it is there now. */
@@ -54,7 +57,10 @@ export function SunControl({
           the grade and vertical labels keep, so the three line up as a column
           wherever they stack. */}
       <legend className="sr-only">Sun position at {resort.name}</legend>
-      <span aria-hidden="true" className="u-data w-16 shrink-0">
+      <span
+        aria-hidden="true"
+        className={`u-data w-16 shrink-0 ${compact ? "handheld:hidden" : ""}`}
+      >
         Sun
       </span>
 
@@ -62,7 +68,9 @@ export function SunControl({
         Date
       </label>
       <input
-        className="u-feature shrink-0 rounded border border-line bg-surface px-2 py-1.5 text-sm text-snow"
+        className={`u-feature shrink-0 rounded border border-line bg-surface px-2 py-1.5 text-sm text-snow ${
+          compact ? "handheld:px-1.5 handheld:py-1 handheld:text-xs" : ""
+        }`}
         disabled={value === null}
         id="sun-date"
         onChange={(event) =>
@@ -76,7 +84,7 @@ export function SunControl({
         Time of day
       </label>
       <input
-        className="min-w-32 flex-1 accent-sun"
+        className="min-w-32 flex-1 accent-sun handheld:min-w-24"
         disabled={value === null}
         id="sun-time"
         max={MINUTES_IN_DAY - STEP_MINUTES}
